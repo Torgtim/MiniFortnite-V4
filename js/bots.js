@@ -192,6 +192,12 @@ export class Bot extends Entity {
   }
 
   // ------------------------------------------------------------------ per-frame movement + shooting
+  /** Is (x,z) a damaging liquid (lava, icy water...) that bots should not wade into? */
+  _hazard(w, x, z) {
+    const liq = w.season.liquid;
+    return !!(liq && liq.dps >= 3 && w.heightAt(x, z) < w.liquidY);
+  }
+
   update(dt) {
     if (!this.alive) return;
     const g = this.game, w = g.world;
@@ -274,7 +280,8 @@ export class Bot extends Entity {
         for (const off of [0, 0.5, -0.5, 1.0, -1.0, 1.6, -1.6]) {
           const a = Math.atan2(wz, wx) + off;
           const cx = Math.cos(a), cz = Math.sin(a);
-          if (isFree(w, this.x + cx * 1.1, this.z + cz * 1.1, this.y) && isFree(w, this.x + cx * 2.2, this.z + cz * 2.2, this.y)) { wx = cx; wz = cz; ok = true; break; }
+          if (isFree(w, this.x + cx * 1.1, this.z + cz * 1.1, this.y) && isFree(w, this.x + cx * 2.2, this.z + cz * 2.2, this.y)
+            && !this._hazard(w, this.x + cx * 2.4, this.z + cz * 2.4) && !this._hazard(w, this.x + cx * 4.5, this.z + cz * 4.5)) { wx = cx; wz = cz; ok = true; break; }
         }
         if (!ok && this.grounded) { this.vy = 7.2; this.grounded = false; }
       }
