@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mini-Fortnite V4</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="css/style.css?v=4.0">
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<!-- ============================ IN-GAME HUD ============================ -->
+<div id="hud" class="hidden">
+  <div id="vignette"></div>
+  <div id="scope"></div>
+  <div id="crosshair"></div>
+  <div id="hitmarker"></div>
+  <div id="dmgnums"></div>
+
+  <div id="topcenter"><div id="storm"></div></div>
+
+  <div id="topright">
+    <canvas id="minimap" width="190" height="190"></canvas>
+    <div id="stats"><span class="stat">&#9786; <b id="alive">0</b></span><span class="stat">&#9876; <b id="kills">0</b></span><span id="fps"></span></div>
+  </div>
+  <div id="feed"></div>
+
+  <div id="statusmsg"></div>
+  <div id="buildinfo"></div>
+  <div id="prompt"></div>
+  <div id="usebar"><div id="usefill"></div></div>
+  <div id="matpops"></div>
+
+  <div id="bottomleft">
+    <div class="bar sh"><div id="shbar"></div><span id="shtxt">0</span></div>
+    <div class="bar hp"><div id="hpbar"></div><span id="hptxt">100</span></div>
+  </div>
+  <div id="hotbar"></div>
+  <div id="bottomright">
+    <div id="ammo"></div>
+    <div id="mats"></div>
+  </div>
+</div>
+
+<!-- ============================ LOBBY (season switcher) ============================ -->
+<div id="lobby" class="screen">
+  <table class="win" id="lobbyWin" cellspacing="0" cellpadding="0">
+    <tr><td class="titlebar"><span>Mini-Fortnite V4 - Season Select</span><span class="tb"><b>_</b><b>&#9633;</b><b>X</b></span></td></tr>
+    <tr><td class="body">
+      <h1 class="logo">MINI-FORTNITE <span class="blink">V4</span></h1>
+      <div class="ticker"><span>*** NOW IN 3D *** PC FIRST *** 4 SEASONS *** EVERY SEASON SWAPS THE ENTIRE MAP AND LOOT POOL *** BUILD, LOOT, SURVIVE ***</span></div>
+
+      <p class="lbl">Choose your season:</p>
+      <table class="seasons" cellspacing="4"><tr id="seasonRow"></tr></table>
+
+      <hr>
+      <h2 id="seasonTitle"></h2>
+      <table class="info" cellspacing="0" cellpadding="4">
+        <tr>
+          <td colspan="3" id="seasonBlurb"></td>
+        </tr>
+        <tr>
+          <td id="lootList"></td>
+          <td id="poiList"></td>
+        </tr>
+      </table>
+
+      <p class="btnrow">
+        <button id="btnPlay" class="big">&nbsp;PLAY!&nbsp;</button>
+        <button id="btnSettings">Settings...</button>
+      </p>
+
+      <table class="help" cellspacing="0" cellpadding="2">
+        <tr><td><b>WASD</b> move</td><td><b>Shift</b> sprint</td><td><b>Space</b> jump / glider</td></tr>
+        <tr><td><b>Mouse</b> aim &amp; fire</td><td><b>Right mouse</b> aim down sights</td><td><b>1-6 / wheel</b> hotbar</td></tr>
+        <tr><td><b>E</b> pick up / chest</td><td><b>R</b> reload</td><td><b>Q</b> build mode</td></tr>
+        <tr><td><b>Z / X / C</b> wall / floor / ramp</td><td><b>T</b> change material</td><td><b>Esc</b> pause</td></tr>
+      </table>
+      <p class="foot">Best viewed in Netscape Navigator 4.0 &middot; 800x600 &middot; <a href="https://github.com/Torgtim/MiniFortnite-V4">source on GitHub</a> &middot; v4.0</p>
+    </td></tr>
+  </table>
+</div>
+
+<!-- ============================ PAUSE ============================ -->
+<div id="pause" class="screen center hidden">
+  <table class="win small" cellspacing="0" cellpadding="0">
+    <tr><td class="titlebar"><span>Paused</span><span class="tb"><b>X</b></span></td></tr>
+    <tr><td class="body col">
+      <button id="pResume" class="big">Resume</button>
+      <button id="pSettings">Settings...</button>
+      <button id="pLobby">Back to lobby</button>
+    </td></tr>
+  </table>
+</div>
+
+<!-- ============================ SETTINGS ============================ -->
+<div id="settings" class="screen center hidden">
+  <table class="win wide" cellspacing="0" cellpadding="0">
+    <tr><td class="titlebar"><span>Settings</span><span class="tb"><b>X</b></span></td></tr>
+    <tr><td class="body">
+      <div id="setBody"></div>
+      <p class="btnrow"><button id="setReset">Reset to defaults</button> <button id="setClose" class="big">OK</button></p>
+    </td></tr>
+  </table>
+</div>
+
+<!-- ============================ RESULT ============================ -->
+<div id="result" class="screen center hidden">
+  <table class="win small" cellspacing="0" cellpadding="0">
+    <tr><td class="titlebar"><span>Match over</span><span class="tb"><b>X</b></span></td></tr>
+    <tr><td class="body">
+      <h2 id="resTitle"></h2>
+      <div id="resBody"></div>
+      <p class="btnrow"><button id="rSpectate">Spectate</button> <button id="rAgain" class="big">Play again</button> <button id="rLobby">Lobby</button></p>
+    </td></tr>
+  </table>
+</div>
+
+<script type="module" src="js/main.js?v=4.0"></script>
+</body>
+</html>
