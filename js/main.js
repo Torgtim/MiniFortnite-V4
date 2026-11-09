@@ -14,6 +14,7 @@ import { Bus } from './bus.js';
 import { Sky } from './sky.js';
 import { FX } from './fx.js';
 import { RetroPass } from './retro.js';
+import { BloomPass } from './bloom.js';
 import { HUD } from './hud.js';
 import { UI } from './ui.js';
 import { ViewModel } from './viewmodel.js';
@@ -51,6 +52,8 @@ class Game {
     this.bus = new Bus(this);
     this.sky = new Sky(this.scene);
     this.retro = new RetroPass();
+    this.bloom = new BloomPass();
+    this._sz = new THREE.Vector2();
     this.scene.add(this.fx.group, this.combat.group, this.loot.group, this.build.group, this.edit.group, this.storm.group, this.bus.mesh);
     this.viewmodel = new ViewModel(this.camera);
 
@@ -112,6 +115,7 @@ class Game {
     this.camera.far = Math.max(450, settings.drawDist * 1.6);
     this.camera.updateProjectionMatrix();
     this.retro.setSize(innerWidth, innerHeight, settings.retroLines, settings.scanlines);
+    this.renderer.getDrawingBufferSize(this._sz); this.bloom.setSize(this._sz.x, this._sz.y);
     this.scene.traverse((o) => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { m.needsUpdate = true; }); });
   }
 
@@ -120,6 +124,7 @@ class Game {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(innerWidth, innerHeight, false);
     this.retro.setSize(innerWidth, innerHeight, settings.retroLines, settings.scanlines);
+    this.renderer.getDrawingBufferSize(this._sz); this.bloom.setSize(this._sz.x, this._sz.y);
   }
 
   /** (Re)build the entire world for the selected season. */
@@ -453,8 +458,15 @@ class Game {
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     this.tick(dt);
+    this.render();
+  }
+
+  render() {
     if (settings.style === 'retro') this.retro.render(this.renderer, this.scene, this.camera);
-    else this.renderer.render(this.scene, this.camera);
+    else if (settings.bloom) {
+      const neon = this.season.id === 4;
+      this.bloom.render(this.renderer, this.scene, this.camera, neon ? 0.9 : 0.45, neon ? 0.55 : 1.05);
+    } else this.renderer.render(this.scene, this.camera);
   }
 
   /** One simulation step (no rendering) - also used by headless tests. */

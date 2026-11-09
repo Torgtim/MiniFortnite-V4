@@ -40,6 +40,7 @@ export const DEFAULTS = {
   decor: 1,
   clouds: true,
   weather: true,
+  bloom: true,
   style: 'modern',      // 'modern' | 'retro'
   retroLines: 300,
   scanlines: true,
@@ -57,9 +58,9 @@ export const DEFAULTS = {
 
 /** Quality presets set several video options at once. */
 export const PRESETS = {
-  low: { renderScale: 0.7, shadows: false, drawDist: 200, decor: 0.3, clouds: false, weather: false },
-  medium: { renderScale: 1.0, shadows: true, drawDist: 300, decor: 1, clouds: true, weather: true },
-  high: { renderScale: 1.0, shadows: true, drawDist: 420, decor: 1.6, clouds: true, weather: true },
+  low: { renderScale: 0.7, shadows: false, drawDist: 200, decor: 0.3, clouds: false, weather: false, bloom: false },
+  medium: { renderScale: 1.0, shadows: true, drawDist: 300, decor: 1, clouds: true, weather: true, bloom: true },
+  high: { renderScale: 1.0, shadows: true, drawDist: 420, decor: 1.6, clouds: true, weather: true, bloom: true },
 };
 
 function load() {

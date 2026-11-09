@@ -225,6 +225,7 @@ export class UI {
       S('Draw distance', 'drawDist', 120, 520, 20, (v) => v + 'm'),
       S('Grass & decoration', 'decor', 0, 2, 0.1, (v) => Math.round(v * 100) + '%'),
       this._row('Shadows', this._check('shadows')),
+      this._row('Bloom (glow)', this._check('bloom')),
       this._row('Clouds', this._check('clouds', rebuild)),
       this._row('Weather (snow, embers...)', this._check('weather', rebuild)),
       this._row('Show FPS', this._check('showFps')),
