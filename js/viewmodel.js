@@ -9,6 +9,8 @@ import { weaponStats, ITEM_KINDS } from './weapons.js?v=42';
 import { buildGunModel, setGunRarity } from './gunmodels.js?v=42';
 
 const ORDER = 1000;
+// Weapons with at least this zoom use the full-screen 2D scope overlay (see hud.js / main.js).
+const SCOPE_ZOOM = 2.4;
 const vmMat = (m) => { m.transparent = true; m.depthTest = true; m.depthWrite = true; return m; };
 const MATS = {
   lit: vmMat(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })),
@@ -106,6 +108,9 @@ export class ViewModel {
     if (!p.alive || game.build.active || game.edit.active || p.airborne) { this.root.visible = false; return; }
     this.root.visible = true;
     if (!it) { this.root.visible = false; return; }
+    // Scoped snipers: the HUD already draws the scope view. Rendering the 3D gun as well puts its
+    // scope tube dead centre on screen (the sight line is aligned to the camera) and hides the target.
+    if (p.ads && it.type === 'weapon' && weaponStats(it).zoom >= SCOPE_ZOOM) { this.root.visible = false; return; }
     this.arms.visible = it.type === 'weapon';
     if (game.settings.outfit) this.sleeveMat.color.set(game.settings.outfit.shirt);
     if (it.type === 'weapon') {
