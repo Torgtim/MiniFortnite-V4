@@ -125,7 +125,7 @@ export class Bot extends Entity {
       if (sc > bs) { bs = sc; bi = i; }
     }
     const hasGun = bi > 0;
-    const nadeSlot = this.slots.findIndex((s, i) => i > 0 && s && s.type === 'item' && ITEM_KINDS[s.id].throw);
+    const nadeSlot = this.slots.findIndex((s, i) => i > 0 && s && s.type === 'item' && ITEM_KINDS[s.id].blast);
 
     // 3) heal when nobody is shooting at us (box up first if a fight is near)
     this.healing = false;
@@ -264,6 +264,7 @@ export class Bot extends Entity {
     for (let i = 1; i <= 5; i++) { const s = this.slots[i]; if (s && s.type === 'item' && s.id === id) have += s.count; }
     if (have >= (k.stack || 3)) return false;
     if (k.gadget === 'rift') return have < 1;
+    if (k.heal) return false; // area heals: leave them for the player
     return !!(k.hp || k.sh || k.throw);
   }
 

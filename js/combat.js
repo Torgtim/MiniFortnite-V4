@@ -243,14 +243,16 @@ export class Combat {
     const it = e.slots[slotIdx];
     const k = ITEM_KINDS[it.id];
     const a = this.aimOf(e);
-    const sp = 21;
+    const down = a.dy < -0.5; // looking at your feet: drop it there instead of lobbing it
+    const sp = down ? 6 : 21;
     const mesh = new THREE.Mesh(this.projGeo.grenade, new THREE.MeshLambertMaterial({ color: this.game.season.items[it.id].color, emissive: 0x331100 }));
     const x = e.x + a.dx * 0.6, y = e.eyeY - 0.1, z = e.z + a.dz * 0.6;
     mesh.position.set(x, y, z);
     this.group.add(mesh);
     this.projectiles.push({
-      owner: e, kind: 'nade', x, y, z, vx: a.dx * sp + e.vx * 0.5, vy: a.dy * sp + 4.5, vz: a.dz * sp + e.vz * 0.5,
-      grav: 22, bounce: true, fuse: k.fuse, blast: k.blast, name: this.game.season.items[it.id].name, mesh, trailT: 0,
+      owner: e, kind: 'nade', x, y, z, vx: a.dx * sp + e.vx * 0.5, vy: a.dy * sp + (down ? 1 : 4.5), vz: a.dz * sp + e.vz * 0.5,
+      grav: 22, bounce: !k.heal, fuse: k.fuse, blast: k.blast, heal: k.heal, name: this.game.season.items[it.id].name, mesh, trailT: 0,
+      color: this.game.season.items[it.id].color,
     });
     e.consume(slotIdx);
     this.game.audio.play('throw', e);
@@ -314,7 +316,8 @@ export class Combat {
       if (boom) {
         this.group.remove(p.mesh); p.mesh.material.dispose();
         this.projectiles.splice(i, 1);
-        this.explode(p.x, p.y, p.z, p.blast.r, p.blast.dmg, p.owner, p.name);
+        if (p.heal) this.splashHeal(p.x, p.y, p.z, p.heal, p.color);
+        else this.explode(p.x, p.y, p.z, p.blast.r, p.blast.dmg, p.owner, p.name);
       }
     }
   }
@@ -366,6 +369,20 @@ export class Combat {
       }
     }
     this.weakPoint = { target, x: hx - a.dx * 0.05, y: hy + 0.5, z: hz - a.dz * 0.05, t: this.game.time };
+  }
+
+  /** Healing splash: +amt to everyone close by (health first, the rest becomes shield). */
+  splashHeal(x, y, z, h, color) {
+    const g = this.game;
+    if (g.fx) { g.fx.flash(x, y + 0.5, z, h.r * 1.6, 0.3); g.fx.chips(x, y + 0.3, z, parseInt(color.slice(1), 16), 24); }
+    g.audio.play('heal', { x, y, z });
+    for (const e of g.entities) {
+      if (!e.alive || e.airborne) continue;
+      if (Math.hypot(e.x - x, e.y + 0.9 - y, e.z - z) > h.r + 0.5) continue;
+      let amt = h.amt;
+      const toHp = Math.min(amt, 100 - e.hp); e.hp += toHp; amt -= toHp;
+      e.shield = Math.min(100, e.shield + amt);
+    }
   }
 
   // ------------------------------------------------------------------ damage
