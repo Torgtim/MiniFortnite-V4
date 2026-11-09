@@ -24,14 +24,14 @@ export const WEAPONS = {
   pump: { name: 'Pump Shotgun', short: 'PMP', cls: 'shotgun', ammo: 'shells', dmg: 11, pellets: 10, rate: 0.75, mag: 5, reload: 3.2, spread: 0.055, range: 70, fall: [8, 32], head: 1.5 },
   ar: { name: 'Assault Rifle', short: 'AR', cls: 'rifle', ammo: 'medium', dmg: 30, rate: 5.5, mag: 30, reload: 2.3, spread: 0.014, range: 220, auto: true },
   smg: { name: 'SMG', short: 'SMG', cls: 'smg', ammo: 'light', dmg: 18, rate: 11, mag: 30, reload: 1.9, spread: 0.022, range: 140, auto: true },
-  sniper: { name: 'Bolt Sniper', short: 'SNP', cls: 'sniper', ammo: 'heavy', dmg: 105, rate: 0.55, mag: 1, reload: 2.5, spread: 0.0008, range: 500, zoom: 4, head: 2 },
+  sniper: { name: 'Bolt Sniper', short: 'SNP', cls: 'sniper', ammo: 'heavy', dmg: 105, rate: 0.55, mag: 1, reload: 2.5, spread: 0.0008, range: 500, zoom: 4, head: 2, proj: { speed: 260, grav: 7, kind: 'bullet' } },
   rocket: { name: 'Rocket Launcher', short: 'RPG', cls: 'launcher', ammo: 'rockets', dmg: 0, rate: 0.75, mag: 1, reload: 3.2, spread: 0.004, range: 300, blast: { r: 6, dmg: 115 }, proj: { speed: 55, grav: 0, kind: 'rocket' } },
 
   burst_ar: { name: 'Burst Rifle', short: 'BRS', cls: 'rifle', ammo: 'medium', dmg: 27, rate: 3.0, burst: 3, burstGap: 0.07, mag: 30, reload: 2.2, spread: 0.012, range: 220 },
   double_barrel: { name: 'Double Barrel', short: 'DBL', cls: 'shotgun', ammo: 'shells', dmg: 10, pellets: 12, rate: 1.5, mag: 2, reload: 2.6, spread: 0.06, range: 60, fall: [6, 26], head: 1.5 },
   frost_smg: { name: 'Frost SMG', short: 'FSM', cls: 'smg', ammo: 'light', dmg: 15, rate: 13, mag: 32, reload: 1.8, spread: 0.028, range: 130, auto: true },
-  hunting_rifle: { name: 'Hunting Rifle', short: 'HNT', cls: 'sniper', ammo: 'heavy', dmg: 68, rate: 1.5, mag: 6, reload: 3.0, spread: 0.003, range: 350, zoom: 2.6, head: 2 },
-  crossbow: { name: 'Crossbow', short: 'XBW', cls: 'sniper', ammo: 'heavy', dmg: 105, rate: 0.8, mag: 1, reload: 2.6, spread: 0.002, range: 220, zoom: 2.0, head: 2, quiet: true },
+  hunting_rifle: { name: 'Hunting Rifle', short: 'HNT', cls: 'sniper', ammo: 'heavy', dmg: 68, rate: 1.5, mag: 6, reload: 3.0, spread: 0.003, range: 350, zoom: 2.6, head: 2, proj: { speed: 220, grav: 8, kind: 'bullet' } },
+  crossbow: { name: 'Crossbow', short: 'XBW', cls: 'sniper', ammo: 'heavy', dmg: 105, rate: 0.8, mag: 1, reload: 2.6, spread: 0.002, range: 220, zoom: 2.0, head: 2, quiet: true, proj: { speed: 90, grav: 12, kind: 'bullet' } },
   hand_cannon: { name: 'Hand Cannon', short: 'HCN', cls: 'pistol', ammo: 'medium', dmg: 54, rate: 2.2, mag: 7, reload: 2.0, spread: 0.006, range: 170, head: 2 },
 
   revolver: { name: 'Revolver', short: 'RVL', cls: 'pistol', ammo: 'medium', dmg: 58, rate: 2.4, mag: 6, reload: 2.8, spread: 0.005, range: 170, head: 2 },

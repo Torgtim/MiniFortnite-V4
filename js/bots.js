@@ -505,6 +505,12 @@ export class Bot extends Entity {
         aimX = pc.x; ay = pc.y; aimZ = pc.z; shootBuild = true;
       }
     }
+    if (st.proj && visible) {
+      // lead moving targets (projectiles take time to arrive)
+      const tt = Math.hypot(aimX - this.x, aimZ - this.z) / st.proj.speed * (0.6 + this.skill * 0.4);
+      aimX += (e.vx || 0) * tt; aimZ += (e.vz || 0) * tt;
+      ay += 0.5 * (st.proj.grav || 0) * tt * tt; // and aim a little higher for the drop
+    }
     const adx = aimX - this.x, adz = aimZ - this.z, ad = Math.hypot(adx, adz) || 1;
     const wantYaw = Math.atan2(-adx, -adz);
     const wantPitch = Math.atan2(ay - this.eyeY, ad);

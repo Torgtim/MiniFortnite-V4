@@ -305,6 +305,11 @@ class Game {
       const K = settings.keys, c = e.code;
       if (c === 'Tab' || c === K.crouch || c === 'Space') e.preventDefault();
       if (c === K.map && !e.repeat) { this.bigMap = !this.bigMap; return; }
+      if ((c === 'Escape' || c === 'KeyP') && this.mode === 'playing' && !this.paused) {
+        if (document.pointerLockElement) document.exitPointerLock(); // pointerlockchange opens the pause menu
+        else { this.paused = true; this.ui.showPause(true); }
+        return;
+      }
       if (this.mode === 'spectating') {
         if (c === 'ArrowRight' || c === 'KeyD') this.cycleSpectate(1);
         if (c === 'ArrowLeft' || c === 'KeyA') this.cycleSpectate(-1);

@@ -30,7 +30,7 @@ export class Combat {
   }
 
   clear() {
-    for (const p of this.projectiles) this.group.remove(p.mesh);
+    for (const p of this.projectiles) if (p.mesh) this.group.remove(p.mesh);
     this.projectiles.length = 0;
     this.weakPoint = null;
   }
@@ -217,6 +217,17 @@ export class Combat {
   // ------------------------------------------------------------------ projectiles (rockets, grenades)
   launch(e, st, x, y, z, dx, dy, dz) {
     const pr = st.proj;
+    if (pr.kind === 'bullet') {
+      // sniper rounds travel and drop; they start at the eye so they go where the crosshair points
+      const a = this.aimOf(e);
+      const sp = this.spreadFor(e, st);
+      const jx = (Math.random() - 0.5) * sp, jy = (Math.random() - 0.5) * sp, jz = (Math.random() - 0.5) * sp;
+      this.projectiles.push({
+        owner: e, kind: 'bullet', x: a.ox, y: a.oy, z: a.oz, vx: (a.dx + jx) * pr.speed, vy: (a.dy + jy) * pr.speed, vz: (a.dz + jz) * pr.speed,
+        grav: pr.grav, bounce: false, fuse: st.range / pr.speed + 0.5, dmg: st.dmg, head: st.head, name: st.name, mesh: null, tx: x, ty: y, tz: z,
+      });
+      return;
+    }
     const mesh = new THREE.Mesh(this.projGeo[pr.kind] || this.projGeo.grenade, new THREE.MeshBasicMaterial({ color: pr.kind === 'rocket' ? 0xdddddd : 0x5a8a3a }));
     mesh.position.set(x, y, z);
     this.group.add(mesh);
@@ -252,6 +263,20 @@ export class Combat {
       const sx = p.vx * dt, sy = p.vy * dt, sz = p.vz * dt;
       const len = Math.hypot(sx, sy, sz);
       let boom = p.fuse <= 0;
+      if (p.kind === 'bullet') {
+        if (p.fuse <= 0 || len < 1e-5) { this.projectiles.splice(i, 1); continue; }
+        const dx = sx / len, dy = sy / len, dz = sz / len;
+        const hit = this.trace(p.owner, p.x, p.y, p.z, dx, dy, dz, len);
+        const ex = p.x + dx * Math.min(hit.t, len), ey = p.y + dy * Math.min(hit.t, len), ez = p.z + dz * Math.min(hit.t, len);
+        this.tracer(p.tx, p.ty, p.tz, ex, ey, ez, p.owner.isPlayer ? 0xfff1a0 : 0xffc890);
+        p.tx = ex; p.ty = ey; p.tz = ez;
+        if (hit.t < len) {
+          if (hit.entity) { this.damage(hit.entity, p.dmg * (hit.head ? p.head : 1), p.owner, p.name, hit.head); this.puff(ex, ey, ez, 0xff5050); }
+          else { this.puff(ex, ey, ez); if (hit.collider && hit.collider.piece) this.game.build.damage(hit.collider.piece, p.dmg * 0.8, p.owner); }
+          this.projectiles.splice(i, 1);
+        } else { p.x += sx; p.y += sy; p.z += sz; }
+        continue;
+      }
       if (!boom && len > 1e-5) {
         const dx = sx / len, dy = sy / len, dz = sz / len;
         const hit = this.trace(p.owner, p.x, p.y, p.z, dx, dy, dz, len + 0.15);

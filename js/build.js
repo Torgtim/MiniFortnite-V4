@@ -146,7 +146,7 @@ export class BuildSystem {
         const step = Math.min(dt, p.buildLeft);
         p.buildLeft -= dt;
         p.hp = Math.min(p.maxHp, p.hp + p.growth * step);
-        p.mesh.material.emissiveIntensity = clamp((p.buildLeft / p.buildDur - 0.6) / 0.4, 0, 1) * 0.28;
+        p.mesh.material.emissiveIntensity = clamp((p.buildLeft / p.buildDur - 0.75) / 0.25, 0, 1) * 0.2;
       }
       if (p.pop < 1) {
         p.pop = Math.min(1, p.pop + dt * 7);
@@ -211,7 +211,7 @@ export class BuildSystem {
     }
     const mat = this.baseMats[mi].clone();
     mat.emissive = new THREE.Color(0x3b7bff);
-    mat.emissiveIntensity = 0.28;
+    mat.emissiveIntensity = 0.2;
     const piece = {
       id: ++this._id, type: c.type, key: c.key, c, mat: mi, owner: e, skirt,
       hp: m.start, maxHp: m.hp, buildLeft: m.time, buildDur: m.time, growth: (m.hp - m.start) / m.time,
