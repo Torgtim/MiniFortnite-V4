@@ -141,7 +141,8 @@ export class Bot extends Entity {
         return vb - va;
       });
       if (order.length) {
-        if (this.enemy && now - this.lastSeen < 8 && this.builder && !this.boxed && this.totalMats() >= 50) this.planBox();
+        if (this.boxPlan) { /* already boxing up */ }
+        else if (this.enemy && now - this.lastSeen < 8 && this.builder && !this.boxed && this.totalMats() >= 50) this.planBox();
         else { if (this.slot !== order[0]) this.selectSlot(order[0]); this.healing = true; }
       }
     }
