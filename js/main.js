@@ -1,29 +1,29 @@
 // Game orchestration: renderer, match lifecycle (bus -> drop -> storm), input, cameras, main loop.
 
-import * as THREE from '../lib/three.module.min.js';
-import { SEASONS } from './seasons.js';
-import { World } from './world.js';
-import { Player } from './player.js';
-import { Bot, BOT_NAMES } from './bots.js';
-import { Combat } from './combat.js';
-import { Loot } from './loot.js';
-import { BuildSystem } from './build.js';
-import { EditSystem } from './edit.js';
-import { Storm } from './storm.js';
-import { Bus } from './bus.js';
-import { Sky } from './sky.js';
-import { FX } from './fx.js';
-import { Gadgets } from './gadgets.js';
-import { RetroPass } from './retro.js';
-import { BloomPass } from './bloom.js';
-import { HUD } from './hud.js';
-import { UI } from './ui.js';
-import { ViewModel } from './viewmodel.js';
-import { GameAudio } from './audio.js';
-import { settings, saveSettings, onSettingsChange } from './settings.js';
-import { ITEM_KINDS, RARITIES, weaponStats, WEAPONS } from './weapons.js';
-import { mulberry32, clamp, dirFromAngles } from './util.js';
-import { recordMatch } from './stats.js';
+import * as THREE from '../lib/three.module.min.js?v=41';
+import { SEASONS } from './seasons.js?v=41';
+import { World } from './world.js?v=41';
+import { Player } from './player.js?v=41';
+import { Bot, BOT_NAMES } from './bots.js?v=41';
+import { Combat } from './combat.js?v=41';
+import { Loot } from './loot.js?v=41';
+import { BuildSystem } from './build.js?v=41';
+import { EditSystem } from './edit.js?v=41';
+import { Storm } from './storm.js?v=41';
+import { Bus } from './bus.js?v=41';
+import { Sky } from './sky.js?v=41';
+import { FX } from './fx.js?v=41';
+import { Gadgets } from './gadgets.js?v=41';
+import { RetroPass } from './retro.js?v=41';
+import { BloomPass } from './bloom.js?v=41';
+import { HUD } from './hud.js?v=41';
+import { UI } from './ui.js?v=41';
+import { ViewModel } from './viewmodel.js?v=41';
+import { GameAudio } from './audio.js?v=41';
+import { settings, saveSettings, onSettingsChange } from './settings.js?v=41';
+import { ITEM_KINDS, RARITIES, weaponStats, WEAPONS } from './weapons.js?v=41';
+import { mulberry32, clamp, dirFromAngles } from './util.js?v=41';
+import { recordMatch } from './stats.js?v=41';
 
 const SUN_DIR = new THREE.Vector3(0.45, 0.8, 0.3).normalize();
 

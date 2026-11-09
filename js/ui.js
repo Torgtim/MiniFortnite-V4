@@ -1,9 +1,9 @@
 // Menus: lobby (season switcher), settings, pause and result windows.
 
-import { SEASONS } from './seasons.js';
-import { WEAPONS, AMMO } from './weapons.js';
-import { settings, saveSettings, resetSettings, applyPreset, KEY_ACTIONS, keyLabel } from './settings.js';
-import { stats } from './stats.js';
+import { SEASONS } from './seasons.js?v=41';
+import { WEAPONS, AMMO } from './weapons.js?v=41';
+import { settings, saveSettings, resetSettings, applyPreset, KEY_ACTIONS, keyLabel } from './settings.js?v=41';
+import { stats } from './stats.js?v=41';
 
 const TIPS = [
   'Press <b>C</b> while sprinting to <b>slide</b>. Sliding downhill makes you even faster, and you can jump out of a slide.',

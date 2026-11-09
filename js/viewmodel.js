@@ -1,7 +1,7 @@
 // First-person weapon model attached to the camera (built from boxes, drawn on top of the world).
 
-import * as THREE from '../lib/three.module.min.js';
-import { CLASS_COLORS, RARITIES, weaponStats, ITEM_KINDS } from './weapons.js';
+import * as THREE from '../lib/three.module.min.js?v=41';
+import { CLASS_COLORS, RARITIES, weaponStats, ITEM_KINDS } from './weapons.js?v=41';
 
 const mats = {};
 const mat = (c) => mats[c] || (mats[c] = new THREE.MeshLambertMaterial({ color: c, depthTest: false, depthWrite: false }));

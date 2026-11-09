@@ -1,8 +1,8 @@
 // Edit mode: select tiles on one of your own build pieces, then confirm to cut doors, windows,
 // half walls, holes in floors, half / rotated ramps and different roof shapes.
 
-import * as THREE from '../lib/three.module.min.js';
-import { editTiles, TILES } from './pieces.js';
+import * as THREE from '../lib/three.module.min.js?v=41';
+import { editTiles, TILES } from './pieces.js?v=41';
 
 const RANGE = 7.5;
 

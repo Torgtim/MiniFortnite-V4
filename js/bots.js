@@ -2,11 +2,11 @@
 // materials, rotates with the storm, hears gunfire, fights with range-appropriate weapons,
 // builds walls / ramps / boxes, shoots through enemy builds and throws grenades.
 
-import { Entity } from './entity.js';
-import { stepEntity, isFree, findLedge, startMantle, stepMantle } from './physics.js';
-import { WEAPONS, weaponStats, ITEM_KINDS } from './weapons.js';
-import { CharacterModel } from './characters.js';
-import { angleDiff, clamp } from './util.js';
+import { Entity } from './entity.js?v=41';
+import { stepEntity, isFree, findLedge, startMantle, stepMantle } from './physics.js?v=41';
+import { WEAPONS, weaponStats, ITEM_KINDS } from './weapons.js?v=41';
+import { CharacterModel } from './characters.js?v=41';
+import { angleDiff, clamp } from './util.js?v=41';
 
 export const BOT_NAMES = ['Skelly', 'Voltage', 'NoScope', 'Pixel', 'Toast', 'Gigabyte', 'Raven', 'Moose', 'Blitz', 'Zed',
   'Cobalt', 'Mango', 'Echo', 'Rusty', 'Nova', 'Spud', 'Ghost', 'Turbo', 'Waffles', 'Ziggy', 'Bonk', 'Glitch',
