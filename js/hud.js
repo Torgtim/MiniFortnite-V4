@@ -234,6 +234,9 @@ export class HUD {
     }
     this._gap = (this._gap || gap) + (gap - (this._gap || gap)) * Math.min(1, dt * 18);
     e.cross.style.setProperty('--g', this._gap.toFixed(1) + 'px');
+    // shotguns get a circle reticle (the default cross stays for everything else)
+    const want = settings.crosshair === 'cross' && it && it.type === 'weapon' && weaponStats(it).cls === 'shotgun' ? 'ch-circle' : 'ch-' + settings.crosshair;
+    if (e.cross.className !== want) e.cross.className = want;
 
     this.updateArcs();
     this.updateWeakPoint();
