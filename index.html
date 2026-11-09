@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mini-Fortnite V4</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=44">
+<link rel="stylesheet" href="css/style.css?v=45">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -159,6 +159,19 @@
   </table>
 </div>
 
+<!-- ============================ SPAWN MENU (playground) ============================ -->
+<div id="spawn" class="screen center hidden">
+  <table class="win" cellspacing="0" cellpadding="0">
+    <tr><td class="titlebar"><span>Spawn.exe - Playground</span><span class="tb"><b>X</b></span></td></tr>
+    <tr><td class="body">
+      <p>Click to drop a weapon or healing item in front of you, then walk up and press pick up.<br>Rarity: <select id="spRarity"></select></p>
+      <fieldset><legend>Weapons</legend><div id="spWeapons" class="spgrid"></div></fieldset>
+      <fieldset><legend>Healing &amp; gadgets</legend><div id="spItems" class="spgrid"></div></fieldset>
+      <p class="btnrow"><button id="spClose" class="big">Resume</button></p>
+    </td></tr>
+  </table>
+</div>
+
 <!-- ============================ PAUSE ============================ -->
 <div id="pause" class="screen center hidden">
   <table class="win small" cellspacing="0" cellpadding="0">
@@ -194,6 +207,6 @@
   </table>
 </div>
 
-<script type="module" src="js/main.js?v=44"></script>
+<script type="module" src="js/main.js?v=45"></script>
 </body>
 </html>

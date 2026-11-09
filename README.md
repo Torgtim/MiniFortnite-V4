@@ -97,6 +97,8 @@ Every map also has a three-storey **lookout tower** near the middle, with ramps 
 | Right mouse | aim down sights (in build mode: material; in edit mode: reset) |
 | 1-5 / wheel | weapon slots (each slot is its own bind) |
 | F | pickaxe (press again for your last weapon) |
+| J | drop held weapon / item stack |
+| U | Playground only: spawn menu (any weapon, any rarity, healing items) |
 
 Every action can be bound to a key, a mouse button (including side buttons) or the scroll wheel in **Settings → Controls**.
 | E | pick up / open |

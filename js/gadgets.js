@@ -1,7 +1,7 @@
 // Mobility gadgets: bounce pads (launch you up, then the glider opens) and sky portals
 // (instantly rift you into the sky for a new skydive).
 
-import * as THREE from '../lib/three.module.min.js?v=44';
+import * as THREE from '../lib/three.module.min.js?v=45';
 
 const PAD_R = 1.3;
 

@@ -1,9 +1,9 @@
 // Menus: lobby (season switcher), settings, pause and result windows.
 
-import { SEASONS } from './seasons.js?v=44';
-import { WEAPONS, AMMO } from './weapons.js?v=44';
-import { settings, saveSettings, resetSettings, applyPreset, KEY_ACTIONS, KEY_GROUPS, keysClash, keyLabel } from './settings.js?v=44';
-import { stats } from './stats.js?v=44';
+import { SEASONS } from './seasons.js?v=45';
+import { WEAPONS, AMMO, RARITIES } from './weapons.js?v=45';
+import { settings, saveSettings, resetSettings, applyPreset, KEY_ACTIONS, KEY_GROUPS, keysClash, keyLabel } from './settings.js?v=45';
+import { stats } from './stats.js?v=45';
 
 const TIPS = [
   'Press <b>C</b> while sprinting to <b>slide</b>. Sliding downhill makes you even faster, and you can jump out of a slide.',
@@ -186,6 +186,23 @@ export class UI {
 
   // -------------------------------------------------------------- pause / result
   showPause(on) { $('pause').classList.toggle('hidden', !on); }
+
+  /** Playground spawn menu: every weapon of the current season (pick a rarity) plus all items. */
+  showSpawn(on) {
+    const el = $('spawn');
+    el.classList.toggle('hidden', !on);
+    if (!on) return;
+    const g = this.game;
+    const rsel = $('spRarity');
+    if (!rsel.options.length) RARITIES.forEach((r, i) => { const o = document.createElement('option'); o.value = i; o.textContent = r.name; rsel.appendChild(o); rsel.value = 4; });
+    const fill = (host, entries) => {
+      host.innerHTML = '';
+      for (const [label, fn] of entries) { const b = document.createElement('button'); b.textContent = label; b.onclick = fn; host.appendChild(b); }
+    };
+    fill($('spWeapons'), g.season.weapons.map(([id]) => [WEAPONS[id].name, () => g.spawnForPlayer('weapon', id, +rsel.value)]));
+    fill($('spItems'), Object.keys(g.season.items).map((id) => [g.season.items[id].name, () => g.spawnForPlayer('item', id)]));
+    $('spClose').onclick = () => g.resume();
+  }
 
   showResult(r) {
     $('resTitle').textContent = r.victory ? '#1 VICTORY ROYALE!' : 'You were eliminated';

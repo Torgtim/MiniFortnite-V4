@@ -210,4 +210,5 @@ select { background: #fff; border: 2px inset #fff; }
 .settab { border: 2px outset #fff; border-bottom: none; background: #c0c0c0; padding: 3px 14px; font: inherit; font-size: 15px; cursor: pointer; }
 .settab.on { font-weight: bold; padding-bottom: 5px; margin-top: -3px; background: #c0c0c0; }
 .setpane { border: 2px outset #fff; padding: 8px; background: #c0c0c0; max-height: 62vh; overflow-y: auto; }
+.spgrid { display: flex; flex-wrap: wrap; gap: 4px; max-width: 560px; } .spgrid button { font-size: 14px; }
 .keyhint { font-size: 14px; margin: 0 0 8px; }

@@ -1,29 +1,29 @@
 // Game orchestration: renderer, match lifecycle (bus -> drop -> storm), input, cameras, main loop.
 
-import * as THREE from '../lib/three.module.min.js?v=44';
-import { SEASONS } from './seasons.js?v=44';
-import { World } from './world.js?v=44';
-import { Player } from './player.js?v=44';
-import { Bot, BOT_NAMES } from './bots.js?v=44';
-import { Combat } from './combat.js?v=44';
-import { Loot } from './loot.js?v=44';
-import { BuildSystem } from './build.js?v=44';
-import { EditSystem } from './edit.js?v=44';
-import { Storm } from './storm.js?v=44';
-import { Bus } from './bus.js?v=44';
-import { Sky } from './sky.js?v=44';
-import { FX } from './fx.js?v=44';
-import { Gadgets } from './gadgets.js?v=44';
-import { RetroPass } from './retro.js?v=44';
-import { BloomPass } from './bloom.js?v=44';
-import { HUD } from './hud.js?v=44';
-import { UI } from './ui.js?v=44';
-import { ViewModel } from './viewmodel.js?v=44';
-import { GameAudio } from './audio.js?v=44';
-import { settings, saveSettings, onSettingsChange, keyLabel } from './settings.js?v=44';
-import { ITEM_KINDS, RARITIES, weaponStats, WEAPONS } from './weapons.js?v=44';
-import { mulberry32, clamp, dirFromAngles } from './util.js?v=44';
-import { recordMatch } from './stats.js?v=44';
+import * as THREE from '../lib/three.module.min.js?v=45';
+import { SEASONS } from './seasons.js?v=45';
+import { World } from './world.js?v=45';
+import { Player } from './player.js?v=45';
+import { Bot, BOT_NAMES } from './bots.js?v=45';
+import { Combat } from './combat.js?v=45';
+import { Loot } from './loot.js?v=45';
+import { BuildSystem } from './build.js?v=45';
+import { EditSystem } from './edit.js?v=45';
+import { Storm } from './storm.js?v=45';
+import { Bus } from './bus.js?v=45';
+import { Sky } from './sky.js?v=45';
+import { FX } from './fx.js?v=45';
+import { Gadgets } from './gadgets.js?v=45';
+import { RetroPass } from './retro.js?v=45';
+import { BloomPass } from './bloom.js?v=45';
+import { HUD } from './hud.js?v=45';
+import { UI } from './ui.js?v=45';
+import { ViewModel } from './viewmodel.js?v=45';
+import { GameAudio } from './audio.js?v=45';
+import { settings, saveSettings, onSettingsChange, keyLabel } from './settings.js?v=45';
+import { ITEM_KINDS, RARITIES, weaponStats, WEAPONS, makeWeapon } from './weapons.js?v=45';
+import { mulberry32, clamp, dirFromAngles } from './util.js?v=45';
+import { recordMatch } from './stats.js?v=45';
 
 const SUN_DIR = new THREE.Vector3(0.45, 0.8, 0.3).normalize();
 
@@ -313,6 +313,7 @@ class Game {
   resume() {
     this.paused = false;
     this.ui.showPause(false);
+    this.ui.showSpawn(false);
     this.ui.showSettings(false);
     this.lockPointer();
   }
@@ -440,6 +441,8 @@ class Game {
       else if (c === K.ramp) { this.edit.cancel(); this.build.setType('ramp'); }
       else if (c === K.cone) { this.edit.cancel(); this.build.setType('cone'); }
       else if (c === K.material) this.build.cycleMaterial();
+      else if (c === K.drop) this.dropHeld();
+      else if (c === K.spawn && this.playground) { this.ui.spawnPending = true; if (document.pointerLockElement) document.exitPointerLock(); }
       else if (c === K.pickaxe) { this.build.setActive(false); this.edit.cancel(); p.selectSlot(p.slot === 0 ? (p.lastSlot || 1) : 0); }
       else { const si = [K.slot1, K.slot2, K.slot3, K.slot4, K.slot5].indexOf(c); if (si >= 0) { this.build.setActive(false); this.edit.cancel(); p.selectSlot(si + 1); } }
     };
@@ -503,7 +506,7 @@ class Game {
         if (this.player) this.player.resetInput();
         this.rightDown = false;
         this.edit.cancel();
-        this.ui.showPause(true);
+        if (this.ui.spawnPending) { this.ui.spawnPending = false; this.ui.showSpawn(true); } else this.ui.showPause(true);
       }
     });
   }
@@ -513,6 +516,26 @@ class Game {
     const p = this.player;
     const from = p.slot === 0 ? (p.lastSlot || 1) - dir : p.slot;
     p.selectSlot(((from - 1 + (dir > 0 ? 1 : 4)) % 5 + 5) % 5 + 1);
+  }
+
+  /** Throw the held weapon / item stack out in front of you (it stays on the ground until you press pick up). */
+  dropHeld() {
+    const p = this.player, s = p.held;
+    if (!s || s.type === 'pickaxe') return;
+    const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), x = p.x + fx * 1.4, z = p.z + fz * 1.4, y = this.world.heightAt(x, z);
+    if (s.type === 'weapon') this.loot.spawnWeapon(x, Math.max(y, p.y - 0.5), z, s).dropped = true;
+    else for (let k = 0; k < Math.min(s.count, 6); k++) this.loot.spawnItem(x + k * 0.3, Math.max(y, p.y - 0.5), z, s.id);
+    p.slots[p.slot] = null;
+    p.reloadT = 0; p.useT = 0; p.burstLeft = 0;
+    p.selectSlot(0);
+    this.audio.play('pickup', p);
+  }
+
+  /** Playground: put a weapon (with a rarity) or a healing item at your feet. */
+  spawnForPlayer(kind, id, rarity = 0) {
+    const p = this.player, fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), x = p.x + fx * 1.6, z = p.z + fz * 1.6, y = Math.max(this.world.heightAt(x, z), p.y - 0.5);
+    if (kind === 'weapon') this.loot.spawnWeapon(x, y, z, makeWeapon(id, rarity)).dropped = true;
+    else this.loot.spawnItem(x, y, z, id);
   }
 
   /** Scroll through the build pieces. */

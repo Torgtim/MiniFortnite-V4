@@ -8,8 +8,8 @@
 //           a path that stays in one column makes a half-width ramp
 //   cone  : 2 x 2 tiles, each selected tile raises its corner (pyramid -> slopes -> flat)
 
-import * as THREE from '../lib/three.module.min.js?v=44';
-import { roofHeight } from './geom.js?v=44';
+import * as THREE from '../lib/three.module.min.js?v=45';
+import { roofHeight } from './geom.js?v=45';
 
 export const CS = 4;
 export const LV = 3;
