@@ -21,7 +21,8 @@ export class Player extends Entity {
     this.slideCd = 0;
     this.slideDir = { x: 0, z: 0 };
     this.slideSpeed = 0;
-    this.model = new CharacterModel(3, null, { outfit: ['#ff8a1e', '#23324a'], hat: 'cap', accent: '#2f6bff', hair: '#5a3a1a' });
+    const o = game.settings.outfit;
+    this.model = new CharacterModel(3, null, { outfit: [o.shirt, o.pants], hat: o.hat, accent: o.accent, hair: o.hair });
   }
 
   resetInput() { this.input = { f: 0, b: 0, l: 0, r: 0, jump: false, sprint: false, crouch: false }; this.mouseLeft = false; }

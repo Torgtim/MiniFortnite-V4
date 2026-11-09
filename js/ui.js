@@ -61,6 +61,9 @@ export class UI {
     if (settings.tips) $('tipwin').classList.remove('hidden');
     addEventListener('pointerdown', () => { if (game.mode === 'lobby' && !game.audio.ctx) { game.audio.init(); this.refreshMusic(); } }, { once: true });
     this.refreshStats();
+    this._buildLocker();
+    $('btnLocker').onclick = () => $('locker').classList.remove('hidden');
+    $('lockClose').onclick = () => $('locker').classList.add('hidden');
   }
 
   // -------------------------------------------------------------- lobby
@@ -103,6 +106,42 @@ export class UI {
     if (!on) $('tipwin').classList.add('hidden');
     this.refreshStats();
     this.refreshMusic();
+  }
+
+  _buildLocker() {
+    const o = settings.outfit, host = $('lockBody');
+    host.innerHTML = '';
+    const t = document.createElement('table'); t.className = 'srows';
+    const color = (key, label) => {
+      const i = document.createElement('input'); i.type = 'color'; i.value = o[key];
+      i.oninput = () => { o[key] = i.value; saveSettings(); this._lockPreview(); };
+      t.appendChild(this._row(label, i));
+    };
+    color('shirt', 'Shirt'); color('pants', 'Pants'); color('accent', 'Backpack / hat / glider'); color('hair', 'Hair');
+    const hat = document.createElement('select');
+    [['none', 'No hat'], ['cap', 'Cap'], ['beanie', 'Beanie'], ['helmet', 'Army helmet'], ['band', 'Headband']].forEach(([v, n]) => { const op = document.createElement('option'); op.value = v; op.textContent = n; hat.appendChild(op); });
+    hat.value = o.hat;
+    hat.onchange = () => { o.hat = hat.value; saveSettings(); this._lockPreview(); };
+    t.appendChild(this._row('Hat', hat));
+    host.appendChild(t);
+    this._lockPreview();
+  }
+
+  /** Tiny 2D paper-doll preview of the outfit (no 3D needed). */
+  _lockPreview() {
+    const c = $('lockPrev').getContext('2d'), o = settings.outfit;
+    c.fillStyle = '#008080'; c.fillRect(0, 0, 120, 170);
+    const R = (col, x, y, w, h) => { c.fillStyle = col; c.fillRect(x, y, w, h); c.strokeStyle = '#000'; c.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1); };
+    R(o.pants, 40, 100, 18, 55); R(o.pants, 62, 100, 18, 55);
+    R(o.shirt, 36, 52, 48, 50); R(o.shirt, 22, 54, 14, 44); R(o.shirt, 84, 54, 14, 44);
+    R('#f2c9a0', 44, 18, 32, 32);
+    R(o.hair, 44, 18, 32, 7);
+    c.fillStyle = '#1a1a2a'; c.fillRect(51, 31, 4, 4); c.fillRect(65, 31, 4, 4); c.fillStyle = '#7a2a2a'; c.fillRect(54, 42, 12, 2);
+    if (o.hat === 'cap') { R(o.accent, 42, 12, 36, 9); R(o.accent, 66, 18, 18, 4); }
+    else if (o.hat === 'beanie') R(o.accent, 42, 8, 36, 14);
+    else if (o.hat === 'helmet') R('#4a5a3a', 40, 8, 40, 16);
+    else if (o.hat === 'band') R('#d02020', 44, 22, 32, 4);
+    R(o.accent, 50, 60, 20, 26);
   }
 
   showTip(i) { this.tip = (i + TIPS.length) % TIPS.length; $('tipText').innerHTML = TIPS[this.tip]; }
@@ -206,6 +245,7 @@ export class UI {
       this._row('Sprint by default', this._check('sprintDefault')),
       this._row('Toggle crouch', this._check('toggleCrouch')),
       this._row('Confirm edit on release', this._check('editOnRelease')),
+      this._row('Auto pick up weapons', this._check('autoPickup')),
       S('Bots', 'botCount', 1, 39, 1, (v) => v),
       this._row('Bot difficulty', sel('botDifficulty', [['0', 'Easy'], ['1', 'Normal'], ['2', 'Hard']])),
     ]);

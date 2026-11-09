@@ -2,7 +2,7 @@
 // Also the shared "air" movement (bus -> skydive -> glider) and the character model hookup.
 
 import { AMMO, ITEM_KINDS, RARITIES, WEAPONS, weaponStats, makeWeapon } from './weapons.js?v=41';
-import { PLAYER_H, CROUCH_H, FALL_SAFE, groundAt } from './physics.js?v=41';
+import { PLAYER_H, CROUCH_H, FALL_SAFE, groundAt, isFree } from './physics.js?v=41';
 
 export class Entity {
   constructor(game, name, isPlayer = false) {
@@ -68,7 +68,11 @@ export class Entity {
     const sp = glide ? 13 + dive * 4 : 9 + dive * 13;
     this.vx += (wx * sp - this.vx) * Math.min(1, dt * 2);
     this.vz += (wz * sp - this.vz) * Math.min(1, dt * 2);
-    this.x += this.vx * dt; this.z += this.vz * dt; this.y += this.vy * dt;
+    // glide into walls / roofs / builds instead of through them
+    const nx = this.x + this.vx * dt, nz = this.z + this.vz * dt;
+    if (isFree(w, nx, this.z, this.y, this.h)) this.x = nx; else this.vx = 0;
+    if (isFree(w, this.x, nz, this.y, this.h)) this.z = nz; else this.vz = 0;
+    this.y += this.vy * dt;
     const R = w.mapRadius + 25, rr = Math.hypot(this.x, this.z);
     if (rr > R) { this.x *= R / rr; this.z *= R / rr; }
     const gr = groundAt(w, this.x, this.z, this.y + 60);

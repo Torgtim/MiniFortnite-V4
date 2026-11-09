@@ -91,6 +91,7 @@
         <button id="btnPlay" class="big">&nbsp;PLAY!&nbsp;</button>
         <button id="btnSettings">Settings...</button>
         <button id="btnMusic">&#9835; Music</button>
+        <button id="btnLocker">Locker...</button>
       </p>
       <p class="counter">Matches <span class="lcdc" id="stMatches">000000</span> Wins <span class="lcdc" id="stWins">0000</span> Kills <span class="lcdc" id="stKills">000000</span> Best <span class="lcdc" id="stBest">#--</span></p>
 
@@ -116,6 +117,20 @@
         <td><b>Did you know...</b><p id="tipText"></p></td>
       </tr></table>
       <p class="btnrow" style="text-align:right"><label style="float:left;font-size:14px"><input type="checkbox" id="tipShow"> Show tips at startup</label><button id="tipNext">Next Tip</button> <button id="tipClose">Close</button></p>
+    </td></tr>
+  </table>
+</div>
+
+<!-- ============================ LOCKER ============================ -->
+<div id="locker" class="screen center hidden">
+  <table class="win" cellspacing="0" cellpadding="0" style="width:470px">
+    <tr><td class="titlebar"><span>Locker - My Outfit</span><span class="tb"><b>X</b></span></td></tr>
+    <tr><td class="body">
+      <table cellspacing="0" cellpadding="4" width="100%"><tr>
+        <td width="130" valign="top"><canvas id="lockPrev" width="120" height="170" style="border:2px inset #fff"></canvas></td>
+        <td valign="top" id="lockBody"></td>
+      </tr></table>
+      <p class="btnrow"><button id="lockClose" class="big">OK</button></p>
     </td></tr>
   </table>
 </div>

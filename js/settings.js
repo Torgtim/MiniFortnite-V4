@@ -50,6 +50,8 @@ export const DEFAULTS = {
   tips: true,
   crosshair: 'cross',
   crosshairColor: '#ffffff',
+  autoPickup: true,
+  outfit: { shirt: '#ff8a1e', pants: '#23324a', accent: '#2f6bff', hair: '#5a3a1a', hat: 'cap' },
   botCount: 19,
   botDifficulty: 1,
   season: 1,
@@ -69,6 +71,7 @@ function load() {
     const raw = JSON.parse(localStorage.getItem(STORE) || localStorage.getItem('mfv4_settings_v1') || '{}');
     for (const k of Object.keys(DEFAULTS)) {
       if (k === 'keys') Object.assign(s.keys, raw.keys || {});
+      else if (k === 'outfit') Object.assign(s.outfit, raw.outfit || {});
       else if (raw[k] !== undefined && typeof raw[k] === typeof DEFAULTS[k]) s[k] = raw[k];
     }
   } catch (e) { /* ignore corrupt storage */ }

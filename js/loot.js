@@ -234,6 +234,16 @@ export class Loot {
   autoPickup(e) {
     for (let i = this.pickups.length - 1; i >= 0; i--) {
       const p = this.pickups[i];
+      if (p.kind === 'weapon' && e.isPlayer && this.game.settings.autoPickup && !p.dropped) {
+        // Fortnite-style: walk over a weapon with a free slot and it is yours
+        const dx = p.x - e.x, dz = p.z - e.z;
+        if (dx * dx + dz * dz < 1.6 && Math.abs(p.y - e.y) < 2 && e.slots.slice(1).some((s) => !s)) {
+          const wasPick = e.slot === 0;
+          e.giveWeapon(p.inst); this.remove(p); this.game.audio.play('pickup', e);
+          if (wasPick) for (let k = 1; k <= 5; k++) if (e.slots[k] === p.inst) { e.selectSlot(k); break; }
+        }
+        continue;
+      }
       if (p.kind !== 'ammo' && p.kind !== 'mats') continue;
       const dx = p.x - e.x, dz = p.z - e.z;
       if (dx * dx + dz * dz < 2.4 && Math.abs(p.y - e.y) < 2.5) {
@@ -279,7 +289,7 @@ export class Loot {
       if (old === p.inst) return false;
       this.remove(p);
       if (old) {
-        if (old.type === 'weapon') this.spawnWeapon(e.x + 0.6, e.y, e.z + 0.6, old);
+        if (old.type === 'weapon') this.spawnWeapon(e.x + 0.6, e.y, e.z + 0.6, old).dropped = true;
         else for (let k = 0; k < old.count; k++) this.spawnItem(e.x + 0.6 + k * 0.3, e.y, e.z + 0.6, old.id);
       }
       if (e.isPlayer) this.game.audio.play('pickup', e);
