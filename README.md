@@ -14,13 +14,13 @@ The menus *and* the HUD look like Windows 95, and there's an optional 1998 graph
 - Eliminations break the body into glowing pixels, and everything they carried drops: weapons, items, ammo and materials.
 
 ### Movement
-- Sprint (**Shift**, or turn on "sprint by default"), and crouch with **Ctrl**.
-- Sliding: press **Ctrl** while sprinting. Slopes speed you up, and you can slide-jump.
+- Sprint (**Shift**, or turn on "sprint by default"), and crouch with **C**. It's not on Ctrl because Ctrl+W closes the browser tab.
+- Sliding: press **C** while sprinting. Slopes speed you up, and you can slide-jump.
 - Mantling: jump at a ledge to climb up. Hurdling: jump while sprinting into a low wall to vault over it.
 - Fall damage only starts above about 7.5 m, like the real game.
 
 ### Building and editing
-- Four pieces: **wall (Z), floor (X), ramp (C), cone (V)**. Press **Q** to toggle build mode, and switch material (wood, brick or metal) with **T** or the right mouse button.
+- Four pieces: **wall (Z), floor (X), ramp (F), cone (V)**. Press **Q** to toggle build mode, and switch material (wood, brick or metal) with **T** or the right mouse button.
 - Pieces start weak and build up their health over time: wood is fast, metal is slow but strong.
 - Structural support: if you break what holds a structure up, the unsupported pieces collapse.
 - Edit mode (**G**): click or drag tiles, then press **G** to confirm. Right-click resets the piece.
@@ -69,7 +69,7 @@ The toggle bar in the lobby swaps the **entire map and loot pool**:
 |---|---|
 | WASD | move |
 | Shift | sprint |
-| Ctrl | crouch / slide |
+| C | crouch / slide |
 | Space | jump / glider / mantle |
 | Mouse | aim & fire |
 | Right mouse | aim down sights (in build mode: material; in edit mode: reset) |
@@ -77,7 +77,7 @@ The toggle bar in the lobby swaps the **entire map and loot pool**:
 | E | pick up / open |
 | R | reload |
 | Q | build mode |
-| Z X C V | wall, floor, ramp, cone |
+| Z X F V | wall, floor, ramp, cone |
 | G | edit |
 | T | material |
 | M | big map |

@@ -9,13 +9,13 @@ export const KEY_ACTIONS = [
   { id: 'right', label: 'Move right', def: 'KeyD' },
   { id: 'jump', label: 'Jump / glider / mantle', def: 'Space' },
   { id: 'sprint', label: 'Sprint', def: 'ShiftLeft' },
-  { id: 'crouch', label: 'Crouch / slide', def: 'ControlLeft' },
+  { id: 'crouch', label: 'Crouch / slide', def: 'KeyC' },
   { id: 'interact', label: 'Pick up / open', def: 'KeyE' },
   { id: 'reload', label: 'Reload', def: 'KeyR' },
   { id: 'buildMode', label: 'Build mode on/off', def: 'KeyQ' },
   { id: 'wall', label: 'Build: wall', def: 'KeyZ' },
   { id: 'floor', label: 'Build: floor', def: 'KeyX' },
-  { id: 'ramp', label: 'Build: ramp', def: 'KeyC' },
+  { id: 'ramp', label: 'Build: ramp', def: 'KeyF' },
   { id: 'cone', label: 'Build: cone (roof)', def: 'KeyV' },
   { id: 'edit', label: 'Edit build', def: 'KeyG' },
   { id: 'material', label: 'Cycle material', def: 'KeyT' },
@@ -72,6 +72,11 @@ function load() {
       else if (raw[k] !== undefined && typeof raw[k] === typeof DEFAULTS[k]) s[k] = raw[k];
     }
   } catch (e) { /* ignore corrupt storage */ }
+  // Ctrl+W closes the browser tab, so crouch must not live on Ctrl (old saves get moved)
+  if (s.keys.crouch === 'ControlLeft' || s.keys.crouch === 'ControlRight') {
+    s.keys.crouch = 'KeyC';
+    if (s.keys.ramp === 'KeyC') s.keys.ramp = 'KeyF';
+  }
   return s;
 }
 

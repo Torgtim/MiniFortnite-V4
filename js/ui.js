@@ -6,7 +6,7 @@ import { settings, saveSettings, resetSettings, applyPreset, KEY_ACTIONS, keyLab
 import { stats } from './stats.js';
 
 const TIPS = [
-  'Hold <b>Ctrl</b> while sprinting to <b>slide</b>. Sliding downhill makes you even faster, and you can jump out of a slide.',
+  'Press <b>C</b> while sprinting to <b>slide</b>. Sliding downhill makes you even faster, and you can jump out of a slide.',
   'Jump at a ledge to <b>mantle</b> up onto it. Sprint and jump at a low wall to <b>vault</b> over it.',
   'Hit the <b>blue circle</b> with your pickaxe for double materials. It moves after every hit!',
   'Press <b>G</b> while looking at your own build to <b>edit</b> it. Drag over tiles, then press G again. Right click resets.',
@@ -18,7 +18,7 @@ const TIPS = [
   'Sniper bullets <b>travel and drop</b>. Aim a little higher at long range.',
   'Chests <b>hum</b> when you are near. Listen!',
   'Press <b>B</b> to dance. The bots will dance on you too, so don\'t lose.',
-  'Crouch (<b>Ctrl</b>) for better accuracy. The crosshair shows how far your shots spread.',
+  'Crouch (<b>C</b>) for better accuracy. The crosshair shows how far your shots spread. (Crouch is not on Ctrl because Ctrl+W closes the browser tab!)',
   'Try <b>Graphics style: 1998</b> in Settings for that authentic 3D-accelerator-card look.',
   'Each season swaps the <b>whole map and loot pool</b>. Season 4 only has plasma weapons, and lava burns hard!',
   'Press <b>M</b> for the big map with the bus route, storm circles and supply drops.',
