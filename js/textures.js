@@ -139,6 +139,15 @@ export const TEX = {
       g.fillStyle = '#8a8a8a'; g.fillRect(x, 0, 1, S); g.fillRect(x, Math.floor(r() * S), 8, 1);
     }
   }),
+  twigs: () => make('twigs', 64, (g, S, r) => {
+    g.clearRect(0, 0, S, S);
+    g.lineWidth = 2;
+    for (let i = 0; i < 70; i++) {
+      g.strokeStyle = ['#8a6a34', '#a8844a', '#6e5228', '#c0a060'][Math.floor(r() * 4)];
+      g.beginPath(); const x = r() * S, y = r() * S, a = r() * Math.PI * 2, l = 6 + r() * 16;
+      g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke();
+    }
+  }),
   crate: () => make('crate', 32, (g, S) => {
     g.fillStyle = '#e8b020'; g.fillRect(0, 0, S, S);
     g.fillStyle = '#9a6a10'; g.fillRect(0, 0, S, 3); g.fillRect(0, S - 3, S, 3); g.fillRect(0, 0, 3, S); g.fillRect(S - 3, 0, 3, S);

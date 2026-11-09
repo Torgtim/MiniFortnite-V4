@@ -119,7 +119,9 @@ export class Player extends Entity {
       if (this.ads) speed *= 0.6;
       if (liq && liq.type !== 'lava' && !this.swimming) speed *= 0.6;
       if (this.held && this.held.type === 'item' && this.useT > 0) speed *= 0.55;
-      const k = Math.min(1, dt * (this.grounded ? 14 : 2.8));
+      const onIce = this.grounded && !this.swimming && w.iceAt(this.x, this.z, this.y);
+      if (onIce) speed *= 1.15;
+      const k = Math.min(1, dt * (onIce ? 1.4 : this.grounded ? 14 : 2.8));
       this.vx += (wx * speed - this.vx) * k;
       this.vz += (wz * speed - this.vz) * k;
     }

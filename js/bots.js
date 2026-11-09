@@ -527,7 +527,8 @@ export class Bot extends Entity {
     const liq = w.liquidAt(this.x, this.z, this.y + 0.2);
     let sp = liq && liq.type !== 'lava' ? speed * 0.6 : speed;
     if (this.crouch) sp = Math.min(sp, 3.4);
-    const k = Math.min(1, dt * (this.grounded ? 12 : 3));
+    const onIce = this.grounded && !this.swimming && w.iceAt(this.x, this.z, this.y);
+    const k = Math.min(1, dt * (onIce ? 1.6 : this.grounded ? 12 : 3));
     this.vx += (wx * sp - this.vx) * k;
     this.vz += (wz * sp - this.vz) * k;
     stepEntity(w, this, dt);

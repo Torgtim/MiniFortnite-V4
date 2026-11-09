@@ -103,6 +103,7 @@ export class World {
     this._scatterProps();
     this._scatterDecor(opts.decor === undefined ? 1 : opts.decor);
     this.shaking = [];
+    this._tumbleweeds(this.season.tumbleweeds || 0);
     this.minimap = this._renderMinimap(192);
   }
 
@@ -474,6 +475,43 @@ export class World {
     }
   }
 
+  /** Is (x,z) slippery ice at ground height h? */
+  iceAt(x, z, h) { return !!(this.season.ice && this.season.ice(x, z, h)); }
+
+  /** Dustbowl: tumbleweeds rolling with the wind (visual only). */
+  _tumbleweeds(n) {
+    this.tumble = [];
+    if (!n) return;
+    const rnd = mulberry32(777);
+    const tw = TEX.twigs(); tw.repeat.set(2, 2);
+    const m = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.55, 2), new THREE.MeshLambertMaterial({ map: tw, alphaTest: 0.4, side: THREE.DoubleSide, transparent: false }), n);
+    for (let i = 0; i < n; i++) {
+      const p = this.randomLandPoint(rnd);
+      this.tumble.push({ x: p.x, z: p.z, s: 0.6 + rnd() * 0.6, sp: 2.5 + rnd() * 3, rot: rnd() * 6, ph: rnd() * 6, dz: (rnd() - 0.5) * 0.4 });
+    }
+    m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    m.castShadow = true;
+    this.tumbleMesh = m;
+    this.group.add(m);
+  }
+
+  _updateTumble(dt, time) {
+    if (!this.tumbleMesh) return;
+    const d = this._td || (this._td = new THREE.Object3D());
+    this.tumble.forEach((t, i) => {
+      t.x += t.sp * dt; t.z += t.sp * t.dz * dt; t.rot += t.sp * dt / (0.55 * t.s);
+      if (Math.hypot(t.x, t.z) > MAP_R - 5 || this.heightAt(t.x, t.z) < this.liquidY + 0.3) { t.x = -Math.abs(t.x) * 0.9 + (Math.random() - 0.5) * 20; t.z *= 0.9; }
+      const g = this.heightAt(t.x, t.z);
+      const hop = Math.abs(Math.sin(time * t.sp * 0.8 + t.ph)) * 0.6;
+      d.position.set(t.x, g + 0.55 * t.s + hop, t.z);
+      d.rotation.set(0, 0, -t.rot);
+      d.scale.setScalar(t.s);
+      d.updateMatrix();
+      this.tumbleMesh.setMatrixAt(i, d.matrix);
+    });
+    this.tumbleMesh.instanceMatrix.needsUpdate = true;
+  }
+
   /** Remove a harvested resource node (hides its instances and drops its collider). */
   destroyNode(node) {
     const m4 = new THREE.Matrix4().makeScale(0, 0, 0);
@@ -491,6 +529,7 @@ export class World {
 
   update(dt, time) {
     if (this.liquidMesh) this.liquidMesh.userData.mat.uniforms.uTime.value = time;
+    this._updateTumble(dt, time);
     if (!this.shaking.length) return;
     const q = new THREE.Quaternion(), e = new THREE.Euler(), m4 = new THREE.Matrix4(), p = new THREE.Vector3(), sc = new THREE.Vector3();
     for (let i = this.shaking.length - 1; i >= 0; i--) {

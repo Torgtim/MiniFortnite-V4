@@ -18,6 +18,8 @@ The menus *and* the HUD look like Windows 95, and there's an optional 1998 graph
 - Sliding: press **C** while sprinting. Slopes speed you up, and you can slide-jump.
 - Mantling: jump at a ledge to climb up. Hurdling: jump while sprinting into a low wall to vault over it.
 - Fall damage only starts above about 7.5 m, like the real game.
+- Swimming in water and quicksand (you can't shoot or build while swimming). Lava throws you back up, Season 8 style.
+- The frozen lake in Frostbite is slippery ice.
 
 ### Building and editing
 - Four pieces: **wall (Z), floor (X), ramp (F), cone (V)**. Press **Q** to toggle build mode, and switch material (wood, brick or metal) with **T** or the right mouse button.
@@ -43,6 +45,8 @@ The menus *and* the HUD look like Windows 95, and there's an optional 1998 graph
 - They hear gunfire and come looking.
 - They choose weapons by range, and their aim settles over time and leads moving targets.
 - They wall up when they get shot, ramp-rush you when you're above them, and box up to heal.
+- They **box-fight**: they edit a window into their box, peek and shoot, then close it again.
+- They run and build walls behind them when they're low with no heals.
 - They shoot through your builds, throw grenades at you when you hide, and mantle over obstacles.
 - They go through doors into houses, and edit a door into their own box when they want out.
 
@@ -54,8 +58,8 @@ Every map also has a three-storey **lookout tower** near the middle, with ramps 
 | Season | Map | Liquid | Weapons |
 |---|---|---|---|
 | Greenfield | hills and a lake | water | classic |
-| Frostbite | snow and a frozen lake | icy water (hurts) | cold weapons |
-| Dustbowl | mesas and cacti | quicksand | wild west |
+| Frostbite | snow and a slippery frozen lake | icy water (hurts) | cold weapons |
+| Dustbowl | mesas, cacti and tumbleweeds | quicksand | wild west |
 | Neon Meltdown | volcano with neon crystals | lava (hurts a lot) | plasma weapons only |
 
 ### Extras

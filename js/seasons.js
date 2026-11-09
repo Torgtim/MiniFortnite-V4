@@ -92,6 +92,8 @@ export const SEASONS = [
       return h;
     },
     avoid: (x, z) => Math.hypot(x - 40, z + 50) < 50,
+    // the frozen lake is slippery
+    ice: (x, z, h) => Math.hypot(x - 40, z + 50) < 37 && h < 0.8,
     ground(h, slope, x, z, n, liquidY) {
       const v = n.noise(x * 0.1, z * 0.1);
       let c = mix(C('#f3f7fb'), C('#dfe9f2'), v).clone();
@@ -165,6 +167,7 @@ export const SEASONS = [
       { geo: ico(0.2, 0.06).scale(1, 0.6, 1), colors: ['#b5602f', '#c97b3e', '#9a5028'], count: 700, scale: [0.6, 1.8] },
       { geo: cone(0.07, 0.4, 3, 0.2), colors: ['#d8c070', '#c0b060'], count: 900, scale: [0.6, 1.3] },
     ],
+    tumbleweeds: 22,
     weapons: [['revolver', 13], ['lever', 11], ['pump', 12], ['tommy', 13], ['scoped_ar', 10], ['grenade', 5]],
     items: {
       heal_s: { name: 'Water Canteen', color: '#6ab8ff', w: 30 }, heal_l: { name: 'Doc\'s Kit', color: '#ff5a3d', w: 10 },
