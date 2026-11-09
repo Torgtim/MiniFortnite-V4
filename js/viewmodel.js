@@ -4,9 +4,9 @@
 // "sentinel" mesh clears depth right before the viewmodel meshes render (they are all in
 // the transparent queue with a high renderOrder, so they come after the whole world).
 
-import * as THREE from '../lib/three.module.min.js?v=42';
-import { weaponStats, ITEM_KINDS } from './weapons.js?v=42';
-import { buildGunModel, setGunRarity } from './gunmodels.js?v=42';
+import * as THREE from '../lib/three.module.min.js?v=43';
+import { weaponStats, ITEM_KINDS } from './weapons.js?v=43';
+import { buildGunModel, setGunRarity } from './gunmodels.js?v=43';
 
 const ORDER = 1000;
 // Weapons with at least this zoom use the full-screen 2D scope overlay (see hud.js / main.js).

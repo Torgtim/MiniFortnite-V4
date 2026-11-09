@@ -3,6 +3,10 @@
 const STORE = 'mfv4_settings_v2';
 
 export const KEY_ACTIONS = [
+  { id: 'fire', label: 'Shoot / place build / edit', def: 'Mouse0' },
+  { id: 'aim', label: 'Aim / build material / edit reset', def: 'Mouse2' },
+  { id: 'nextSlot', label: 'Next weapon / build piece', def: 'WheelDown' },
+  { id: 'prevSlot', label: 'Previous weapon / build piece', def: 'WheelUp' },
   { id: 'forward', label: 'Move forward', def: 'KeyW' },
   { id: 'back', label: 'Move back', def: 'KeyS' },
   { id: 'left', label: 'Move left', def: 'KeyA' },
@@ -110,6 +114,10 @@ export function resetSettings() {
   saveSettings();
 }
 
+const MOUSE_NAMES = { Mouse0: 'LEFT MOUSE', Mouse1: 'MIDDLE MOUSE', Mouse2: 'RIGHT MOUSE', Mouse3: 'MOUSE 4', Mouse4: 'MOUSE 5', WheelUp: 'WHEEL UP', WheelDown: 'WHEEL DOWN' };
+
 export function keyLabel(code) {
+  if (!code) return '-';
+  if (MOUSE_NAMES[code]) return MOUSE_NAMES[code];
   return code.replace(/^Key/, '').replace(/^Digit/, '').replace('Left', ' L').replace('Right', ' R').replace('Space', 'SPACE').replace('Control', 'CTRL').replace('CapsLock', 'CAPS');
 }

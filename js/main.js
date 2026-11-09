@@ -1,29 +1,29 @@
 // Game orchestration: renderer, match lifecycle (bus -> drop -> storm), input, cameras, main loop.
 
-import * as THREE from '../lib/three.module.min.js?v=42';
-import { SEASONS } from './seasons.js?v=42';
-import { World } from './world.js?v=42';
-import { Player } from './player.js?v=42';
-import { Bot, BOT_NAMES } from './bots.js?v=42';
-import { Combat } from './combat.js?v=42';
-import { Loot } from './loot.js?v=42';
-import { BuildSystem } from './build.js?v=42';
-import { EditSystem } from './edit.js?v=42';
-import { Storm } from './storm.js?v=42';
-import { Bus } from './bus.js?v=42';
-import { Sky } from './sky.js?v=42';
-import { FX } from './fx.js?v=42';
-import { Gadgets } from './gadgets.js?v=42';
-import { RetroPass } from './retro.js?v=42';
-import { BloomPass } from './bloom.js?v=42';
-import { HUD } from './hud.js?v=42';
-import { UI } from './ui.js?v=42';
-import { ViewModel } from './viewmodel.js?v=42';
-import { GameAudio } from './audio.js?v=42';
-import { settings, saveSettings, onSettingsChange } from './settings.js?v=42';
-import { ITEM_KINDS, RARITIES, weaponStats, WEAPONS } from './weapons.js?v=42';
-import { mulberry32, clamp, dirFromAngles } from './util.js?v=42';
-import { recordMatch } from './stats.js?v=42';
+import * as THREE from '../lib/three.module.min.js?v=43';
+import { SEASONS } from './seasons.js?v=43';
+import { World } from './world.js?v=43';
+import { Player } from './player.js?v=43';
+import { Bot, BOT_NAMES } from './bots.js?v=43';
+import { Combat } from './combat.js?v=43';
+import { Loot } from './loot.js?v=43';
+import { BuildSystem } from './build.js?v=43';
+import { EditSystem } from './edit.js?v=43';
+import { Storm } from './storm.js?v=43';
+import { Bus } from './bus.js?v=43';
+import { Sky } from './sky.js?v=43';
+import { FX } from './fx.js?v=43';
+import { Gadgets } from './gadgets.js?v=43';
+import { RetroPass } from './retro.js?v=43';
+import { BloomPass } from './bloom.js?v=43';
+import { HUD } from './hud.js?v=43';
+import { UI } from './ui.js?v=43';
+import { ViewModel } from './viewmodel.js?v=43';
+import { GameAudio } from './audio.js?v=43';
+import { settings, saveSettings, onSettingsChange, keyLabel } from './settings.js?v=43';
+import { ITEM_KINDS, RARITIES, weaponStats, WEAPONS } from './weapons.js?v=43';
+import { mulberry32, clamp, dirFromAngles } from './util.js?v=43';
+import { recordMatch } from './stats.js?v=43';
 
 const SUN_DIR = new THREE.Vector3(0.45, 0.8, 0.3).normalize();
 
@@ -384,21 +384,23 @@ class Game {
 
   // ------------------------------------------------------------------ input
   bindInput() {
-    const down = (e) => {
-      if (this.ui.captureKey(e.code)) { e.preventDefault(); return; }
+    // Every input becomes a "code": keyboard e.code, 'Mouse0'..'Mouse4' for mouse buttons and
+    // 'WheelUp' / 'WheelDown' for the scroll wheel, so any action can be bound to any of them.
+    const down = (c, repeat = false, e = null) => {
+      if (this.ui.captureKey(c)) { if (e) e.preventDefault(); return; }
       if (this.mode === 'lobby') return;
       const p = this.player;
-      const K = settings.keys, c = e.code;
-      if (c === 'Tab' || c === K.crouch || c === 'Space') e.preventDefault();
-      if (c === K.map && !e.repeat) { this.bigMap = !this.bigMap; return; }
+      const K = settings.keys;
+      if (e && (c === 'Tab' || c === K.crouch || c === 'Space')) e.preventDefault();
+      if (c === K.map && !repeat) { this.bigMap = !this.bigMap; return; }
       if ((c === 'Escape' || c === 'KeyP') && this.mode === 'playing' && !this.paused) {
         if (document.pointerLockElement) document.exitPointerLock(); // pointerlockchange opens the pause menu
         else { this.paused = true; this.ui.showPause(true); }
         return;
       }
       if (this.mode === 'spectating') {
-        if (c === 'ArrowRight' || c === 'KeyD') this.cycleSpectate(1);
-        if (c === 'ArrowLeft' || c === 'KeyA') this.cycleSpectate(-1);
+        if (c === 'ArrowRight' || c === 'KeyD' || c === K.fire || c === 'WheelDown') this.cycleSpectate(1);
+        if (c === 'ArrowLeft' || c === 'KeyA' || c === K.aim || c === 'WheelUp') this.cycleSpectate(-1);
         return;
       }
       if (!p || !p.alive || this.paused || !document.pointerLockElement) return;
@@ -407,12 +409,20 @@ class Game {
       else if (c === K.left) p.input.l = 1;
       else if (c === K.right) p.input.r = 1;
       else if (c === K.sprint) p.input.sprint = true;
-      else if (c === K.crouch) { p.input.crouch = true; if (!e.repeat) p.crouchToggle = !p.crouchToggle; }
-      else if (c === K.jump) { p.input.jump = true; if (!e.repeat) p.pressJump(); }
-      if (e.repeat) return;
+      else if (c === K.crouch) { p.input.crouch = true; if (!repeat) p.crouchToggle = !p.crouchToggle; }
+      else if (c === K.jump) { p.input.jump = true; if (!repeat) p.pressJump(); }
+      if (repeat) return;
+      if (c === K.fire) { if (this.edit.active) this.edit.press(true); else p.mouseLeft = true; return; }
+      if (c === K.aim) {
+        if (this.edit.active) this.edit.reset();
+        else if (this.build.active) this.build.cycleMaterial();
+        else this.rightDown = true;
+        return;
+      }
       if (c === K.camera) { settings.thirdPerson = !settings.thirdPerson; saveSettings(); return; }
       if (c === K.emote && !p.airborne) { this.build.setActive(false); this.edit.cancel(); p.emote(); return; }
       if (p.airborne) return;
+      if (c === K.nextSlot || c === K.prevSlot) { this.cycleSlot(c === K.nextSlot ? 1 : -1); return; }
       if (c === K.interact) this.interact();
       else if (c === K.reload) p.startReload();
       else if (c === K.edit) {
@@ -427,10 +437,10 @@ class Game {
       else if (c === K.pickaxe) { this.build.setActive(false); this.edit.cancel(); p.selectSlot(p.slot === 0 ? (p.lastSlot || 1) : 0); }
       else if (/^Digit[1-5]$/.test(c)) { this.build.setActive(false); this.edit.cancel(); p.selectSlot(+c[5]); }
     };
-    const up = (e) => {
+    const up = (c) => {
       const p = this.player;
       if (!p) return;
-      const K = settings.keys, c = e.code;
+      const K = settings.keys;
       if (c === K.forward) p.input.f = 0;
       else if (c === K.back) p.input.b = 0;
       else if (c === K.left) p.input.l = 0;
@@ -438,9 +448,11 @@ class Game {
       else if (c === K.sprint) p.input.sprint = false;
       else if (c === K.crouch) p.input.crouch = false;
       else if (c === K.jump) p.input.jump = false;
+      if (c === K.fire) { p.mouseLeft = false; if (this.edit.active) this.edit.press(false); }
+      if (c === K.aim) this.rightDown = false;
     };
-    addEventListener('keydown', down);
-    addEventListener('keyup', up);
+    addEventListener('keydown', (e) => down(e.code, e.repeat, e));
+    addEventListener('keyup', (e) => up(e.code));
     addEventListener('blur', () => { const p = this.player; if (p) p.resetInput(); this.rightDown = false; });
 
     addEventListener('mousemove', (e) => {
@@ -452,36 +464,31 @@ class Game {
       p.pitch = clamp(p.pitch, -1.5, 1.5);
     });
     addEventListener('mousedown', (e) => {
-      if (this.mode === 'spectating') { this.cycleSpectate(e.button === 2 ? -1 : 1); return; }
-      const p = this.player;
-      if (this.mode !== 'playing' || !p) return;
-      if (!document.pointerLockElement) { if (!this.paused && e.target === this.canvas) this.lockPointer(); return; }
-      if (this.edit.active) {
-        if (e.button === 0) this.edit.press(true);
-        if (e.button === 2) this.edit.reset();
+      const c = 'Mouse' + e.button;
+      // middle click autoscroll and side-button "back/forward" must not leave the game
+      if (e.button === 1 || e.button > 2) e.preventDefault();
+      if (this.ui.rebinding) { if (this.ui.captureKey(c)) e.preventDefault(); return; }
+      if (this.mode === 'playing' && this.player && !document.pointerLockElement) {
+        if (!this.paused && e.target === this.canvas) this.lockPointer();
         return;
       }
-      if (e.button === 0) p.mouseLeft = true;
-      if (e.button === 2) { if (this.build.active) this.build.cycleMaterial(); else this.rightDown = true; }
+      if (this.mode === 'spectating') { this.cycleSpectate(e.button === 2 ? -1 : 1); return; }
+      down(c, false, null);
     });
     addEventListener('mouseup', (e) => {
-      const p = this.player;
-      if (!p) return;
-      if (e.button === 0) { p.mouseLeft = false; if (this.edit.active) this.edit.press(false); }
-      if (e.button === 2) this.rightDown = false;
+      if (e.button === 1 || e.button > 2) e.preventDefault();
+      up('Mouse' + e.button);
     });
     addEventListener('contextmenu', (e) => e.preventDefault());
     addEventListener('wheel', (e) => {
-      const p = this.player;
-      if (this.mode !== 'playing' || !p || !p.alive || !document.pointerLockElement || p.airborne) return;
-      if (this.build.active) {
-        if (e.deltaY !== 0) { const i = ['wall', 'floor', 'ramp', 'cone'].indexOf(this.build.type); this.build.setType(['wall', 'floor', 'ramp', 'cone'][(i + (e.deltaY > 0 ? 1 : 3)) % 4]); }
-        return;
-      }
-      // the wheel cycles weapon slots 1-5 only (the pickaxe lives on its own key)
-      const from = p.slot === 0 ? (p.lastSlot || 1) - (e.deltaY > 0 ? 1 : -1) : p.slot;
-      p.selectSlot(((from - 1 + (e.deltaY > 0 ? 1 : 4)) % 5 + 5) % 5 + 1);
-    }, { passive: true });
+      if (e.deltaY === 0) return;
+      const c = e.deltaY < 0 ? 'WheelUp' : 'WheelDown';
+      if (this.ui.rebinding) { e.preventDefault(); this.ui.captureKey(c); return; }
+      if (this.mode === 'lobby' || (this.mode === 'playing' && !document.pointerLockElement)) return;
+      // a wheel "click" is a press and an instant release
+      down(c, false, null);
+      up(c);
+    }, { passive: false });
 
     document.addEventListener('pointerlockchange', () => {
       if (!document.pointerLockElement && this.mode === 'playing' && !this.paused) {
@@ -492,6 +499,19 @@ class Game {
         this.ui.showPause(true);
       }
     });
+  }
+
+  /** Scroll through weapon slots 1-5 (the pickaxe lives on its own key); in build mode scroll pieces. */
+  cycleSlot(dir) {
+    const p = this.player;
+    if (this.build.active) {
+      const T = ['wall', 'floor', 'ramp', 'cone'], i = T.indexOf(this.build.type);
+      this.build.setType(T[(i + (dir > 0 ? 1 : 3)) % 4]);
+      return;
+    }
+    if (this.edit.active) return;
+    const from = p.slot === 0 ? (p.lastSlot || 1) - dir : p.slot;
+    p.selectSlot(((from - 1 + (dir > 0 ? 1 : 4)) % 5 + 5) % 5 + 1);
   }
 
   interact() {
@@ -733,7 +753,7 @@ class Game {
   }
 }
 
-function keyName(code) { return code.replace('Key', '').replace('Space', 'SPACE'); }
+function keyName(code) { return keyLabel(code); }
 
 // let the boot screen paint before the (synchronous) first island build
 requestAnimationFrame(() => setTimeout(() => {

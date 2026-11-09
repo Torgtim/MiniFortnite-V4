@@ -1,9 +1,9 @@
 // Menus: lobby (season switcher), settings, pause and result windows.
 
-import { SEASONS } from './seasons.js?v=42';
-import { WEAPONS, AMMO } from './weapons.js?v=42';
-import { settings, saveSettings, resetSettings, applyPreset, KEY_ACTIONS, keyLabel } from './settings.js?v=42';
-import { stats } from './stats.js?v=42';
+import { SEASONS } from './seasons.js?v=43';
+import { WEAPONS, AMMO } from './weapons.js?v=43';
+import { settings, saveSettings, resetSettings, applyPreset, KEY_ACTIONS, keyLabel } from './settings.js?v=43';
+import { stats } from './stats.js?v=43';
 
 const TIPS = [
   'Press <b>C</b> while sprinting to <b>slide</b>. Sliding downhill makes you even faster, and you can jump out of a slide.',
@@ -305,13 +305,12 @@ export class UI {
       b.className = 'keybtn'; b.textContent = keyLabel(settings.keys[a.id]);
       b.onclick = () => {
         this.rebinding = { action: a.id, btn: b };
-        b.textContent = 'press a key…';
+        b.textContent = 'press a key / button…';
       };
       return this._row(a.label, b);
     });
-    keyRows.push(this._row('Hotbar slots', Object.assign(document.createElement('span'), { textContent: '1-5 / mouse wheel' })));
-    keyRows.push(this._row('Edit: reset / build: material', Object.assign(document.createElement('span'), { textContent: 'right mouse button' })));
-    section('Controls (click, then press a key)', keyRows);
+    keyRows.push(this._row('Weapon slots', Object.assign(document.createElement('span'), { textContent: '1 - 5' })));
+    section('Controls (click, then press a key, mouse button or scroll)', keyRows);
   }
 
   /** Called by the game's keydown handler while a rebind is pending. Returns true when consumed. */

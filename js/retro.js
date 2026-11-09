@@ -1,7 +1,7 @@
 // "1998 mode": renders the scene into a small render target and blows it up with chunky
 // pixels, 15-bit colour and ordered (Bayer) dithering, plus optional CRT scanlines.
 
-import * as THREE from '../lib/three.module.min.js?v=42';
+import * as THREE from '../lib/three.module.min.js?v=43';
 
 const FRAG = /* glsl */`
 uniform sampler2D tScene;

@@ -5,8 +5,8 @@
 //
 // Convention: the grip (hand) is at the origin, the barrel points down -Z, +Y is up.
 
-import * as THREE from '../lib/three.module.min.js?v=42';
-import { RARITIES } from './weapons.js?v=42';
+import * as THREE from '../lib/three.module.min.js?v=43';
+import { RARITIES } from './weapons.js?v=43';
 
 // ---- palette
 const C = {
