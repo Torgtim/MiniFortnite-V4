@@ -154,6 +154,11 @@ export class Bot extends Entity {
     const inDanger = outside || (st.state === 'shrinking' && Math.hypot(this.x - st.cx, this.z - st.cz) > st.r - 8);
     const rotateNow = st.state === 'waiting' && toC > st.toR - 4 && st.timeLeft < travel + 8 + (1 - this.skill) * 6;
 
+    // far outside the storm with a sky portal? rift out and glide to safety
+    if (outside && toC - st.toR > 55) {
+      const ri = this.slots.findIndex((q, i) => i > 0 && q && q.type === 'item' && q.id === 'rift');
+      if (ri > 0) { this.dropTarget = { x: st.toX, z: st.toZ }; g.gadgets.use(this, ri); return; }
+    }
     if (this.boxPlan) this.mode = 'box';
     else if (this.healing) { this.mode = 'heal'; this.goal = null; }
     else if ((inDanger || rotateNow) && !(this.enemy && visible && dist < 18 && !outside)) {
@@ -231,6 +236,7 @@ export class Bot extends Entity {
     let have = 0;
     for (let i = 1; i <= 5; i++) { const s = this.slots[i]; if (s && s.type === 'item' && s.id === id) have += s.count; }
     if (have >= (k.stack || 3)) return false;
+    if (k.gadget === 'rift') return have < 1;
     return !!(k.hp || k.sh || k.throw);
   }
 

@@ -56,12 +56,22 @@ The toggle bar in the lobby swaps the **entire map and loot pool**:
 | Dustbowl | mesas and cacti | quicksand | wild west |
 | Neon Meltdown | volcano with neon crystals | lava (hurts a lot) | plasma weapons only |
 
+### Extras
+- Bounce pads launch you up and open your glider. Sky portals (like a Rift-To-Go) put you into a fresh skydive, and bots use them to escape the storm.
+- Emotes on **B**, with an original 90s dance. Bots dance after their kills too.
+- Victory Royale: the camera circles your character while you dance.
+- Red damage-direction arcs, a crosshair that widens with spread, and footsteps you can hear.
+- Inside the storm the whole world turns into purple haze.
+- Auto pick up weapons (when you have a free slot).
+- **Locker**: pick your shirt, pants, backpack, glider, hair and hat colours.
+- Lobby extras: chiptune music (one loop per season), Tip of the Day, and a hit-counter of your matches, wins and kills.
+
 ### Settings
 - Sensitivity, ADS sensitivity, invert Y, FOV.
 - Camera mode, sprint by default, toggle crouch, confirm edit on release.
 - Bot count and difficulty.
 - Quality preset, render scale, draw distance, grass density, shadows, clouds and weather.
-- **Graphics style: Modern or 1998** (chunky pixels, 15-bit colour, dithering, scanlines).
+- **Graphics style: Modern or 1998** (chunky pixels, 15-bit colour, dithering, scanlines), plus bloom (glow).
 - Crosshair, volume, and every key can be rebound. Settings are saved in localStorage.
 
 ## Controls (defaults)
@@ -81,6 +91,7 @@ The toggle bar in the lobby swaps the **entire map and loot pool**:
 | G | edit |
 | T | material |
 | M | big map |
+| B | emote |
 | H | 1st / 3rd person |
 | Esc / P | pause |
 
@@ -96,7 +107,7 @@ The toggle bar in the lobby swaps the **entire map and loot pool**:
 - `js/loot.js` covers pickups, chests, ammo boxes and supply drops.
 - `js/storm.js` is the storm and `js/bus.js` is the Party Bus.
 - `js/hud.js`, `js/ui.js` and `js/settings.js` are the Windows 95 HUD, the menus and the settings.
-- `js/fx.js` is particles, `js/retro.js` is the 1998 render pass, `js/textures.js` makes the procedural pixel textures, `js/audio.js` is the synthesised sound and `js/viewmodel.js` is the first-person gun.
+- `js/fx.js` is particles, `js/bloom.js` is the glow pass, `js/retro.js` is the 1998 render pass, `js/gadgets.js` holds the pads and portals, `js/stats.js` the career stats, `js/textures.js` makes the procedural pixel textures, `js/audio.js` is the synthesised sound and `js/viewmodel.js` is the first-person gun.
 - `lib/` holds vendored, minified Three.js.
 
 To run it locally, start `python3 -m http.server` and open `http://localhost:8000`.
