@@ -220,6 +220,17 @@ export class CharacterModel {
       return;
     }
     this.dance = 0;
+    if (s.swim) {
+      const t = this.walk * 0.6, st = Math.sin(t);
+      P.hips.position.y += (0.92 - P.hips.position.y) * Math.min(1, dt * 8);
+      this.root.rotation.x += (-0.5 - this.root.rotation.x) * Math.min(1, dt * 5);
+      lerpR(P.torso, 0, 0, 0); lerpR(P.neck, 0.45, 0, 0);
+      lerpR(P.armL, 2.6 + st * 0.5, 0, 0.6 + st * 0.5, 10); lerpR(P.armR, 2.6 + st * 0.5, 0, -0.6 - st * 0.5, 10);
+      lerpR(P.legL, -0.3 + st * 0.5, 0, 0, 12); lerpR(P.legR, -0.3 - st * 0.5, 0, 0, 12);
+      for (const k in this.guns) this.guns[k].visible = false;
+      this.pick.visible = false; this.itemCube.visible = false; this.heldKey = '';
+      return;
+    }
 
     if (s.air === 'fall') {
       rootPitch = -1.25; legLx = 0.2 + Math.sin(this.walk * 0.5) * 0.15; legRx = 0.2 - Math.sin(this.walk * 0.5) * 0.15;

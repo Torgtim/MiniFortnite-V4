@@ -9,6 +9,7 @@ export const CROUCH_H = 1.2;
 export const STEP = 0.65;
 export const GRAVITY = 24;
 export const FALL_SAFE = 19;   // landing speed (m/s) below which a fall does no damage (~7.5 m)
+export const SWIM_DEPTH = 1.25; // how deep the feet hang below the water surface while swimming
 
 export { colliderTop };
 
@@ -96,20 +97,26 @@ export function stepEntity(world, e, dt) {
   }
 
   const g = groundAt(world, e.x, e.z, e.y);
+  // deep water / quicksand: float with the head above the surface (swimming)
+  const liq = world.season.liquid;
+  const floatY = world.liquidY - SWIM_DEPTH;
+  const deep = liq && liq.type !== 'lava' && g < floatY - 0.05;
+  const floor = deep ? floatY : g;
   e.landSpeed = 0;
-  if (e.vy <= 0 && ny <= g) {
-    if (!wasGrounded) { e.landSpeed = -e.vy; if (-e.vy > FALL_SAFE && e.onFall) e.onFall(-e.vy); }
-    e.y = g;
+  if (e.vy <= 0 && ny <= floor) {
+    if (!wasGrounded) { e.landSpeed = -e.vy; if (!deep && -e.vy > FALL_SAFE && e.onFall) e.onFall(-e.vy); }
+    e.y = floor;
     e.vy = 0;
     e.grounded = true;
-  } else if (wasGrounded && e.vy <= 0 && e.y - g >= 0 && e.y - g <= 0.5) {
-    e.y = g; // stick to the ground when walking downhill / down stairs
+  } else if (wasGrounded && e.vy <= 0 && e.y - floor >= 0 && e.y - floor <= 0.5) {
+    e.y = floor; // stick to the ground when walking downhill / down stairs
     e.vy = 0;
     e.grounded = true;
   } else {
     e.y = ny;
     e.grounded = false;
   }
+  e.swimming = deep && e.grounded && Math.abs(e.y - floatY) < 0.05;
   return blocked;
 }
 

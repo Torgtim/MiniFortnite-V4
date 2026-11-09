@@ -508,6 +508,7 @@ export class Bot extends Entity {
     if (this.grounded) this.padLaunch = false;
     this.moving = len > 0.01 && speed > 0;
 
+    if (this.swimming) this.wantFire = false;
     g.combat.update_shooter(this, dt);
     this.animateModel(dt);
     const pl = g.player;

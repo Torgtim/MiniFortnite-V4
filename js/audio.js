@@ -137,7 +137,7 @@ export class GameAudio {
     const p = this.game.player;
     if (pos && p && pos !== p && pos.x !== undefined && this.game.mode !== 'lobby') {
       const d = Math.hypot(pos.x - p.x, pos.z - p.z);
-      v = clamp(1 - d / (name === 'step' ? 32 : 110), 0, 1);
+      v = clamp(1 - d / (name === 'step' || name === 'splash' ? 32 : 110), 0, 1);
       v *= v;
       if (v < 0.02) return;
     }
@@ -180,6 +180,8 @@ export class GameAudio {
       case 'glider': this._noise(0.4, 300, 0.5, 0.15, 'lowpass'); break;
       case 'pad': this._tone(200, 0.35, 'square', 0.2 * v, 900); this._noise(0.2, 1200, 0.8, 0.2 * v); break;
       case 'rift': this._tone(300, 0.6, 'sine', 0.25 * v, 1600); this._tone(450, 0.6, 'triangle', 0.15 * v, 2200); break;
+      case 'splash': this._noise(0.18, 900, 0.7, 0.18 * v + 0.02, 'lowpass'); break;
+      case 'sizzle': this._noise(0.35, 3000, 0.5, 0.3 * v, 'highpass'); this._tone(200, 0.2, 'sawtooth', 0.1 * v, 600); break;
       case 'step': if (v > 0.08) this._noise(0.05, 260 + Math.random() * 120, 1.2, 0.22 * v * v + 0.02, 'lowpass'); break;
       case 'step_me': this._noise(0.04, 300 + Math.random() * 100, 1.2, 0.06, 'lowpass'); break;
       case 'emote': [523, 659, 784, 659, 523, 784, 1046].forEach((f, i) => setTimeout(() => this.ctx && this._tone(f, 0.12, 'square', 0.08 * v), i * 140)); break;

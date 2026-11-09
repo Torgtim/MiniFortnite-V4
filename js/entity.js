@@ -187,7 +187,8 @@ export class Entity {
     const stride = this.crouch ? 2.6 : 1.7;
     if (this.stepAcc > stride) {
       this.stepAcc = 0;
-      if (!this.crouch || this.isPlayer) this.game.audio.play(this.isPlayer ? 'step_me' : 'step', this);
+      if (this.swimming) this.game.audio.play('splash', this);
+      else if (!this.crouch || this.isPlayer) this.game.audio.play(this.isPlayer ? 'step_me' : 'step', this);
     }
   }
 
@@ -208,7 +209,7 @@ export class Entity {
       air: this.air === 'bus' ? 'fall' : this.air, aiming: this.ads || this.aiming, pitch: this.pitch, recoil: this.recoil,
       swing: this.swingT, reloading: this.reloadT > 0, using: this.useT > 0, mantle: !!this.mantle, sprint: this.sprinting,
       kind: !it ? null : it.type === 'weapon' ? 'gun' : it.type,
-      emote: this.emoteT > 0,
+      emote: this.emoteT > 0, swim: this.swimming,
     });
   }
 }

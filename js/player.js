@@ -86,7 +86,7 @@ export class Player extends Entity {
     this.slideCd -= dt;
 
     // ---- crouch / slide state
-    const wantCrouch = this.wantCrouch;
+    const wantCrouch = this.wantCrouch && !this.swimming;
     const hSpeed = Math.hypot(this.vx, this.vz);
     if (wantCrouch && !this.sliding && this.grounded && this.sprinting && hSpeed > 6.5 && this.slideCd <= 0) {
       this.sliding = true;
@@ -114,9 +114,10 @@ export class Player extends Entity {
       this.sprinting = false;
     } else {
       this.sprinting = sprintKey && fwd > 0 && !this.ads && !this.crouch && !editing && g.time - this.lastShot > 0.35 && this.useT <= 0 && this.reloadT <= 0;
-      let speed = this.crouch ? CROUCH : this.sprinting ? SPRINT : WALK;
+      if (this.swimming) this.sprinting = false;
+      let speed = this.swimming ? (liq && liq.type === 'quicksand' ? 2.6 : 4.4) : this.crouch ? CROUCH : this.sprinting ? SPRINT : WALK;
       if (this.ads) speed *= 0.6;
-      if (liq && liq.type !== 'lava') speed *= 0.6;
+      if (liq && liq.type !== 'lava' && !this.swimming) speed *= 0.6;
       if (this.held && this.held.type === 'item' && this.useT > 0) speed *= 0.55;
       const k = Math.min(1, dt * (this.grounded ? 14 : 2.8));
       this.vx += (wx * speed - this.vx) * k;
@@ -143,13 +144,13 @@ export class Player extends Entity {
     if (this.landSpeed > 9 && g.fx) g.fx.landing(this.x, this.y, this.z);
 
     // ---- weapon / interaction
-    this.wantFire = this.mouseLeft && !g.build.active && !editing;
+    this.wantFire = this.mouseLeft && !g.build.active && !editing && !this.swimming;
     if (this.wantFire && this.held && this.held.type === 'weapon') this.lastShot = g.time;
     g.combat.update_shooter(this, dt);
 
     // ---- building: click (or hold) to place
     this.buildCd -= dt;
-    if (g.build.active && this.mouseLeft && this.buildCd <= 0) { g.build.placeFromUI(this); this.buildCd = 0.12; }
+    if (g.build.active && this.mouseLeft && this.buildCd <= 0 && !this.swimming) { g.build.placeFromUI(this); this.buildCd = 0.12; }
     g.loot.autoPickup(this);
   }
 }

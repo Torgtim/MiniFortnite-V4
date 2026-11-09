@@ -448,7 +448,16 @@ class Game {
     if (this.storm.outside(e.x, e.z)) dps += this.storm.dmg;
     const liq = this.world.liquidAt(e.x, e.z, e.y + 0.1);
     if (liq) {
-      if (liq.type === 'lava') { dps += liq.dps || 28; name = 'lava'; }
+      if (liq.type === 'lava') {
+        dps += liq.dps || 28; name = 'lava';
+        if (e.vy <= 0 && !e.mantle) {
+          // lava throws you back up (and hurts)
+          e.vy = 13; e.grounded = false; e.sliding = false;
+          this.combat.damage(e, 10, null, 'lava');
+          this.fx.chips(e.x, e.y + 0.3, e.z, 0xff7a20, 10);
+          this.audio.play('sizzle', e);
+        }
+      }
       else if (liq.type === 'icy') { dps += 3; name = 'icy water'; }
     }
     if (dps <= 0) { e._acc = 0; return; }
@@ -661,4 +670,8 @@ class Game {
 
 function keyName(code) { return code.replace('Key', '').replace('Space', 'SPACE'); }
 
-window.game = new Game();
+// let the boot screen paint before the (synchronous) first island build
+requestAnimationFrame(() => setTimeout(() => {
+  window.game = new Game();
+  setTimeout(() => document.getElementById('boot').classList.add('gone'), 350);
+}, 30));
