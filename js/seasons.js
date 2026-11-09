@@ -83,7 +83,7 @@ export const SEASONS = [
     blurb: 'Snowy peaks, pine forests and a frozen lake in the middle. Cold weapons, cold hands.',
     seed: 22,
     sky: '#cfe6f5', fog: '#dcebf5', sun: '#e8f0ff', sunI: 0.95, hemiSky: '#e8f4ff', hemiGround: '#8aa0b4', hemiI: 0.95,
-    liquid: { type: 'icy', y: -0.8, color: '#7fd0ee', opacity: 0.85 },
+    liquid: { type: 'icy', y: -0.8, color: '#7fd0ee', opacity: 0.85, dps: 3 },
     poiCount: 6,
     road: '#b9c4cf',
     poiNames: ['Pinecrest Camp', 'Frozen Pier', 'Snowdrift Mine', 'Cabin Ridge', 'Glacier Station', 'Icebox Depot'],
