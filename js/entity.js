@@ -28,6 +28,7 @@ export class Entity {
     this.swingT = 0; this.recoil = 0; this.idleT = 1; this.bloom = 0;
     this.wantFire = false; this.firedHeld = false; this.ads = false;
     this.lastDamaged = -99; this.lastAttacker = null;
+    this.emoteT = 0;
     this.onFall = (speed) => this.game.combat.damage(this, (speed - FALL_SAFE) * 6, null, 'fall damage');
   }
 
@@ -71,7 +72,7 @@ export class Entity {
     const R = w.mapRadius + 25, rr = Math.hypot(this.x, this.z);
     if (rr > R) { this.x *= R / rr; this.z *= R / rr; }
     const gr = groundAt(w, this.x, this.z, this.y + 60);
-    if (this.air === 'fall' && this.y - gr < 62) this.air = 'glide';
+    if (this.air === 'fall' && this.y - gr < 62) { this.air = 'glide'; if (this.isPlayer) this.game.audio.play('glider', null); }
     if (this.y <= gr + 0.02) {
       this.y = gr; this.vy = 0; this.vx *= 0.35; this.vz *= 0.35;
       this.air = null; this.grounded = true;
@@ -189,6 +190,7 @@ export class Entity {
       air: this.air === 'bus' ? 'fall' : this.air, aiming: this.ads || this.aiming, pitch: this.pitch, recoil: this.recoil,
       swing: this.swingT, reloading: this.reloadT > 0, using: this.useT > 0, mantle: !!this.mantle, sprint: this.sprinting,
       kind: !it ? null : it.type === 'weapon' ? 'gun' : it.type,
+      emote: this.emoteT > 0,
     });
   }
 }

@@ -29,7 +29,14 @@ export class Player extends Entity {
   pressJump() {
     this.jumpEdge = true;
     if (this.air === 'bus') { if (this.game.bus.canDrop) this.jumpFromBus(); }
-    else if (this.air === 'fall') this.air = 'glide';
+    else if (this.air === 'fall') { this.air = 'glide'; this.game.audio.play('glider', null); }
+  }
+
+  emote() {
+    if (this.airborne || !this.grounded || this.mantle || this.sliding) return;
+    this.emoteT = 6;
+    this.setCrouch(false);
+    this.game.audio.play('emote', this);
   }
 
   get wantCrouch() { return this.game.settings.toggleCrouch ? this.crouchToggle : this.input.crouch; }
@@ -50,6 +57,18 @@ export class Player extends Entity {
       this.airStep(dt, wx, wz, Math.max(0, fwd));
       this.moving = false;
       return;
+    }
+
+    // ---- emote: dance until you move, jump, shoot or build
+    if (this.emoteT > 0) {
+      this.emoteT -= dt;
+      if (len > 0.05 || jumpPressed || this.mouseLeft || g.build.active || !this.grounded) this.emoteT = 0;
+      else {
+        this.vx *= 0.8; this.vz *= 0.8;
+        stepEntity(w, this, dt);
+        this.moving = false;
+        return;
+      }
     }
 
     // ---- mantling takes over everything for a moment

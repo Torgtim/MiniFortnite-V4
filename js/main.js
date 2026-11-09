@@ -89,6 +89,7 @@ class Game {
 
   get thirdPerson() {
     const p = this.player;
+    if (p && p.emoteT > 0) return true;
     if (!settings.thirdPerson) return false;
     // scoped snipers switch to the scope view like in the real game
     if (p && p.ads && p.held && p.held.type === 'weapon' && weaponStats(p.held).zoom >= 2.4) return false;
@@ -180,9 +181,7 @@ class Game {
     this.ui.showSettings(false);
     this.hud.show(true);
     this.bigMap = false;
-    for (const b of this.bots) this.scene.remove(b.mesh);
-    if (this.player) this.scene.remove(this.player.model.root);
-    this.entities = []; this.bots = [];
+    this._clearActors();
     this.edit.cancel();
     const rnd = mulberry32((Date.now() >>> 3) & 0xfffff);
     this.storm.reset((Date.now() >>> 5) & 0xffff);
@@ -215,9 +214,8 @@ class Game {
 
   backToLobby() {
     this.mode = 'lobby';
-    for (const b of this.bots) this.scene.remove(b.mesh);
-    if (this.player) this.scene.remove(this.player.model.root);
-    this.bots = []; this.entities = []; this.player = null;
+    this._clearActors();
+    this.player = null;
     this.bus.active = false; this.bus.mesh.visible = false;
     this.edit.cancel();
     this.hud.show(false);
@@ -227,6 +225,12 @@ class Game {
     this.ui.showLobby(true);
     this.applySettings();
     if (document.pointerLockElement) document.exitPointerLock();
+  }
+
+  _clearActors() {
+    for (const b of this.bots) { this.scene.remove(b.mesh); b.model.dispose(); }
+    if (this.player) { this.scene.remove(this.player.model.root); this.player.model.dispose(); }
+    this.entities = []; this.bots = [];
   }
 
   lockPointer() {
@@ -267,7 +271,10 @@ class Game {
       this.fx.eliminate(target.x, target.y, target.z, [c.shirt, c.pants, c.skin, c.accent, '#5fd0ff']);
       target.model.root.visible = false;
     }
-    if (src && src !== target) src.kills++;
+    if (src && src !== target) {
+      src.kills++;
+      if (!src.isPlayer && src.alive && Math.random() < 0.35) src.emoteT = 2.5 + Math.random() * 1.5; // bots love a victory dance
+    }
     const by = src && src !== target ? src.name : (target.lastWeapon || 'the storm');
     const hl = (e) => `<span class="${e.isPlayer ? 'me' : ''}">${e.name}</span>`;
     if (src && src !== target) this.hud.feed(`${hl(src)} <small>[${weapon}]</small> ${hl(target)}`);
@@ -325,6 +332,7 @@ class Game {
       else if (c === K.jump) { p.input.jump = true; if (!e.repeat) p.pressJump(); }
       if (e.repeat) return;
       if (c === K.camera) { settings.thirdPerson = !settings.thirdPerson; saveSettings(); return; }
+      if (c === K.emote && !p.airborne) { this.build.setActive(false); this.edit.cancel(); p.emote(); return; }
       if (p.airborne) return;
       if (c === K.interact) this.interact();
       else if (c === K.reload) p.startReload();

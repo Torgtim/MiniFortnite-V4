@@ -66,6 +66,8 @@ legend { color: #000080; font-weight: bold; }
 .srows input[type=range] { width: 100%; }
 .keybtn { min-width: 110px; font-size: 15px; padding: 1px 8px; }
 select, input[type=color] { font-family: inherit; font-size: 15px; }
+input[type=range], input[type=checkbox] { accent-color: #000080; }
+select { background: #fff; border: 2px inset #fff; }
 
 /* ------------------------------ HUD (Windows 95 flavoured) ------------------------------ */
 #hud { position: fixed; inset: 0; z-index: 10; pointer-events: none; font-family: "Times New Roman", Times, serif; color: #000; }

@@ -29,7 +29,7 @@ export const SEASONS = [
     liquid: { type: 'water', y: -0.8, color: '#2f86d6', opacity: 0.82 },
     poiCount: 6,
     poiNames: ['Greenhill Hamlet', 'Fisher\'s Cove', 'Old Mill', 'Dusty Depot', 'Lonely Lodge', 'Tower Row'],
-    building: { wall: '#dccaa2', roof: '#a8483a', floor: '#8a6d4a', trim: '#6e4a2c' },
+    building: { wall: '#dccaa2', roof: '#a8483a', floor: '#8a6d4a', trim: '#6e4a2c', roofStyle: 'gable' },
     terrain(x, z, n) {
       let h = (n.fbm(x * 0.010, z * 0.010, 4) - 0.5) * 16;
       h += (n.fbm(x * 0.04 + 50, z * 0.04, 2) - 0.5) * 2.2;
@@ -79,7 +79,7 @@ export const SEASONS = [
     liquid: { type: 'icy', y: -0.8, color: '#7fd0ee', opacity: 0.85 },
     poiCount: 6,
     poiNames: ['Pinecrest Camp', 'Frozen Pier', 'Snowdrift Mine', 'Cabin Ridge', 'Glacier Station', 'Icebox Depot'],
-    building: { wall: '#7a5230', roof: '#eef3f7', floor: '#5b4129', trim: '#4a3220' },
+    building: { wall: '#7a5230', roof: '#eef3f7', floor: '#5b4129', trim: '#4a3220', roofStyle: 'gable' },
     terrain(x, z, n) {
       let h = (n.fbm(x * 0.012, z * 0.012, 4) - 0.5) * 20 + (n.fbm(x * 0.05, z * 0.05, 2) - 0.5) * 3 + 3;
       const d = Math.hypot(x - 40, z + 50);

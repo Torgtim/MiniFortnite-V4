@@ -332,6 +332,16 @@ export class Bot extends Entity {
     }
     if (this.mantle) { stepMantle(w, this, dt); this.animateModel(dt); return; }
 
+    if (this.emoteT > 0) {
+      this.emoteT -= dt;
+      const danger = g.time - this.lastDamaged < 1 || g.storm.outside(this.x, this.z);
+      if (!danger) {
+        this.vx *= 0.8; this.vz *= 0.8; stepEntity(w, this, dt);
+        this.wantFire = false; this.animateModel(dt);
+        return;
+      }
+      this.emoteT = 0;
+    }
     this.thinkT -= dt;
     if (this.thinkT <= 0) { this.thinkT = 0.18 + Math.random() * 0.14; this.think(); }
     this.goalT -= dt;

@@ -121,6 +121,7 @@ export class CharacterModel {
     const pack = new THREE.Mesh(box(0.44, 0.5, 0.2), lam(accent)); pack.position.set(0, 0.42, 0.26); torso.add(pack);
     const neck = new THREE.Group(); neck.position.y = 0.76; torso.add(neck);
     const faceMat = new THREE.MeshLambertMaterial({ map: faceTexture(skin, hair, index) });
+    this.faceMat = faceMat;
     const skinM = lam(skin), hairM = lam(hair);
     const head = new THREE.Mesh(box(0.42, 0.42, 0.42), [skinM, skinM, hairM, skinM, hairM, faceMat]);
     head.position.y = 0.23; neck.add(head);
@@ -153,6 +154,14 @@ export class CharacterModel {
     this.walk = Math.random() * 6;
     this.flash = null;
     root.traverse((o) => { if (o.isMesh) { o.castShadow = true; } });
+  }
+
+  /** Free the per-character GPU resources (face texture, name tag). */
+  dispose() {
+    this.root.traverse((o) => {
+      const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+      for (const m of ms) if (m.map && (m === this.faceMat || o === this.tag)) { m.map.dispose(); m.dispose(); }
+    });
   }
 
   /** Show the right model in the hand. kind: 'gun' | 'pickaxe' | 'item' | null */
@@ -196,6 +205,21 @@ export class CharacterModel {
     let armLx = -sw * 0.6 * run, armRx = sw * 0.6 * run, armLz = 0.08, armRz = -0.08, armLy = 0, armRy = 0;
     let neckX = 0;
     this.glider.visible = s.air === 'glide';
+    if (s.emote) {
+      // "The Floppy Disk": an original 90s-style dance
+      this.dance = (this.dance || 0) + dt;
+      const t = this.dance * 7.5, beat = Math.sin(t), half = Math.sin(t * 0.5);
+      P.hips.position.y = 0.92 + Math.abs(beat) * 0.08;
+      this.root.rotation.x += (0 - this.root.rotation.x) * Math.min(1, dt * 6);
+      lerpR(P.torso, 0.05, half * 0.45, beat * 0.12, 18);
+      lerpR(P.legL, beat > 0 ? 0.7 * beat : 0, 0, -0.15, 18); lerpR(P.legR, beat < 0 ? -0.7 * beat : 0, 0, 0.15, 18);
+      lerpR(P.armL, 2.4 + beat * 0.7, 0, 0.5 + half * 0.4, 20); lerpR(P.armR, 2.4 - beat * 0.7, 0, -0.5 + half * 0.4, 20);
+      lerpR(P.neck, -0.1 + Math.abs(beat) * 0.25, half * 0.3, 0, 18);
+      for (const k in this.guns) this.guns[k].visible = false;
+      this.pick.visible = false; this.itemCube.visible = false; this.heldKey = '';
+      return;
+    }
+    this.dance = 0;
 
     if (s.air === 'fall') {
       rootPitch = -1.25; legLx = 0.2 + Math.sin(this.walk * 0.5) * 0.15; legRx = 0.2 - Math.sin(this.walk * 0.5) * 0.15;

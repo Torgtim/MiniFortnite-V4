@@ -31,6 +31,31 @@ class BoxBatch {
       L.uv.push(uv.getX(i) * w / uvScale, uv.getY(i) * h / uvScale);
     }
   }
+  /** Flat convex polygon (points in order, counter-clockwise seen from the front). */
+  addPoly(pts, color, layer = 0, out = null, uvScale = 2) {
+    const L = this.layers[layer];
+    if (out) {
+      const [p0, p1, p2] = pts;
+      const ux0 = p1[0] - p0[0], uy0 = p1[1] - p0[1], uz0 = p1[2] - p0[2], vx0 = p2[0] - p0[0], vy0 = p2[1] - p0[1], vz0 = p2[2] - p0[2];
+      const n = [uy0 * vz0 - uz0 * vy0, uz0 * vx0 - ux0 * vz0, ux0 * vy0 - uy0 * vx0];
+      if (n[0] * out[0] + n[1] * out[1] + n[2] * out[2] < 0) pts = pts.slice().reverse();
+    }
+    const [a, b, c] = pts;
+    const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+    const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    const nl = Math.hypot(nx, ny, nz) || 1; nx /= nl; ny /= nl; nz /= nl;
+    // planar UVs: u along the first edge, v perpendicular to it in the polygon plane
+    const ul = Math.hypot(ux, uy, uz) || 1, eu = [ux / ul, uy / ul, uz / ul];
+    const ev = [ny * eu[2] - nz * eu[1], nz * eu[0] - nx * eu[2], nx * eu[1] - ny * eu[0]];
+    const uv = (p) => { const dx = p[0] - a[0], dy = p[1] - a[1], dz = p[2] - a[2]; return [(dx * eu[0] + dy * eu[1] + dz * eu[2]) / uvScale, (dx * ev[0] + dy * ev[1] + dz * ev[2]) / uvScale]; };
+    for (let i = 1; i < pts.length - 1; i++) {
+      for (const p of [pts[0], pts[i], pts[i + 1]]) {
+        L.pos.push(p[0], p[1], p[2]); L.nor.push(nx, ny, nz); L.col.push(color.r, color.g, color.b);
+        const t = uv(p); L.uv.push(t[0], t[1]);
+      }
+    }
+  }
   build() {
     const g = new THREE.BufferGeometry();
     const pos = [], nor = [], col = [], uv = [];
@@ -169,6 +194,7 @@ export class World {
       batch.add(x0, y0, z0, x1, y1, z1, color, layer);
       if (collide) this.addCollider({ kind: 'box', minx: x0, miny: y0, minz: z0, maxx: x1, maxy: y1, maxz: z1 });
     };
+    addBox.poly = (pts, color, layer, out) => batch.addPoly(pts, color, layer, out);
 
     for (const site of this.sites) {
       const placed = [];
@@ -237,8 +263,8 @@ export class World {
       } else seg(s.axis, s.fixed, s.lo, s.hi, 0, H);
     });
     addBox(x0 - 0.4, yb + H, z0 - 0.4, x1 + 0.4, yb + H + 0.35, z1 + 0.4, c.colRoof, true, 1);
-    // a low pitched cap on top so roofs don't look flat
-    addBox(x0 + 0.6, yb + H + 0.35, z0 + 0.6, x1 - 0.6, yb + H + 0.75, z1 - 0.6, c.colRoof, true, 1);
+    if (this.season.building.roofStyle === 'gable') this._gable(addBox, x0 - 0.4, z0 - 0.4, x1 + 0.4, z1 + 0.4, yb + H + 0.35, c, rnd);
+    else addBox(x0 + 0.6, yb + H + 0.35, z0 + 0.6, x1 - 0.6, yb + H + 0.75, z1 - 0.6, c.colRoof, true, 1); // low flat cap
     // trim strips along the roof edge (visual only)
     const ty = yb + H + 0.35;
     addBox(x0 - 0.4, ty, z0 - 0.4, x1 + 0.4, ty + 0.14, z0 - 0.25, c.colTrim, false, 3);
@@ -260,6 +286,35 @@ export class World {
     if (rnd() < 0.5) {
       const o = [[1, 0], [-1, 0], [0, 1], [0, -1]][door];
       this.lootSpots.push({ x: cx + o[0] * (w / 2 + 2), y: yb, z: cz + o[1] * (d / 2 + 2) });
+    }
+  }
+
+  /** Pitched roof: two sloped shingle planes (walkable ramp colliders) + gable ends + a chimney. */
+  _gable(addBox, x0, z0, x1, z1, y, c, rnd) {
+    const alongX = x1 - x0 >= z1 - z0;
+    const span = alongX ? z1 - z0 : x1 - x0;
+    const RH = Math.min(2.4, span * 0.32);
+    const roof = c.colRoof, wall = c.colWall;
+    if (alongX) {
+      const zm = (z0 + z1) / 2, L = span / 2;
+      addBox.poly([[x0, y, z0], [x0, y + RH, zm], [x1, y + RH, zm], [x1, y, z0]], roof, 1, [0, 1, -1]);
+      addBox.poly([[x0, y, z1], [x1, y, z1], [x1, y + RH, zm], [x0, y + RH, zm]], roof, 1, [0, 1, 1]);
+      addBox.poly([[x0 + 0.2, y, z0], [x0 + 0.2, y, z1], [x0 + 0.2, y + RH, zm]], wall, 0, [-1, 0, 0]);
+      addBox.poly([[x1 - 0.2, y, z0], [x1 - 0.2, y + RH, zm], [x1 - 0.2, y, z1]], wall, 0, [1, 0, 0]);
+      this.addCollider({ kind: 'ramp', minx: x0, maxx: x1, minz: z0, maxz: zm, miny: y - 0.2, maxy: y + RH + 0.2, cx: (x0 + x1) / 2, cz: (z0 + zm) / 2, dx: 0, dz: 1, len: L, base: y, rise: RH });
+      this.addCollider({ kind: 'ramp', minx: x0, maxx: x1, minz: zm, maxz: z1, miny: y - 0.2, maxy: y + RH + 0.2, cx: (x0 + x1) / 2, cz: (zm + z1) / 2, dx: 0, dz: -1, len: L, base: y, rise: RH });
+    } else {
+      const xm = (x0 + x1) / 2, L = span / 2;
+      addBox.poly([[x0, y, z0], [x0, y, z1], [xm, y + RH, z1], [xm, y + RH, z0]], roof, 1, [-1, 1, 0]);
+      addBox.poly([[x1, y, z0], [xm, y + RH, z0], [xm, y + RH, z1], [x1, y, z1]], roof, 1, [1, 1, 0]);
+      addBox.poly([[x0, y, z0 + 0.2], [xm, y + RH, z0 + 0.2], [x1, y, z0 + 0.2]], wall, 0, [0, 0, -1]);
+      addBox.poly([[x0, y, z1 - 0.2], [x1, y, z1 - 0.2], [xm, y + RH, z1 - 0.2]], wall, 0, [0, 0, 1]);
+      this.addCollider({ kind: 'ramp', minx: x0, maxx: xm, minz: z0, maxz: z1, miny: y - 0.2, maxy: y + RH + 0.2, cx: (x0 + xm) / 2, cz: (z0 + z1) / 2, dx: 1, dz: 0, len: L, base: y, rise: RH });
+      this.addCollider({ kind: 'ramp', minx: xm, maxx: x1, minz: z0, maxz: z1, miny: y - 0.2, maxy: y + RH + 0.2, cx: (xm + x1) / 2, cz: (z0 + z1) / 2, dx: -1, dz: 0, len: L, base: y, rise: RH });
+    }
+    if (rnd() < 0.6) {
+      const cx = x0 + (x1 - x0) * (0.25 + rnd() * 0.5), cz = z0 + (z1 - z0) * (0.25 + rnd() * 0.5);
+      addBox(cx - 0.35, y + RH * 0.4, cz - 0.35, cx + 0.35, y + RH + 0.9, cz + 0.35, c.colTrim, false, 3);
     }
   }
 

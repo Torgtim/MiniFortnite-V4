@@ -98,6 +98,7 @@ export class GameAudio {
       case 'horn': this._tone(330, 0.3, 'square', 0.18, 320); setTimeout(() => this.ctx && this._tone(262, 0.4, 'square', 0.18, 255), 320); break;
       case 'land': this._noise(0.15, 400, 0.6, 0.3 * v, 'lowpass'); break;
       case 'glider': this._noise(0.4, 300, 0.5, 0.15, 'lowpass'); break;
+      case 'emote': [523, 659, 784, 659, 523, 784, 1046].forEach((f, i) => setTimeout(() => this.ctx && this._tone(f, 0.12, 'square', 0.08 * v), i * 140)); break;
       default: break;
     }
   }

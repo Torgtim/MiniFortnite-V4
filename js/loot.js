@@ -18,7 +18,10 @@ const geo = {
   ammo: new THREE.BoxGeometry(0.42, 0.3, 0.42), item: new THREE.OctahedronGeometry(0.3, 0), mats: new THREE.BoxGeometry(0.5, 0.5, 0.5),
   chest: new THREE.BoxGeometry(1.0, 0.62, 0.7), lid: new THREE.BoxGeometry(1.04, 0.16, 0.74), abox: new THREE.BoxGeometry(0.9, 0.5, 0.6),
   supply: new THREE.BoxGeometry(1.3, 1.1, 1.3), balloon: new THREE.SphereGeometry(1.3, 10, 8),
+  glow: new THREE.CircleGeometry(0.55, 12).rotateX(-Math.PI / 2),
 };
+const glowMats = {};
+const glowMat = (color) => glowMats[color] || (glowMats[color] = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.45, depthWrite: false }));
 const mats = {};
 const lam = (color, emissive = 0.3) => mats[color + emissive] || (mats[color + emissive] = new THREE.MeshLambertMaterial({ color, emissive: color, emissiveIntensity: emissive }));
 const texMat = (name, color) => mats['t' + name + color] || (mats['t' + name + color] = new THREE.MeshLambertMaterial({ map: TEX[name](), color, emissive: color, emissiveIntensity: 0.15 }));
@@ -100,7 +103,7 @@ export class Loot {
     const gun = heldGun(WEAPONS[inst.id].cls);
     gun.scale.setScalar(1.4);
     body.add(gun);
-    const glow = new THREE.Mesh(new THREE.CircleGeometry(0.55, 12).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.45, depthWrite: false }));
+    const glow = new THREE.Mesh(geo.glow, glowMat(color));
     glow.position.y = -0.48;
     body.add(glow);
     body.position.y = 0.55;

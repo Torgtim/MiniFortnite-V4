@@ -21,6 +21,7 @@ export const KEY_ACTIONS = [
   { id: 'material', label: 'Cycle material', def: 'KeyT' },
   { id: 'map', label: 'Big map', def: 'KeyM' },
   { id: 'camera', label: 'Switch 1st / 3rd person', def: 'KeyH' },
+  { id: 'emote', label: 'Emote (dance!)', def: 'KeyB' },
 ];
 
 export const DEFAULTS = {
