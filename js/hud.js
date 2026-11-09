@@ -2,11 +2,11 @@
 // counter, materials, minimap + big map, storm window, kill feed, prompts, build/edit bars,
 // damage numbers, weak points, elimination popups.
 
-import * as THREE from '../lib/three.module.min.js?v=47';
-import { RARITIES, weaponStats, ITEM_KINDS } from './weapons.js?v=47';
-import { MATERIALS, COST, BUILD_TYPES } from './build.js?v=47';
-import { fmtTime } from './util.js?v=47';
-import { settings, keyLabel } from './settings.js?v=47';
+import * as THREE from '../lib/three.module.min.js?v=48';
+import { RARITIES, weaponStats, ITEM_KINDS } from './weapons.js?v=48';
+import { MATERIALS, COST, BUILD_TYPES } from './build.js?v=48';
+import { fmtTime } from './util.js?v=48';
+import { settings, keyLabel } from './settings.js?v=48';
 
 const $ = (id) => document.getElementById(id);
 const ICON = { wall: '&#9646;', floor: '&#9644;', ramp: '&#9698;', cone: '&#9650;' };
@@ -227,7 +227,7 @@ export class HUD {
     else if (p.air === 'glide') msg = 'GLIDING - steer with mouse + WASD';
     if (e.msg._t !== msg) { e.msg.textContent = msg; e.msg._t = msg; }
     e.editinfo.classList.toggle('hidden', !g.edit.active);
-    e.scope.classList.toggle('on', !!(p.ads && it && it.type === 'weapon' && weaponStats(it).zoom >= 2.4 && !p.airborne));
+    e.scope.classList.toggle('on', !!(p.ads && it && it.type === 'weapon' && weaponStats(it).zoom >= 1.5 && !p.airborne));
     e.cross.style.display = e.scope.classList.contains('on') ? 'none' : '';
     e.spec.classList.toggle('hidden', g.mode !== 'spectating');
     if (g.mode === 'spectating' && g.spectateTarget) e.spec.textContent = `Spectating ${g.spectateTarget.name} - click / A D to switch`;

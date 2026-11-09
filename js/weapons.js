@@ -35,7 +35,7 @@ export const WEAPONS = {
   hand_cannon: { name: 'Hand Cannon', short: 'HCN', cls: 'pistol', ammo: 'medium', dmg: 54, rate: 2.2, mag: 7, reload: 2.0, spread: 0.006, range: 170, head: 2 },
 
   revolver: { name: 'Revolver', short: 'RVL', cls: 'pistol', ammo: 'medium', dmg: 58, rate: 2.4, mag: 6, reload: 2.8, spread: 0.005, range: 170, head: 2 },
-  lever: { name: 'Lever Action', short: 'LVR', cls: 'rifle', ammo: 'heavy', dmg: 62, rate: 1.8, mag: 8, reload: 3.0, spread: 0.004, range: 260, zoom: 1.6, head: 2 },
+  lever: { name: 'Lever Action', short: 'LVR', cls: 'rifle', ammo: 'heavy', dmg: 62, rate: 1.8, mag: 8, reload: 3.0, spread: 0.004, range: 260, zoom: 2.0, head: 2 },
   tommy: { name: 'Tommy Gun', short: 'TMY', cls: 'smg', ammo: 'light', dmg: 20, rate: 10, mag: 40, reload: 2.4, spread: 0.024, range: 140, auto: true },
   scoped_ar: { name: 'Scoped AR', short: 'SAR', cls: 'rifle', ammo: 'medium', dmg: 36, rate: 4.0, mag: 20, reload: 2.4, spread: 0.007, range: 300, zoom: 2.2, auto: true },
   grenade: { name: 'Grenade Launcher', short: 'GRN', cls: 'launcher', ammo: 'rockets', dmg: 0, rate: 0.9, mag: 6, reload: 3.6, spread: 0.01, range: 120, blast: { r: 5, dmg: 95 }, proj: { speed: 40, grav: 16, kind: 'grenade', fuse: 1.6, bounce: true } },
