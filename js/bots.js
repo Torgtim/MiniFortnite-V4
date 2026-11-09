@@ -6,7 +6,7 @@ import { Entity } from './entity.js?v=41';
 import { stepEntity, isFree, findLedge, startMantle, stepMantle } from './physics.js?v=41';
 import { WEAPONS, weaponStats, ITEM_KINDS } from './weapons.js?v=41';
 import { CharacterModel } from './characters.js?v=41';
-import { angleDiff, clamp } from './util.js?v=41';
+import { angleDiff, clamp, dirFromAngles } from './util.js?v=41';
 
 export const BOT_NAMES = ['Skelly', 'Voltage', 'NoScope', 'Pixel', 'Toast', 'Gigabyte', 'Raven', 'Moose', 'Blitz', 'Zed',
   'Cobalt', 'Mango', 'Echo', 'Rusty', 'Nova', 'Spud', 'Ghost', 'Turbo', 'Waffles', 'Ziggy', 'Bonk', 'Glitch',
@@ -557,6 +557,13 @@ export class Bot extends Entity {
     if (this.model.tag) this.model.tag.visible = !!pl && Math.hypot(pl.x - this.x, pl.z - this.z) < 40;
   }
 
+  /** Would an explosive fired right now hit something within blast range of ourselves? */
+  blastTooClose() {
+    const d = dirFromAngles(this.yaw, this.pitch);
+    const hit = this.game.world.raycast(this.x, this.eyeY, this.z, d.x, d.y, d.z, 9, 1.0);
+    return hit.t < 9;
+  }
+
   /** First build piece directly in front of us (waist height), if any. */
   blockingPiece(dx, dz) {
     const hit = this.game.world.raycast(this.x, this.y + 0.9, this.z, dx, 0, dz, 1.8, 2.0);
@@ -660,7 +667,7 @@ export class Bot extends Entity {
 
     // ---- trigger discipline
     if (aimed && react && (visible || shootBuild) && dist < st.range * 0.8 && held.mag > 0) {
-      if (st.cls === 'launcher' && dist < 7) this.wantFire = false;
+      if (st.cls === 'launcher' && (dist < 7 || this.blastTooClose())) this.wantFire = false;
       else if (st.auto) {
         this.fireBurstT -= dt;
         if (this.fireBurstT <= 0) { this.fireRestT = 0.2 + Math.random() * 0.35 * (1.3 - this.skill); this.fireBurstT = 0.5 + Math.random() * 0.9; }
