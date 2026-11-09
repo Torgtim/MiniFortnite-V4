@@ -86,7 +86,7 @@ export class UI {
     const weap = season.weapons.map(([id]) => `<li>${WEAPONS[id].name} <small>(${AMMO[WEAPONS[id].ammo].name})</small></li>`).join('');
     const readable = (c) => { const n = parseInt(c.slice(1), 16), l = ((n >> 16) * 0.3 + ((n >> 8) & 255) * 0.59 + (n & 255) * 0.11); return l > 170 ? '#666' : c; };
     const items = Object.values(season.items).map((i) => `<li style="color:${readable(i.color)}">${i.name}</li>`).join('');
-    $('lootList').innerHTML = `<b>Weapons</b><ul>${weap}</ul><b>Healing</b><ul>${items}</ul>`;
+    $('lootList').innerHTML = `<b>Weapons</b><ul>${weap}</ul><b>Items</b><ul>${items}</ul>`;
     const w = this.game.world;
     $('poiList').innerHTML = `<b>Places</b><ul>${w.sites.map((s) => `<li>${s.name}</li>`).join('')}</ul><i>${LIQUID_TEXT[season.liquid.type]}</i>`;
     this.refreshMatchInfo();

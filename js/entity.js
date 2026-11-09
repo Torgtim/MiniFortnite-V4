@@ -161,7 +161,7 @@ export class Entity {
     const s = this.slots[slotIdx];
     if (!s || s.type !== 'item') return false;
     const k = ITEM_KINDS[s.id];
-    if (k.throw) return true;
+    if (k.throw || k.gadget) return true;
     if (k.hp) return this.hp < k.max;
     if (k.sh) return this.shield < k.max;
     return false;

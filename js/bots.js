@@ -134,7 +134,7 @@ export class Bot extends Entity {
     if (hurt && (!visible || this.boxed) && !recentlyHit) {
       // shields first when healthy, health first when low
       const order = [];
-      for (let i = 1; i <= 5; i++) if (this.canUse(i) && !ITEM_KINDS[this.slots[i].id].throw) order.push(i);
+      for (let i = 1; i <= 5; i++) { const k = this.slots[i] && ITEM_KINDS[this.slots[i].id]; if (k && (k.hp || k.sh) && this.canUse(i)) order.push(i); }
       order.sort((a, b) => {
         const ka = ITEM_KINDS[this.slots[a].id], kb = ITEM_KINDS[this.slots[b].id];
         const va = this.hp < 50 ? (ka.hp ? 1 : 0) : (ka.sh ? 1 : 0), vb = this.hp < 50 ? (kb.hp ? 1 : 0) : (kb.sh ? 1 : 0);
@@ -497,6 +497,8 @@ export class Bot extends Entity {
     this.vx += (wx * sp - this.vx) * k;
     this.vz += (wz * sp - this.vz) * k;
     stepEntity(w, this, dt);
+    if (this.padLaunch && this.vy < 0) { this.padLaunch = false; this.air = 'glide'; this.dropTarget = { x: this.x + this.vx * 3, z: this.z + this.vz * 3 }; }
+    if (this.grounded) this.padLaunch = false;
     this.moving = len > 0.01 && speed > 0;
 
     g.combat.update_shooter(this, dt);

@@ -160,6 +160,8 @@ export class GameAudio {
       case 'horn': this._tone(330, 0.3, 'square', 0.18, 320); setTimeout(() => this.ctx && this._tone(262, 0.4, 'square', 0.18, 255), 320); break;
       case 'land': this._noise(0.15, 400, 0.6, 0.3 * v, 'lowpass'); break;
       case 'glider': this._noise(0.4, 300, 0.5, 0.15, 'lowpass'); break;
+      case 'pad': this._tone(200, 0.35, 'square', 0.2 * v, 900); this._noise(0.2, 1200, 0.8, 0.2 * v); break;
+      case 'rift': this._tone(300, 0.6, 'sine', 0.25 * v, 1600); this._tone(450, 0.6, 'triangle', 0.15 * v, 2200); break;
       case 'step': if (v > 0.08) this._noise(0.05, 260 + Math.random() * 120, 1.2, 0.22 * v * v + 0.02, 'lowpass'); break;
       case 'step_me': this._noise(0.04, 300 + Math.random() * 100, 1.2, 0.06, 'lowpass'); break;
       case 'emote': [523, 659, 784, 659, 523, 784, 1046].forEach((f, i) => setTimeout(() => this.ctx && this._tone(f, 0.12, 'square', 0.08 * v), i * 140)); break;

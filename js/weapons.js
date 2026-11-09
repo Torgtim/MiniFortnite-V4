@@ -61,6 +61,9 @@ export const ITEM_KINDS = {
   shield_l: { sh: 50, max: 100, time: 4.5, short: 'SH++' },
   // throwables: stack up to 6, thrown with the fire button
   nade: { throw: true, stack: 6, time: 0, short: 'NADE', blast: { r: 5, dmg: 75 }, fuse: 2.2 },
+  // mobility gadgets (fire to use)
+  pad: { gadget: 'pad', stack: 2, time: 0, short: 'PAD' },
+  rift: { gadget: 'rift', stack: 2, time: 0, short: 'RIFT' },
 };
 
 // how much each shot adds to the weapon's bloom (spread grows while spraying)

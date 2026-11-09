@@ -67,6 +67,8 @@ export const SEASONS = [
       heal_s: { name: 'Bandage', color: '#f4f4f4', w: 30 }, heal_l: { name: 'Medkit', color: '#ff4d4d', w: 10 },
       shield_s: { name: 'Mini Shield', color: '#4da6ff', w: 22 }, shield_l: { name: 'Big Shield', color: '#2f6bff', w: 8 },
       nade: { name: 'Grenade', color: '#4f7a3a', w: 14 },
+      pad: { name: 'Bounce Pad', color: '#ffb020', w: 5 },
+      rift: { name: 'Sky Portal', color: '#a070ff', w: 4 },
     },
   },
 
@@ -116,6 +118,8 @@ export const SEASONS = [
       heal_s: { name: 'Hot Cocoa', color: '#9b5a34', w: 30 }, heal_l: { name: 'Campfire Kit', color: '#ff8a3d', w: 10 },
       shield_s: { name: 'Frost Flask', color: '#8fe3ff', w: 22 }, shield_l: { name: 'Ice Armor', color: '#4fc3ff', w: 8 },
       nade: { name: 'Snowball Bomb', color: '#e8f6ff', w: 14 },
+      pad: { name: 'Snow Spring', color: '#9fe3ff', w: 5 },
+      rift: { name: 'Blizzard Portal', color: '#6a8cff', w: 4 },
     },
   },
 
@@ -166,6 +170,8 @@ export const SEASONS = [
       heal_s: { name: 'Water Canteen', color: '#6ab8ff', w: 30 }, heal_l: { name: 'Doc\'s Kit', color: '#ff5a3d', w: 10 },
       shield_s: { name: 'Leather Vest', color: '#a0703a', w: 22 }, shield_l: { name: 'Iron Plate', color: '#9aa0a8', w: 8 },
       nade: { name: 'Dynamite', color: '#d0302a', w: 14 },
+      pad: { name: 'Tumble Spring', color: '#e0a040', w: 5 },
+      rift: { name: 'Dust Devil', color: '#c8a070', w: 4 },
     },
   },
 
@@ -215,6 +221,8 @@ export const SEASONS = [
       heal_s: { name: 'Nano Patch', color: '#7dffb0', w: 30 }, heal_l: { name: 'Repair Swarm', color: '#2dff8a', w: 10 },
       shield_s: { name: 'Cell Charge', color: '#38e8ff', w: 22 }, shield_l: { name: 'Overshield', color: '#ff2bd6', w: 8 },
       nade: { name: 'Plasma Orb', color: '#ff4fd8', w: 14 },
+      pad: { name: 'Grav Pad', color: '#2de2ff', w: 5 },
+      rift: { name: 'Phase Rift', color: '#ff2bd6', w: 4 },
     },
   },
 ];

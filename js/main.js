@@ -13,6 +13,7 @@ import { Storm } from './storm.js';
 import { Bus } from './bus.js';
 import { Sky } from './sky.js';
 import { FX } from './fx.js';
+import { Gadgets } from './gadgets.js';
 import { RetroPass } from './retro.js';
 import { BloomPass } from './bloom.js';
 import { HUD } from './hud.js';
@@ -48,13 +49,14 @@ class Game {
     this.loot = new Loot(this);
     this.build = new BuildSystem(this);
     this.edit = new EditSystem(this);
+    this.gadgets = new Gadgets(this);
     this.storm = new Storm(this);
     this.bus = new Bus(this);
     this.sky = new Sky(this.scene);
     this.retro = new RetroPass();
     this.bloom = new BloomPass();
     this._sz = new THREE.Vector2();
-    this.scene.add(this.fx.group, this.combat.group, this.loot.group, this.build.group, this.edit.group, this.storm.group, this.bus.mesh);
+    this.scene.add(this.gadgets.group, this.fx.group, this.combat.group, this.loot.group, this.build.group, this.edit.group, this.storm.group, this.bus.mesh);
     this.viewmodel = new ViewModel(this.camera);
 
     this.world = null;
@@ -140,6 +142,7 @@ class Game {
     this.sky.setSeason(s, SUN_DIR, { clouds: settings.clouds, weather: settings.weather });
     this.storm.wall.material.color.set(s.id === 4 ? 0xff2bd6 : 0x8a3dff);
     this.build.clear();
+    this.gadgets.clear();
     this.combat.clear();
     this.fx.clear();
     this.loot.clear();
@@ -525,6 +528,7 @@ class Game {
         }
       }
       this.build.update(dt);
+      this.gadgets.update(dt);
       for (const b of this.bots) if (b.alive) { b.update(dt); this.hazards(b, dt); }
     }
 

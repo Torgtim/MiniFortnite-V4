@@ -137,7 +137,8 @@ export class Player extends Entity {
     }
     this.moving = len > 0.05 || this.sliding;
     stepEntity(w, this, dt);
-    if (this.grounded) this.sprintJump = false;
+    if (this.padLaunch && this.vy < 0) { this.padLaunch = false; this.air = 'glide'; g.audio.play('glider', null); }
+    if (this.grounded) { this.sprintJump = false; this.padLaunch = false; }
     if (this.landSpeed > 9 && g.fx) g.fx.landing(this.x, this.y, this.z);
 
     // ---- weapon / interaction

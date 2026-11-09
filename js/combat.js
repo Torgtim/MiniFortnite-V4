@@ -135,7 +135,9 @@ export class Combat {
       if (e.wantFire && e.fireCd <= 0) { this.swing(e); e.fireCd = 0.45; }
     } else if (it.type === 'item') {
       const k = ITEM_KINDS[it.id];
-      if (k.throw) {
+      if (k.gadget) {
+        if (e.wantFire && !e.firedHeld && e.fireCd <= 0) { e.firedHeld = true; e.fireCd = 0.5; this.game.gadgets.use(e, e.slot); }
+      } else if (k.throw) {
         if (e.wantFire && !e.firedHeld && e.fireCd <= 0) { e.firedHeld = true; this.throwNade(e, e.slot); e.fireCd = 0.7; }
       } else if (e.wantFire && e.canUse(e.slot)) {
         e.useT += dt;
