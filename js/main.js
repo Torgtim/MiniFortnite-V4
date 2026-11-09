@@ -140,6 +140,10 @@ class Game {
     this.hemi.color.set(s.hemiSky); this.hemi.groundColor.set(s.hemiGround); this.hemi.intensity = s.hemiI * 1.05;
     this.sun.color.set(s.sun); this.sun.intensity = s.sunI * 1.25;
     this.sky.setSeason(s, SUN_DIR, { clouds: settings.clouds, weather: settings.weather });
+    this.baseFog = new THREE.Color(s.fog);
+    this.baseTop = this.sky.uniforms.uTop.value.clone();
+    this.stormBlend = 0;
+    this._purple = null;
     this.storm.wall.material.color.set(s.id === 4 ? 0xff2bd6 : 0x8a3dff);
     this.build.clear();
     this.gadgets.clear();
@@ -533,10 +537,26 @@ class Game {
     }
 
     this.updateCamera(dt);
+    this.stormHaze(dt);
     this.sky.update(dt, tnow, this.camera);
     if (this.player) this.hud.update(dt);
     const f = this.player && this.player.alive ? this.player : this.camera.position;
     this._sunFollow(f.x, f.z);
+  }
+
+  /** Inside the storm the world turns into purple haze (fog closes in, the sky goes violet). */
+  stormHaze(dt) {
+    const p = this.player;
+    const inStorm = !!(p && p.alive && !p.airborne && this.mode !== 'lobby' && this.storm.outside(p.x, p.z));
+    this.stormBlend += ((inStorm ? 1 : 0) - this.stormBlend) * Math.min(1, dt * 2.5);
+    const k = this.stormBlend;
+    if (!this.scene.fog || !this.baseFog) return;
+    const purple = this._purple || (this._purple = new THREE.Color(this.season.id === 4 ? '#ff2bd6' : '#6a2bb8'));
+    this.scene.fog.color.copy(this.baseFog).lerp(purple, k * 0.85);
+    this.scene.fog.far = settings.drawDist + (70 - settings.drawDist) * k;
+    this.scene.fog.near = settings.drawDist * 0.3 * (1 - k);
+    this.sky.uniforms.uHorizon.value.copy(this.scene.fog.color);
+    this.sky.uniforms.uTop.value.copy(this.baseTop).lerp(purple, k * 0.7);
   }
 
   _sunFollow(x, z) {

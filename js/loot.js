@@ -9,10 +9,10 @@ import { heldGun } from './characters.js';
 import { TEX } from './textures.js';
 import { MATERIALS } from './build.js';
 
-const beamGeo = new THREE.CylinderGeometry(0.3, 0.3, 3.4, 6, 1, true).translate(0, 1.7, 0);
+const beamGeo = new THREE.CylinderGeometry(0.22, 0.3, 3.4, 6, 1, true).translate(0, 1.7, 0);
 const beamMats = {};
 const beamMat = (color) => beamMats[color] || (beamMats[color] = new THREE.MeshBasicMaterial({
-  color, transparent: true, opacity: 0.25, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+  color, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
 }));
 const geo = {
   ammo: new THREE.BoxGeometry(0.42, 0.3, 0.42), item: new THREE.OctahedronGeometry(0.3, 0), mats: new THREE.BoxGeometry(0.5, 0.5, 0.5),
