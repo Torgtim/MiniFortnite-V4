@@ -1,173 +1,249 @@
-// Bot opponents: loot, run from the storm, find and fight whoever they can see.
+// Bot opponents. Each bot drops from the bus toward a place it picked, loots, harvests
+// materials, rotates with the storm, hears gunfire, fights with range-appropriate weapons,
+// builds walls / ramps / boxes, shoots through enemy builds and throws grenades.
 
-import * as THREE from '../lib/three.module.min.js';
 import { Entity } from './entity.js';
-import { stepEntity, isFree } from './physics.js';
+import { stepEntity, isFree, findLedge, startMantle, stepMantle } from './physics.js';
 import { WEAPONS, weaponStats, ITEM_KINDS } from './weapons.js';
+import { CharacterModel } from './characters.js';
 import { angleDiff, clamp } from './util.js';
 
 export const BOT_NAMES = ['Skelly', 'Voltage', 'NoScope', 'Pixel', 'Toast', 'Gigabyte', 'Raven', 'Moose', 'Blitz', 'Zed',
-  'Cobalt', 'Mango', 'Echo', 'Rusty', 'Nova', 'Spud', 'Ghost', 'Turbo', 'Waffles', 'Ziggy', 'Bonk', 'Glitch'];
+  'Cobalt', 'Mango', 'Echo', 'Rusty', 'Nova', 'Spud', 'Ghost', 'Turbo', 'Waffles', 'Ziggy', 'Bonk', 'Glitch',
+  'Dial-Up', 'Floppy', 'Modem', 'Tamagotchi', 'Pager', 'Nintendo64', 'Winamp', 'Clippy', 'Geocity', 'Y2K',
+  'Pogo', 'Beanie', 'Discman', 'Furby', 'Netscape', 'Walkman', 'Skater', 'Jigsaw'];
 
-const COLORS = [0xe74c3c, 0x3498db, 0x2ecc71, 0xf1c40f, 0x9b59b6, 0xe67e22, 0x1abc9c, 0xff6fa5, 0x95a5a6, 0x6c5ce7];
+const SKILL = [[0.12, 0.42], [0.32, 0.72], [0.6, 0.95]];
 
-// preferred fighting distance per weapon class
-const IDEAL = { pistol: 16, smg: 13, rifle: 24, shotgun: 7, sniper: 55, launcher: 28 };
-
-function makeBotMesh(color, name) {
-  const g = new THREE.Group();
-  const mat = new THREE.MeshLambertMaterial({ color });
-  const skin = new THREE.MeshLambertMaterial({ color: 0xf0c8a0 });
-  const dark = new THREE.MeshLambertMaterial({ color: 0x2c3e50 });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.75, 0.32), mat); body.position.y = 1.15;
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.36, 0.36), skin); head.position.y = 1.72;
-  const hat = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.14, 0.4), dark); hat.position.y = 1.95;
-  const mkLimb = (w, h, x, y, m) => {
-    const piv = new THREE.Group(); piv.position.set(x, y, 0);
-    const l = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), m); l.position.y = -h / 2;
-    piv.add(l); return piv;
-  };
-  const legL = mkLimb(0.26, 0.78, -0.16, 0.78, dark), legR = mkLimb(0.26, 0.78, 0.16, 0.78, dark);
-  const armL = mkLimb(0.2, 0.7, -0.42, 1.5, mat), armR = mkLimb(0.2, 0.7, 0.42, 1.5, mat);
-  const gun = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, 0.7), new THREE.MeshLambertMaterial({ color: 0x333a44 }));
-  gun.position.set(0, -0.55, -0.35);
-  armR.add(gun);
-  g.add(body, head, hat, legL, legR, armL, armR);
-  g.userData = { legL, legR, armL, armR, gun };
-
-  // name tag
-  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64;
-  const c = cv.getContext('2d');
-  c.font = 'bold 34px Arial'; c.textAlign = 'center'; c.fillStyle = '#fff'; c.strokeStyle = '#000'; c.lineWidth = 6;
-  c.strokeText(name, 128, 42); c.fillText(name, 128, 42);
-  const tex = new THREE.CanvasTexture(cv);
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
-  sp.scale.set(2.2, 0.55, 1); sp.position.y = 2.45; sp.renderOrder = 10;
-  g.add(sp);
-  g.userData.tag = sp;
-  return g;
+/** How good a weapon class is at a given distance (0..1). */
+function rangeFit(cls, d) {
+  switch (cls) {
+    case 'shotgun': return d < 7 ? 1 : d < 14 ? 0.7 : d < 22 ? 0.25 : 0.05;
+    case 'smg': return d < 18 ? 0.9 : d < 30 ? 0.55 : 0.2;
+    case 'pistol': return d < 25 ? 0.6 : d < 50 ? 0.45 : 0.2;
+    case 'rifle': return d < 6 ? 0.55 : d < 70 ? 0.85 : 0.6;
+    case 'sniper': return d < 12 ? 0.15 : d < 35 ? 0.55 : 1;
+    case 'launcher': return d < 8 ? 0 : d < 60 ? 0.7 : 0.4;
+    default: return 0.3;
+  }
 }
+const IDEAL = { pistol: 16, smg: 11, rifle: 24, shotgun: 5, sniper: 55, launcher: 26 };
 
 export class Bot extends Entity {
-  constructor(game, name, index) {
+  constructor(game, name, index, difficulty = 1) {
     super(game, name, false);
-    this.skill = 0.35 + Math.random() * 0.5;
-    this.mesh = makeBotMesh(COLORS[index % COLORS.length], name);
-    this.thinkT = Math.random() * 0.4;
+    const [lo, hi] = SKILL[clamp(difficulty, 0, 2)];
+    this.skill = lo + Math.random() * (hi - lo);
+    this.aggro = 0.3 + Math.random() * 0.7;       // how eager it is to take fights / push
+    this.builder = Math.random() < 0.35 + this.skill * 0.6; // some bots never build
+    this.model = new CharacterModel(index, name);
+    this.mesh = this.model.root;
+    this.thinkT = Math.random() * 0.3;
     this.mode = 'roam';
-    this.goal = null; this.goalT = 0;
-    this.enemy = null; this.enemySeen = 0; this.lastSeen = 0;
+    this.goal = null; this.goalT = 0; this.path = [];
+    this.enemy = null; this.enemySeen = 0; this.lastSeen = -99; this.enemyPos = null;
     this.strafe = Math.random() < 0.5 ? 1 : -1; this.strafeT = 0;
-    this.lastX = 0; this.lastZ = 0; this.stuckT = 0; this.unstickT = 0; this.unstickDir = 1;
-    this.aimErrYaw = 0; this.aimErrPitch = 0; this.aimErrT = 0;
-    this.spreadMult = 1.2 + (1 - this.skill) * 1.6;
+    this.lastX = 0; this.lastZ = 0; this.stuckT = 0; this.unstickT = 0; this.unstickDir = 1; this.stuckCount = 0;
+    this.aimErr = { yaw: 0, pitch: 0 }; this.aimSettle = 0;
+    this.spreadMult = 1.15 + (1 - this.skill) * 1.5;
     this.blacklist = new Map();
-    this.fireBurstT = 0; this.fireRestT = 0;
-    this.walkPhase = Math.random() * 6;
-    this.healing = false;
+    this.fireRestT = 0; this.fireBurstT = 0;
+    this.buildCd = 0; this.rampT = 0; this.boxPlan = null; this.nadeCd = 5;
+    this.hunt = null; this.harvestNode = null;
+    this.headAim = Math.random() < this.skill * 0.6;
+    this.crouchT = 0;
+    this.dropTarget = null; this.jumpAlong = 0;
+  }
+
+  // ------------------------------------------------------------------ bus
+  planDrop(bus, rnd) {
+    const w = this.game.world;
+    let t;
+    if (w.sites.length && rnd() < 0.75) {
+      const s = w.sites[Math.floor(rnd() * w.sites.length)];
+      t = { x: s.x + (rnd() - 0.5) * 30, z: s.z + (rnd() - 0.5) * 30 };
+    } else t = w.randomLandPoint(rnd);
+    this.dropTarget = t;
+    this.jumpAlong = clamp(bus.along(t.x, t.z) - 30 + (rnd() - 0.5) * 40, 45, bus.len - 10);
+  }
+
+  onDamaged(src) {
+    if (src && src !== this && src.alive) {
+      if (!this.enemy || this.enemy === src || !this.canSee(this.enemy)) { this.enemy = src; this.enemyPos = { x: src.x, y: src.y, z: src.z }; this.lastSeen = this.game.time - 0.5; }
+      if (this.mode !== 'fight') this.enemySeen = Math.min(this.enemySeen, this.game.time - 0.2);
+      this.wantCover = this.game.time;
+    }
+  }
+
+  /** Someone made noise (gunshot, explosion, building) at (x,z). */
+  hear(x, z, src) {
+    if (this.enemy && this.game.time - this.lastSeen < 4) return;
+    if (this.mode === 'storm' || this.mode === 'heal') return;
+    if (Math.random() > this.aggro * 0.8) return;
+    this.hunt = { x, z, until: this.game.time + 10, src };
+  }
+
+  canSee(o) {
+    return this.game.combat.los(this.x, this.eyeY, this.z, o.x, o.y + o.h * 0.6, o.z);
   }
 
   // ------------------------------------------------------------------ decision making (a few times a second)
   think() {
-    const g = this.game, now = g.time, w = g.world;
+    const g = this.game, now = g.time;
     const prevMode = this.mode;
     g.loot.autoPickup(this);
 
-    // 1) find the closest visible enemy
-    let best = null, bd = 85 * 85;
+    // 1) perception: closest visible enemy (things behind us far away are noticed less)
+    let best = null, bd = 90 * 90;
     for (const o of g.entities) {
-      if (o === this || !o.alive || o.untargetable) continue;
+      if (o === this || !o.alive || o.untargetable || o.air === 'bus') continue;
       const dx = o.x - this.x, dz = o.z - this.z, d2 = dx * dx + dz * dz;
       if (d2 > bd) continue;
-      if (!g.combat.los(this.x, this.eyeY, this.z, o.x, o.y + 1.1, o.z)) continue;
-      bd = d2; best = o;
+      const behind = Math.abs(angleDiff(this.yaw, Math.atan2(-dx, -dz))) > 1.9;
+      if (behind && d2 > 25 * 25 && o !== this.enemy && o !== this.lastAttacker && Math.random() > 0.3) continue;
+      if (!this.canSee(o)) continue;
+      const score = d2 * (o === this.lastAttacker && now - this.lastDamaged < 3 ? 0.4 : 1);
+      if (score < bd) { bd = score; best = o; }
     }
     if (best) {
-      if (this.enemy !== best) { this.enemy = best; this.enemySeen = now; }
+      if (this.enemy !== best) { this.enemy = best; this.enemySeen = now; this.aimSettle = 0; }
       this.lastSeen = now;
-    } else if (now - this.lastSeen > 3) this.enemy = null;
+      this.enemyPos = { x: best.x, y: best.y, z: best.z };
+      this.hunt = null;
+    } else if (this.enemy && (!this.enemy.alive || now - this.lastSeen > 7)) this.enemy = null;
+    const visible = !!best;
+    const dist = this.enemy ? Math.hypot(this.enemy.x - this.x, this.enemy.z - this.z) : 999;
 
-    // 2) pick the best weapon we can actually shoot
+    // 2) weapon for the current range
     let bi = -1, bs = -1;
     for (let i = 1; i <= 5; i++) {
       const s = this.slots[i];
-      if (s && s.type === 'weapon') { const sc = this.weaponScore(s); if (sc > bs) { bs = sc; bi = i; } }
+      if (!s || s.type !== 'weapon') continue;
+      const st = weaponStats(s);
+      if (s.mag <= 0 && this.ammo[st.ammo] <= 0) continue;
+      const sc = (st.dps * 0.02 + s.rarity * 0.15 + 1) * rangeFit(st.cls, this.enemy ? dist : 30) * (s.mag > 0 ? 1 : 0.6);
+      if (sc > bs) { bs = sc; bi = i; }
     }
     const hasGun = bi > 0;
+    const nadeSlot = this.slots.findIndex((s, i) => i > 0 && s && s.type === 'item' && ITEM_KINDS[s.id].throw);
 
-    // 3) heal when safe
+    // 3) heal when nobody is shooting at us (box up first if a fight is near)
     this.healing = false;
-    if (!this.enemy || now - this.lastSeen > 1.5) {
-      for (let i = 1; i <= 5; i++) {
-        if (this.canUse(i) && (this.hp < 60 || this.shield < 25)) { this.selectSlot(i); this.healing = true; break; }
+    const recentlyHit = now - this.lastDamaged < 2.5;
+    const hurt = this.hp < 70 || this.shield < 40;
+    if (hurt && (!visible || this.boxed) && !recentlyHit) {
+      // shields first when healthy, health first when low
+      const order = [];
+      for (let i = 1; i <= 5; i++) if (this.canUse(i) && !ITEM_KINDS[this.slots[i].id].throw) order.push(i);
+      order.sort((a, b) => {
+        const ka = ITEM_KINDS[this.slots[a].id], kb = ITEM_KINDS[this.slots[b].id];
+        const va = this.hp < 50 ? (ka.hp ? 1 : 0) : (ka.sh ? 1 : 0), vb = this.hp < 50 ? (kb.hp ? 1 : 0) : (kb.sh ? 1 : 0);
+        return vb - va;
+      });
+      if (order.length) {
+        if (this.enemy && now - this.lastSeen < 8 && this.builder && !this.boxed && this.totalMats() >= 50) this.planBox();
+        else { if (this.slot !== order[0]) this.selectSlot(order[0]); this.healing = true; }
       }
-    }
-
-    if (!this.healing) {
-      if (this.enemy && hasGun && now - this.lastSeen < 2.5) { if (this.slot !== bi) this.selectSlot(bi); }
-      else if (hasGun && this.slot !== bi && !this.enemy) { this.selectSlot(bi); }
-      else if (!hasGun && this.slot !== 0) this.selectSlot(0);
     }
 
     // 4) high-level mode
     const st = g.storm;
     const toC = Math.hypot(this.x - st.toX, this.z - st.toZ);
-    const dCur = Math.hypot(this.x - st.cx, this.z - st.cz);
-    const inDanger = st.outside(this.x, this.z) || (st.state === 'shrinking' && dCur > st.r - 6);
-    const stormSoon = st.state === 'waiting' && st.timeLeft < 12 && toC > st.toR - 4;
+    const travel = Math.max(0, toC - st.toR * 0.8) / 8;
+    const outside = st.outside(this.x, this.z);
+    const inDanger = outside || (st.state === 'shrinking' && Math.hypot(this.x - st.cx, this.z - st.cz) > st.r - 8);
+    const rotateNow = st.state === 'waiting' && toC > st.toR - 4 && st.timeLeft < travel + 8 + (1 - this.skill) * 6;
 
-    if (this.healing) { this.mode = 'heal'; this.goal = null; }
-    else if (inDanger || stormSoon) { this.mode = 'storm'; this.goal = { x: st.toX, z: st.toZ }; this.goalT = 8; }
-    else if (this.enemy && hasGun) { this.mode = 'fight'; }
-    else if (this.enemy && !hasGun) { this.mode = 'flee'; this.goal = { x: this.x - (this.enemy.x - this.x), z: this.z - (this.enemy.z - this.z) }; this.goalT = 3; }
-    else {
-      // keep chasing the current loot target while it still exists, otherwise look for new loot
+    if (this.boxPlan) this.mode = 'box';
+    else if (this.healing) { this.mode = 'heal'; this.goal = null; }
+    else if ((inDanger || rotateNow) && !(this.enemy && visible && dist < 18 && !outside)) {
+      this.mode = 'storm';
+      if (!this.goal || this.goal.kind !== 'storm' || this.goalT <= 0) {
+        const a = Math.atan2(this.z - st.toZ, this.x - st.toX), r = st.toR * (0.3 + Math.random() * 0.4);
+        this.goal = { x: st.toX + Math.cos(a) * r, z: st.toZ + Math.sin(a) * r, kind: 'storm' }; this.goalT = 10; this.path = [];
+      }
+    } else if (this.enemy && hasGun && (visible || now - this.lastSeen < 5)) this.mode = 'fight';
+    else if (this.enemy && !hasGun && visible && dist < 30) {
+      this.mode = 'flee';
+      this.goal = { x: this.x - (this.enemy.x - this.x), z: this.z - (this.enemy.z - this.z), kind: 'flee' }; this.goalT = 3; this.path = [];
+    } else if (this.hunt && now < this.hunt.until && hasGun) {
+      this.mode = 'hunt';
+      if (!this.goal || this.goal.kind !== 'hunt') { this.goal = { x: this.hunt.x, z: this.hunt.z, kind: 'hunt' }; this.goalT = 10; this.path = []; }
+    } else {
+      this.hunt = null;
       const t = this.goal && this.goal.target;
       const stillThere = prevMode === 'loot' && t && this.goalT > 0 && (t.kind === 'c' ? !t.ref.opened : g.loot.pickups.includes(t.ref));
+      const wantGun = !hasGun || bs < 0.5;
       if (stillThere) this.mode = 'loot';
-      else {
-        const wantGun = !hasGun || bs < 20;
+      else if (this.mode === 'harvest' && this.harvestNode && !this.harvestNode.dead && this.totalMats() < 260) { /* keep harvesting */ }
+      else if (this.builder && hasGun && this.totalMats() < 120 && Math.random() < 0.7 && (this.harvestNode = this.findNode())) {
+        // armed but broke: farm some materials before looting more
+        this.mode = 'harvest'; this.goal = { x: this.harvestNode.x, z: this.harvestNode.z, kind: 'harvest' }; this.goalT = 12; this.path = [];
+      } else {
         const target = this.findLoot(wantGun);
-        if (target) { this.mode = 'loot'; this.goal = { x: target.x, z: target.z, target }; this.goalT = 12; }
-        else if (!this.goal || this.goal.target || this.goalT <= 0 || Math.hypot(this.goal.x - this.x, this.goal.z - this.z) < 3) {
+        if (target) { this.mode = 'loot'; this.goal = { x: target.x, z: target.z, target, kind: 'loot' }; this.goalT = 14; this.path = []; }
+        else if (this.builder && this.totalMats() < 120 && (this.harvestNode = this.findNode())) {
+          this.mode = 'harvest'; this.goal = { x: this.harvestNode.x, z: this.harvestNode.z, kind: 'harvest' }; this.goalT = 12; this.path = [];
+        } else if (!this.goal || this.goal.target || this.goal.kind !== 'roam' || this.goalT <= 0 || Math.hypot(this.goal.x - this.x, this.goal.z - this.z) < 3) {
           this.mode = 'roam';
           const a = Math.random() * Math.PI * 2, r = 25 + Math.random() * 45;
           let gx = this.x + Math.cos(a) * r, gz = this.z + Math.sin(a) * r;
           if (Math.hypot(gx - st.toX, gz - st.toZ) > st.toR * 0.8) { gx = st.toX + (Math.random() - 0.5) * st.toR; gz = st.toZ + (Math.random() - 0.5) * st.toR; }
-          this.goal = { x: gx, z: gz }; this.goalT = 10;
+          this.goal = { x: gx, z: gz, kind: 'roam' }; this.goalT = 12; this.path = [];
         } else this.mode = 'roam';
       }
     }
 
-    // 5) grab nearby loot we want
+    // 5) weapon in hand for the mode
+    if (this.mode === 'harvest' || (!hasGun && this.mode !== 'heal')) { if (this.slot !== 0 && !this.healing) this.selectSlot(0); }
+    else if (this.mode !== 'heal' && this.mode !== 'box' && hasGun && this.slot !== bi && this.reloadT <= 0) {
+      // don't swap every think: only when the new pick is clearly better
+      const cur = this.held && this.held.type === 'weapon' ? this.held : null;
+      const curSc = cur ? (rangeFit(WEAPONS[cur.id].cls, this.enemy ? dist : 30) * (cur.mag > 0 ? 1 : 0.6)) : -1;
+      if (!cur || bs > curSc * 1.25 + 0.05) this.selectSlot(bi);
+    }
+
+    // 6) grenade at someone hiding behind cover
+    this.nadeCd -= 0.25;
+    if (nadeSlot > 0 && this.mode === 'fight' && !visible && this.enemyPos && this.nadeCd <= 0 && dist > 7 && dist < 32 && Math.random() < 0.5) {
+      this.throwAt = { slot: nadeSlot, x: this.enemyPos.x, y: this.enemyPos.y, z: this.enemyPos.z };
+      this.nadeCd = 7 + Math.random() * 6;
+    }
+
+    // 7) grab nearby loot we want
     const near = g.loot.nearestInteractable(this, 2.4);
-    if (near) {
-      if (near.type === 'chest') g.loot.interact(this, near);
+    if (near && this.mode !== 'fight') {
+      if (near.type === 'chest' || near.type === 'box') g.loot.interact(this, near);
       else {
         const p = near.p;
         const want = p.kind === 'item' ? this.itemWanted(p.itemId) : this.weaponWanted(p.inst);
-        if (want && g.loot.interact(this, near)) { this.blacklist.clear(); }
+        if (want && g.loot.interact(this, near)) this.blacklist.clear();
       }
     }
-    if (this.mode !== 'fight' && this.reloadT <= 0 && this.held && this.held.type === 'weapon' && this.held.mag === 0) this.startReload();
+    if (this.mode !== 'fight' && this.reloadT <= 0 && this.held && this.held.type === 'weapon' && this.held.mag < weaponStats(this.held).mag * 0.5) this.startReload();
+    if (this.boxed && (now - this.boxed > 9 || !this.enemy)) this.boxed = 0;
   }
+
+  totalMats() { return this.mats.wood + this.mats.brick + this.mats.metal; }
 
   itemWanted(id) {
     const k = ITEM_KINDS[id];
     let have = 0;
     for (let i = 1; i <= 5; i++) { const s = this.slots[i]; if (s && s.type === 'item' && s.id === id) have += s.count; }
-    if (have >= 3) return false;
-    return !!(k.hp || k.sh);
+    if (have >= (k.stack || 3)) return false;
+    return !!(k.hp || k.sh || k.throw);
   }
 
   weaponWanted(inst) {
     const sc = this.weaponScore(inst);
-    let worst = Infinity, free = false;
+    let worst = Infinity, free = false, sameCls = null;
+    const cls = WEAPONS[inst.id].cls;
     for (let i = 1; i <= 5; i++) {
       const s = this.slots[i];
       if (!s) free = true;
-      else if (s.type === 'weapon') worst = Math.min(worst, this.weaponScore(s));
+      else if (s.type === 'weapon') { worst = Math.min(worst, this.weaponScore(s)); if (WEAPONS[s.id].cls === cls) sameCls = s; }
     }
+    if (sameCls) return sc > this.weaponScore(sameCls) + 8;
     if (free) return true;
     return sc > worst + 6;
   }
@@ -175,24 +251,56 @@ export class Bot extends Entity {
   findLoot(wantGun) {
     const g = this.game, now = g.time;
     let best = null, bd = 70 * 70;
-    const consider = (o, kind) => {
+    const consider = (o, kind, bias = 1) => {
       const bl = this.blacklist.get(o);
       if (bl && bl > now) return;
-      const dx = o.x - this.x, dz = o.z - this.z, d = dx * dx + dz * dz;
+      const dx = o.x - this.x, dz = o.z - this.z, d = (dx * dx + dz * dz) * bias;
       if (d < bd) { bd = d; best = { x: o.x, z: o.z, y: o.y, ref: o, kind }; }
     };
     for (const p of g.loot.pickups) {
-      if (p.kind === 'weapon' && (wantGun || this.weaponWanted(p.inst))) consider(p, 'p');
+      if (p.kind === 'weapon' && (wantGun || this.weaponWanted(p.inst))) consider(p, 'p', wantGun ? 0.6 : 1);
       else if (p.kind === 'ammo') { const hasUser = this.slots.some((s) => s && s.type === 'weapon' && WEAPONS[s.id].ammo === p.type); if (hasUser && this.ammo[p.type] < 90) consider(p, 'p'); }
       else if (p.kind === 'item' && this.itemWanted(p.itemId) && !wantGun) consider(p, 'p');
+      else if (p.kind === 'mats' && this.builder && this.totalMats() < 400) consider(p, 'p', 0.8);
     }
-    if (wantGun || Math.random() < 0.3) for (const c of g.loot.chests) if (!c.opened) consider(c, 'c');
-    if (best) this.blacklist.set(best.ref, now + 25); // don't chase the same thing forever
+    for (const c of g.loot.chests) if (!c.opened && (wantGun || Math.random() < 0.5)) consider(c, 'c', c.supply ? 0.25 : 0.7);
+    if (best) this.blacklist.set(best.ref, now + 25);
     return best;
   }
 
+  findNode() {
+    const w = this.game.world;
+    let best = null, bd = 45 * 45;
+    for (const n of w.nodes) {
+      if (n.dead) continue;
+      const d = (n.x - this.x) ** 2 + (n.z - this.z) ** 2;
+      const k = n.res === 'wood' ? 0.7 : 1;
+      if (d * k < bd) { bd = d * k; best = n; }
+    }
+    return best;
+  }
+
+  // ------------------------------------------------------------------ building helpers
+  /** Face direction snapped to the grid axis closest to the given angle. */
+  snapYaw(yaw) { return Math.round(yaw / (Math.PI / 2)) * (Math.PI / 2); }
+
+  buildWallToward(tx, tz) {
+    const yaw = Math.atan2(-(tx - this.x), -(tz - this.z));
+    return this.game.build.placeFor(this, 'wall', yaw, 0);
+  }
+
+  planBox() {
+    const base = this.snapYaw(this.yaw);
+    this.boxPlan = [
+      ['wall', base], ['wall', base + Math.PI / 2], ['wall', base + Math.PI], ['wall', base - Math.PI / 2], ['cone', base, 0.4],
+    ];
+    this.boxT = 0;
+    // stand in the middle of the cell so the walls go around us
+    const CS = 4;
+    this.boxCenter = { x: (Math.floor(this.x / CS) + 0.5) * CS, z: (Math.floor(this.z / CS) + 0.5) * CS };
+  }
+
   // ------------------------------------------------------------------ per-frame movement + shooting
-  /** Is (x,z) a damaging liquid (lava, icy water...) that bots should not wade into? */
   _hazard(w, x, z) {
     const liq = w.season.liquid;
     return !!(liq && liq.dps >= 3 && w.heightAt(x, z) < w.liquidY);
@@ -201,72 +309,102 @@ export class Bot extends Entity {
   update(dt) {
     if (!this.alive) return;
     const g = this.game, w = g.world;
+
+    // ---- bus / sky
+    if (this.air === 'bus') {
+      if (g.bus.dist >= this.jumpAlong && g.bus.canDrop) this.jumpFromBus();
+      this.animateModel(dt);
+      return;
+    }
+    if (this.air) {
+      const t = this.dropTarget || { x: 0, z: 0 };
+      let dx = t.x - this.x, dz = t.z - this.z;
+      const d = Math.hypot(dx, dz) || 1;
+      const ty = Math.atan2(-dx, -dz);
+      this.yaw += clamp(angleDiff(this.yaw, ty), -dt * 3, dt * 3);
+      const k = clamp(d / 30, 0, 1);
+      this.airStep(dt, dx / d * k, dz / d * k, d > 40 ? 1 : 0.3);
+      this.animateModel(dt);
+      return;
+    }
+    if (this.mantle) { stepMantle(w, this, dt); this.animateModel(dt); return; }
+
     this.thinkT -= dt;
-    if (this.thinkT <= 0) { this.thinkT = 0.2 + Math.random() * 0.15; this.think(); }
+    if (this.thinkT <= 0) { this.thinkT = 0.18 + Math.random() * 0.14; this.think(); }
     this.goalT -= dt;
     this.strafeT -= dt;
-    if (this.strafeT <= 0) { this.strafe = Math.random() < 0.5 ? 1 : -1; this.strafeT = 0.7 + Math.random() * 1.3; }
+    this.buildCd -= dt;
+    if (this.strafeT <= 0) { this.strafe = Math.random() < 0.5 ? 1 : -1; this.strafeT = 0.35 + Math.random() * (1.4 - this.skill * 0.8); }
 
     let wx = 0, wz = 0, speed = 6;
     this.wantFire = false;
+    this.aiming = false;
+    this.sprinting = false;
+    let crouch = false;
     const held = this.held;
     const st = held && held.type === 'weapon' ? weaponStats(held) : null;
 
-    if (this.mode === 'fight' && this.enemy && this.enemy.alive && st) {
-      const e = this.enemy;
-      const dx = e.x - this.x, dz = e.z - this.z, dist = Math.hypot(dx, dz);
-      const ty = e.y + 1.35 - this.eyeY;
-      const wantYaw = Math.atan2(-dx, -dz);
-      const wantPitch = Math.atan2(ty, dist);
-      // human-ish aim error that changes every so often
-      this.aimErrT -= dt;
-      if (this.aimErrT <= 0) {
-        this.aimErrT = 0.35 + Math.random() * 0.4;
-        const m = (1 - this.skill) * 0.07;
-        this.aimErrYaw = (Math.random() - 0.5) * m * 2; this.aimErrPitch = (Math.random() - 0.5) * m;
+    if (this.throwAt) {
+      // lob a grenade toward the last known position
+      const t = this.throwAt; this.throwAt = null;
+      if (this.slots[t.slot] && ITEM_KINDS[this.slots[t.slot].id] && ITEM_KINDS[this.slots[t.slot].id].throw) {
+        const dx = t.x - this.x, dz = t.z - this.z, d = Math.hypot(dx, dz);
+        this.yaw = Math.atan2(-dx, -dz);
+        this.pitch = clamp(0.12 + d * 0.012 + (t.y - this.y) * 0.02, -0.2, 0.8);
+        g.combat.throwNade(this, t.slot);
       }
-      const turn = (3.5 + this.skill * 7) * dt;
-      this.yaw += clamp(angleDiff(this.yaw, wantYaw + this.aimErrYaw), -turn, turn);
-      this.pitch += clamp(wantPitch + this.aimErrPitch - this.pitch, -turn, turn);
-      const aimed = Math.abs(angleDiff(this.yaw, wantYaw)) < 0.12 + (1 - this.skill) * 0.1;
-      const react = g.time - this.enemySeen > 0.35 + (1 - this.skill) * 0.7;
-      // movement: keep a comfortable distance and strafe
-      const ideal = IDEAL[st.cls] || 18;
-      const fwd = dist > ideal * 1.25 ? 1 : dist < ideal * 0.6 ? -1 : 0;
-      const sx = Math.cos(this.yaw) * this.strafe, sz = -Math.sin(this.yaw) * this.strafe;
-      wx = -Math.sin(this.yaw) * fwd * 0.9 + sx * 0.7;
-      wz = -Math.cos(this.yaw) * fwd * 0.9 + sz * 0.7;
-      speed = 5.2;
-      // trigger discipline
-      if (aimed && react && dist < st.range * 0.75 && held.mag > 0) {
-        if (st.auto) {
-          this.fireBurstT -= dt;
-          if (this.fireBurstT <= 0) { this.fireRestT = 0.25 + Math.random() * 0.4; this.fireBurstT = 0.6 + Math.random() * 0.9; }
-          this.fireRestT -= dt;
-          this.wantFire = this.fireRestT <= 0 ? true : false;
-        } else this.wantFire = Math.random() < 0.8;
+    }
+
+    if (this.mode === 'box' && this.boxPlan) {
+      // walk to the cell centre, then place the pieces one by one
+      const c = this.boxCenter;
+      const d = Math.hypot(c.x - this.x, c.z - this.z);
+      if (d > 0.6 && this.boxT < 1.2) { wx = (c.x - this.x) / d; wz = (c.z - this.z) / d; speed = 4; this.boxT += dt; }
+      else if (this.buildCd <= 0) {
+        const [type, yaw, pitch] = this.boxPlan.shift();
+        g.build.placeFor(this, type, yaw, pitch || 0);
+        this.buildCd = 0.16 + (1 - this.skill) * 0.2;
+        if (!this.boxPlan.length) { this.boxPlan = null; this.boxed = g.time; this.mode = 'heal'; }
       }
-      if (held.mag === 0 && this.reloadT <= 0) this.startReload();
-      if (this.grounded && Math.random() < dt * 0.35) { this.vy = 7.2; this.grounded = false; }
+    } else if (this.mode === 'fight' && this.enemy && this.enemy.alive && st) {
+      const r = this.fight(dt, st, held);
+      wx = r.wx; wz = r.wz; speed = r.speed; crouch = r.crouch;
     } else if (this.mode === 'heal') {
       speed = 0;
       this.wantFire = true;
+      crouch = true;
+    } else if (this.mode === 'harvest' && this.harvestNode && !this.harvestNode.dead) {
+      const n = this.harvestNode;
+      const dx = n.x - this.x, dz = n.z - this.z, d = Math.hypot(dx, dz);
+      const want = Math.atan2(-dx, -dz);
+      this.yaw += clamp(angleDiff(this.yaw, want), -dt * 8, dt * 8);
+      const reach = (n.collider.maxx - n.collider.minx) / 2 + 1.6;
+      if (d > reach) { wx = dx / d; wz = dz / d; speed = 7; }
+      else {
+        this.pitch += (clamp(Math.atan2(n.y + 1 - this.eyeY, d), -0.6, 0.6) - this.pitch) * Math.min(1, dt * 6);
+        speed = 0; this.wantFire = this.slot === 0;
+        if (this.totalMats() > 280) this.harvestNode = null;
+      }
     } else if (this.goal) {
-      const dx = this.goal.x - this.x, dz = this.goal.z - this.z, dist = Math.hypot(dx, dz);
+      const wp = this.nextWaypoint();
+      const dx = wp.x - this.x, dz = wp.z - this.z, dist = Math.hypot(dx, dz);
       if (dist > 1.2) {
         const want = Math.atan2(-dx, -dz);
         this.yaw += clamp(angleDiff(this.yaw, want), -dt * 7, dt * 7);
         this.pitch += (0 - this.pitch) * Math.min(1, dt * 5);
         wx = dx / dist; wz = dz / dist;
-        speed = this.mode === 'storm' || this.mode === 'flee' ? 8.6 : 7.0;
-      } else { this.goalT = 0; }
-      if (this.goal.target && this.goal.target.ref) {
+        const urgent = this.mode === 'storm' || this.mode === 'flee' || this.mode === 'hunt';
+        speed = urgent || dist > 12 ? 8.6 : 6.4;
+        this.sprinting = speed > 8;
+      } else if (wp === this.goal) this.goalT = 0;
+      else this.path.shift();
+      if (this.goal && this.goal.target && this.goal.target.ref) {
         const r = this.goal.target.ref;
         if ((r.opened) || (r.kind && !g.loot.pickups.includes(r))) { this.goalT = 0; this.goal = null; }
       }
     }
 
-    // ---- steering with feelers + stuck handling
+    // ---- steering with feelers + stuck handling (+ mantling, + ramps over cliffs)
     const len = Math.hypot(wx, wz);
     if (len > 0.01) {
       wx /= len; wz /= len;
@@ -274,28 +412,44 @@ export class Bot extends Entity {
         this.unstickT -= dt;
         const a = Math.atan2(wz, wx) + this.unstickDir * 1.2;
         wx = Math.cos(a); wz = Math.sin(a);
-        if (this.grounded && Math.random() < dt * 3) { this.vy = 7.2; this.grounded = false; }
       } else {
         let ok = false;
         for (const off of [0, 0.5, -0.5, 1.0, -1.0, 1.6, -1.6]) {
           const a = Math.atan2(wz, wx) + off;
           const cx = Math.cos(a), cz = Math.sin(a);
-          if (isFree(w, this.x + cx * 1.1, this.z + cz * 1.1, this.y) && isFree(w, this.x + cx * 2.2, this.z + cz * 2.2, this.y)
+          if (isFree(w, this.x + cx * 1.1, this.z + cz * 1.1, this.y, this.h) && isFree(w, this.x + cx * 2.2, this.z + cz * 2.2, this.y, this.h)
             && !this._hazard(w, this.x + cx * 2.4, this.z + cz * 2.4) && !this._hazard(w, this.x + cx * 4.5, this.z + cz * 4.5)) { wx = cx; wz = cz; ok = true; break; }
         }
-        if (!ok && this.grounded) { this.vy = 7.2; this.grounded = false; }
+        if (!ok && this.grounded) {
+          const ledge = findLedge(w, this, wx, wz, 2.75, true);
+          if (ledge) { startMantle(this, ledge); this.animateModel(dt); return; }
+          this.vy = 7.2; this.grounded = false;
+        }
       }
     }
     const moved = Math.hypot(this.x - this.lastX, this.z - this.lastZ);
     this.stuckT += dt;
     if (this.stuckT > 0.7) {
-      if (len > 0.01 && moved < 0.5 && speed > 0) { this.unstickT = 0.9; this.unstickDir = Math.random() < 0.5 ? -1 : 1; if (this.goal && this.goalT > 3) this.goalT -= 2; }
+      if (len > 0.01 && moved < 0.5 && speed > 0) {
+        this.stuckCount++;
+        this.unstickT = 0.9; this.unstickDir = Math.random() < 0.5 ? -1 : 1;
+        if (this.goal && this.goalT > 3) this.goalT -= 2;
+        // stuck at a cliff? build our way up
+        if (this.stuckCount >= 2 && this.builder && this.totalMats() >= 10 && this.buildCd <= 0) {
+          const yaw = this.snapYaw(Math.atan2(-wx, -wz));
+          if (g.build.placeFor(this, 'ramp', yaw, 0)) { this.unstickT = 0; this.buildCd = 0.8; }
+        }
+      } else this.stuckCount = 0;
       this.stuckT = 0; this.lastX = this.x; this.lastZ = this.z;
     }
 
+    // ---- crouch (healing, careful shots)
+    if (crouch !== this.crouch) { if (crouch || isFree(w, this.x, this.z, this.y, 1.8)) this.setCrouch(crouch); }
+
     // ---- apply velocity + physics
     const liq = w.liquidAt(this.x, this.z, this.y + 0.2);
-    const sp = liq && liq.type !== 'lava' ? speed * 0.6 : speed;
+    let sp = liq && liq.type !== 'lava' ? speed * 0.6 : speed;
+    if (this.crouch) sp = Math.min(sp, 3.4);
     const k = Math.min(1, dt * (this.grounded ? 12 : 3));
     this.vx += (wx * sp - this.vx) * k;
     this.vz += (wz * sp - this.vz) * k;
@@ -303,21 +457,112 @@ export class Bot extends Entity {
     this.moving = len > 0.01 && speed > 0;
 
     g.combat.update_shooter(this, dt);
-
-    // ---- mesh
-    const m = this.mesh, d = m.userData;
-    m.position.set(this.x, this.y, this.z);
-    m.rotation.y = this.yaw;
-    const hv = Math.hypot(this.vx, this.vz);
-    this.walkPhase += dt * hv * 1.6;
-    const sw = Math.sin(this.walkPhase) * Math.min(1, hv / 6) * 0.9;
-    d.legL.rotation.x = sw; d.legR.rotation.x = -sw;
-    d.armL.rotation.x = -sw * 0.6;
-    const aiming = this.mode === 'fight';
-    d.armR.rotation.x = aiming ? -1.45 + this.pitch * 0.9 + this.recoil * 0.2 : sw * 0.6;
-    d.gun.visible = !!(held && held.type === 'weapon');
+    this.animateModel(dt);
     const pl = g.player;
-    const dd = pl ? Math.hypot(pl.x - this.x, pl.z - this.z) : 99;
-    d.tag.visible = dd < 45 && !(pl && !pl.alive && false);
+    if (this.model.tag) this.model.tag.visible = !!pl && Math.hypot(pl.x - this.x, pl.z - this.z) < 40;
+  }
+
+  /** Route around building walls: go through the door when the goal is inside a house. */
+  nextWaypoint() {
+    const goal = this.goal;
+    if (!this.path.length && goal) {
+      const w = this.game.world;
+      const inside = (b, x, z) => x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1;
+      for (const b of w.buildings) {
+        const gi = inside(b, goal.x, goal.z), si = inside(b, this.x, this.z);
+        if (gi && !si) { this.path = [{ x: b.door.ox, z: b.door.oz }, { x: b.door.x, z: b.door.z }]; break; }
+        if (!gi && si) { this.path = [{ x: b.door.x, z: b.door.z }, { x: b.door.ox, z: b.door.oz }]; break; }
+      }
+      if (!this.path.length) this.path = [goal];
+    }
+    while (this.path.length > 1 && Math.hypot(this.path[0].x - this.x, this.path[0].z - this.z) < 1.3) this.path.shift();
+    return this.path[0] || goal;
+  }
+
+  /** Combat movement + aiming + trigger + build fighting. */
+  fight(dt, st, held) {
+    const g = this.game, e = this.enemy, now = g.time;
+    const visible = now - this.lastSeen < 0.4;
+    const tgt = visible ? e : this.enemyPos;
+    const dx = tgt.x - this.x, dz = tgt.z - this.z, dist = Math.hypot(dx, dz);
+    this.aiming = true;
+    let wx = 0, wz = 0, speed = 5.4, crouch = false;
+
+    // where to aim: chest or head, or the build that blocks our view
+    let ay = tgt.y + (e.h || 1.8) * (this.headAim ? 0.9 : 0.62);
+    let aimX = tgt.x, aimZ = tgt.z;
+    let shootBuild = false;
+    if (!visible) {
+      const d0 = Math.hypot(dx, ay - this.eyeY, dz) || 1;
+      const hit = g.world.raycast(this.x, this.eyeY, this.z, dx / d0, (ay - this.eyeY) / d0, dz / d0, d0, 2.0);
+      if (hit.collider && hit.collider.piece && hit.t < Math.min(st.range, 60)) {
+        const p = hit.collider.piece; aimX = p.x; ay = p.y; aimZ = p.z; shootBuild = true;
+      }
+    }
+    const adx = aimX - this.x, adz = aimZ - this.z, ad = Math.hypot(adx, adz) || 1;
+    const wantYaw = Math.atan2(-adx, -adz);
+    const wantPitch = Math.atan2(ay - this.eyeY, ad);
+
+    // aim error: big when the target is new / moving sideways, settles while tracking
+    this.aimSettle = Math.min(1, this.aimSettle + dt * (0.4 + this.skill * 1.2));
+    const lat = Math.abs((e.vx || 0) * Math.cos(wantYaw) - (e.vz || 0) * Math.sin(wantYaw));
+    const errMag = (0.02 + (1 - this.skill) * 0.09) * (1.6 - this.aimSettle) + lat * 0.004 * (1 - this.skill * 0.5);
+    this.aimErrT = (this.aimErrT || 0) - dt;
+    if (this.aimErrT <= 0) {
+      this.aimErrT = 0.25 + Math.random() * 0.35;
+      this.aimErr.yaw = (Math.random() - 0.5) * 2 * errMag;
+      this.aimErr.pitch = (Math.random() - 0.5) * errMag;
+    }
+    const turn = (3 + this.skill * 8) * dt;
+    this.yaw += clamp(angleDiff(this.yaw, wantYaw + this.aimErr.yaw), -turn, turn);
+    this.pitch += clamp(wantPitch + this.aimErr.pitch - this.pitch, -turn, turn);
+    const aimed = Math.abs(angleDiff(this.yaw, wantYaw)) < 0.1 + (1 - this.skill) * 0.12;
+    const react = now - this.enemySeen > 0.25 + (1 - this.skill) * 0.65;
+
+    // ---- movement: hold the ideal distance, strafe, sometimes jump / crouch
+    const ideal = (IDEAL[st.cls] || 18) * (1.25 - this.aggro * 0.5);
+    let fwd = dist > ideal * 1.3 ? 1 : dist < ideal * 0.6 ? -1 : 0;
+    if (!visible && !shootBuild) fwd = 1; // push to where we last saw them
+    const lowEnemy = e.hp + e.shield < 60 && this.aggro > 0.5;
+    if (lowEnemy && visible) fwd = 1;
+    const fx = -Math.sin(wantYaw), fz = -Math.cos(wantYaw), sx = Math.cos(wantYaw) * this.strafe, sz = -Math.sin(wantYaw) * this.strafe;
+    wx = fx * fwd * 0.9 + sx * 0.75;
+    wz = fz * fwd * 0.9 + sz * 0.75;
+    if (st.cls === 'sniper' && visible && dist > 30) { wx *= 0.2; wz *= 0.2; crouch = this.skill > 0.4; }
+    if (this.grounded && visible && Math.random() < dt * (0.15 + this.skill * 0.5)) { this.vy = 7.4; this.grounded = false; }
+
+    // ---- building in fights
+    if (this.builder && this.buildCd <= 0 && this.totalMats() >= 10) {
+      const higher = e.y - this.y;
+      if (this.wantCover && now - this.wantCover < 2.5 && visible && dist > 6 && Math.random() < 0.4 + this.skill * 0.5) {
+        // pop a wall between us and them
+        if (this.buildWallToward(e.x, e.z)) this.buildCd = 1.0 + Math.random() * (1.4 - this.skill);
+        this.wantCover = 0;
+      } else if (higher > 2.6 && dist < 26 && Math.random() < 0.6) {
+        // ramp-rush up to them (ramp + wall)
+        const yaw = this.snapYaw(wantYaw);
+        if (g.build.placeFor(this, 'ramp', yaw, 0)) {
+          if (Math.random() < 0.5) g.build.placeFor(this, 'wall', yaw, 0.7);
+          this.buildCd = 0.45;
+        } else this.buildCd = 0.3;
+        wx = fx; wz = fz; speed = 6.2;
+      }
+    }
+
+    // ---- trigger discipline
+    if (aimed && react && (visible || shootBuild) && dist < st.range * 0.8 && held.mag > 0) {
+      if (st.cls === 'launcher' && dist < 7) this.wantFire = false;
+      else if (st.auto) {
+        this.fireBurstT -= dt;
+        if (this.fireBurstT <= 0) { this.fireRestT = 0.2 + Math.random() * 0.35 * (1.3 - this.skill); this.fireBurstT = 0.5 + Math.random() * 0.9; }
+        this.fireRestT -= dt;
+        this.wantFire = this.fireRestT <= 0;
+      } else this.wantFire = st.cls === 'sniper' ? this.aimSettle > 0.7 : Math.random() < 0.85;
+    }
+    if (held.mag === 0 && this.reloadT <= 0) this.startReload();
+    if (this.reloadT > 0 && visible && this.builder && this.buildCd <= 0 && dist < 25 && this.totalMats() >= 10 && Math.random() < this.skill * 0.5) {
+      if (this.buildWallToward(e.x, e.z)) this.buildCd = 1.5;
+    }
+    return { wx, wz, speed, crouch };
   }
 }

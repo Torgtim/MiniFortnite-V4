@@ -1,30 +1,32 @@
-// Simple character physics: circle-vs-box horizontal collision, step-up, slopes, gravity.
+// Character physics: circle-vs-box horizontal collision, step-up, slopes, ramps/roofs, gravity,
+// crouch height, mantling (climbing ledges) and vaulting.
 
-import { clamp } from './util.js';
+import { colliderTop } from './geom.js';
 
 export const PLAYER_R = 0.45;
 export const PLAYER_H = 1.8;
+export const CROUCH_H = 1.2;
 export const STEP = 0.65;
 export const GRAVITY = 24;
+export const FALL_SAFE = 19;   // landing speed (m/s) below which a fall does no damage (~7.5 m)
 
-/** Height of a collider's walkable surface at (x,z). Ramps slope along their direction. */
-export function colliderTop(c, x, z) {
-  if (c.kind === 'ramp') {
-    const t = clamp(((x - c.cx) * c.dx + (z - c.cz) * c.dz) / c.len + 0.5, 0, 1);
-    return c.base + c.rise * t;
-  }
-  return c.maxy;
-}
+export { colliderTop };
 
-/** Can an entity with feet at y stand at (x,z) without being inside a solid? */
-export function isFree(world, x, z, y) {
+/** Can an entity of height h with feet at y stand at (x,z) without being inside a solid? */
+export function isFree(world, x, z, y, h = PLAYER_H) {
   const R = PLAYER_R;
   const list = world.query(x, z, R + 0.01);
   for (let i = 0; i < list.length; i++) {
     const c = list[i];
     if (x < c.minx - R || x > c.maxx + R || z < c.minz - R || z > c.maxz + R) continue;
-    if (c.miny >= y + PLAYER_H) continue;
-    if (colliderTop(c, x, z) > y + STEP) return false;
+    if (c.miny >= y + h) continue;
+    if (c.kind === 'ramp' || c.kind === 'roof') {
+      // sloped pieces only block where their surface is above our knees and below our head
+      const top = colliderTop(c, x, z);
+      if (top > y + STEP && top - 0.5 < y + h) return false;
+      continue;
+    }
+    if (c.maxy > y + STEP) return false;
   }
   return true;
 }
@@ -37,31 +39,35 @@ export function groundAt(world, x, z, y) {
   for (let i = 0; i < list.length; i++) {
     const c = list[i];
     if (x < c.minx - m || x > c.maxx + m || z < c.minz - m || z > c.maxz + m) continue;
-    const top = colliderTop(c, x, z);
+    const top = c.kind === 'box' ? c.maxy : Math.max(colliderTop(c, x, z), colliderTop(c, clampTo(x, c.minx, c.maxx), clampTo(z, c.minz, c.maxz)));
     if (top <= y + STEP && top > g) g = top;
   }
   return g;
 }
 
+function clampTo(v, a, b) { return v < a ? a : v > b ? b : v; }
+
 /**
- * Advance an entity {x,y,z,vx,vy,vz,grounded} by dt. vx/vz are the desired horizontal velocity
- * this frame (set by the controller); vy is integrated here.
+ * Advance an entity {x,y,z,vx,vy,vz,grounded,h} by dt. vx/vz are the desired horizontal velocity
+ * this frame (set by the controller); vy is integrated here. Returns true if a wall stopped us.
  */
 export function stepEntity(world, e, dt) {
   const maxR = world.mapRadius + 6;
+  const h = e.h || PLAYER_H;
+  let blocked = false;
 
   // ---- horizontal (axis-separated so we slide along walls)
   const tryMove = (nx, nz) => {
-    if (!isFree(world, nx, nz, e.y)) return false;
+    if (!isFree(world, nx, nz, e.y, h)) return false;
     const dist = Math.hypot(nx - e.x, nz - e.z);
-    const h = world.heightAt(nx, nz);
-    if (h - e.y > dist * 1.25 + (e.grounded ? 0.02 : 0.05)) return false;
+    const th = world.heightAt(nx, nz);
+    if (th - e.y > dist * 1.25 + (e.grounded ? 0.02 : 0.05)) return false;
     return true;
   };
   const nx = e.x + e.vx * dt;
-  if (tryMove(nx, e.z)) e.x = nx;
+  if (tryMove(nx, e.z)) e.x = nx; else blocked = true;
   const nz = e.z + e.vz * dt;
-  if (tryMove(e.x, nz)) e.z = nz;
+  if (tryMove(e.x, nz)) e.z = nz; else blocked = true;
   const rr = Math.hypot(e.x, e.z);
   if (rr > maxR) { e.x *= maxR / rr; e.z *= maxR / rr; }
 
@@ -74,18 +80,25 @@ export function stepEntity(world, e, dt) {
     const list = world.query(e.x, e.z, PLAYER_R);
     for (let i = 0; i < list.length; i++) {
       const c = list[i];
-      if (c.kind === 'ramp') continue;
+      if (c.kind !== 'box') {
+        // underside of a ramp/roof plate
+        if (e.x < c.minx || e.x > c.maxx || e.z < c.minz || e.z > c.maxz) continue;
+        const under = colliderTop(c, e.x, e.z) - 0.25;
+        if (under >= e.y + h - 0.05 && under <= ny + h) { ny = under - h; e.vy = 0; }
+        continue;
+      }
       if (e.x < c.minx - PLAYER_R || e.x > c.maxx + PLAYER_R || e.z < c.minz - PLAYER_R || e.z > c.maxz + PLAYER_R) continue;
-      if (c.miny >= e.y + PLAYER_H - 0.05 && c.miny <= ny + PLAYER_H) {
-        ny = c.miny - PLAYER_H;
+      if (c.miny >= e.y + h - 0.05 && c.miny <= ny + h) {
+        ny = c.miny - h;
         e.vy = 0;
       }
     }
   }
 
   const g = groundAt(world, e.x, e.z, e.y);
+  e.landSpeed = 0;
   if (e.vy <= 0 && ny <= g) {
-    if (!wasGrounded && e.vy < -13 && e.onFall) e.onFall(-e.vy);
+    if (!wasGrounded) { e.landSpeed = -e.vy; if (-e.vy > FALL_SAFE && e.onFall) e.onFall(-e.vy); }
     e.y = g;
     e.vy = 0;
     e.grounded = true;
@@ -97,17 +110,23 @@ export function stepEntity(world, e, dt) {
     e.y = ny;
     e.grounded = false;
   }
+  return blocked;
 }
 
 /** Push an entity out of any solid it overlaps (used right after a build piece appears). */
 export function depenetrate(world, e) {
-  const R = PLAYER_R;
+  const R = PLAYER_R, h = e.h || PLAYER_H;
   for (let pass = 0; pass < 3; pass++) {
     let moved = false;
     const list = world.query(e.x, e.z, R + 1);
     for (const c of list) {
-      if (c.miny >= e.y + PLAYER_H) continue;
-      if (colliderTop(c, e.x, e.z) <= e.y + STEP) continue;
+      if (c.miny >= e.y + h) continue;
+      if (c.kind !== 'box') {
+        const top = colliderTop(c, e.x, e.z);
+        if (top > e.y && top <= e.y + STEP + 1.2 && e.x > c.minx && e.x < c.maxx && e.z > c.minz && e.z < c.maxz) { e.y = top; moved = true; }
+        continue;
+      }
+      if (c.maxy <= e.y + STEP) continue;
       const l = e.x - (c.minx - R), r = (c.maxx + R) - e.x, t = e.z - (c.minz - R), b = (c.maxz + R) - e.z;
       if (l <= 0 || r <= 0 || t <= 0 || b <= 0) continue; // not inside
       const m = Math.min(l, r, t, b);
@@ -116,4 +135,74 @@ export function depenetrate(world, e) {
     }
     if (!moved) break;
   }
+}
+
+/** Is there room above the entity to stand up at full height? */
+export function canStand(world, e) {
+  return isFree(world, e.x, e.z, e.y, PLAYER_H);
+}
+
+/**
+ * Look for a ledge in front of the entity it could mantle onto (or a low obstacle it could vault).
+ * Returns {x,y,z,vault} target or null.
+ */
+export function findLedge(world, e, dirx, dirz, maxRise = 2.75, allowVault = false) {
+  const h = e.h || PLAYER_H;
+  const reach = PLAYER_R + 0.5;
+  const px = e.x + dirx * reach, pz = e.z + dirz * reach;
+  // something must actually block us at waist height, otherwise there is nothing to climb
+  if (isFree(world, px, pz, e.y + 0.05, Math.min(h, 1.2)) && world.heightAt(px, pz) < e.y + STEP) return null;
+  const top = groundAt(world, px, pz, e.y + maxRise - STEP);
+  const rise = top - e.y;
+  if (rise < 0.6 || rise > maxRise) return null;
+
+  // vault: thin, low obstacle with free ground right behind it
+  if (allowVault && rise < 1.45) {
+    const fx = e.x + dirx * (reach + 1.3), fz = e.z + dirz * (reach + 1.3);
+    const gBehind = groundAt(world, fx, fz, e.y + 0.4);
+    if (Math.abs(gBehind - e.y) < 1.2 && isFree(world, fx, fz, gBehind, h) && isFree(world, px, pz, top, 0.9)) {
+      return { x: fx, y: gBehind, z: fz, vault: true, peak: top + 0.35 };
+    }
+  }
+  // climb: need room to stand on top, and headroom above where we are now
+  const sx = e.x + dirx * (reach + 0.25), sz = e.z + dirz * (reach + 0.25);
+  const sTop = groundAt(world, sx, sz, top + 0.05);
+  if (Math.abs(sTop - top) > 0.4) return null;
+  if (!isFree(world, sx, sz, sTop, CROUCH_H)) return null;
+  if (!isFree(world, e.x, e.z, sTop + 0.05, CROUCH_H * 0.6)) return null;
+  return { x: sx, y: sTop, z: sz, vault: false, peak: sTop + 0.15 };
+}
+
+/** Start a mantle/vault animation on the entity. */
+export function startMantle(e, ledge) {
+  const d = Math.hypot(ledge.x - e.x, ledge.z - e.z);
+  e.mantle = {
+    t: 0, dur: ledge.vault ? 0.42 : 0.26 + (ledge.y - e.y) * 0.08,
+    x0: e.x, y0: e.y, z0: e.z, x1: ledge.x, y1: ledge.y, z1: ledge.z, peak: ledge.peak, vault: ledge.vault, d,
+  };
+  e.vx = e.vz = e.vy = 0;
+}
+
+/** Advance a mantle. Returns true while still mantling. */
+export function stepMantle(world, e, dt) {
+  const m = e.mantle;
+  if (!m) return false;
+  m.t += dt;
+  const k = Math.min(1, m.t / m.dur);
+  // rise first, then move over the edge
+  const up = Math.min(1, k / 0.6), fwd = k < 0.35 ? 0 : (k - 0.35) / 0.65;
+  const ease = (t) => t * t * (3 - 2 * t);
+  e.x = m.x0 + (m.x1 - m.x0) * ease(fwd);
+  e.z = m.z0 + (m.z1 - m.z0) * ease(fwd);
+  if (m.vault) e.y = m.y0 + (m.peak - m.y0) * Math.sin(k * Math.PI) + (m.y1 - m.y0) * k;
+  else e.y = m.y0 + (Math.max(m.peak, m.y1) - m.y0) * ease(up) - (k >= 1 ? Math.max(0, m.peak - m.y1) : 0);
+  if (k >= 1) {
+    e.x = m.x1; e.y = m.y1; e.z = m.z1;
+    e.mantle = null;
+    e.grounded = true;
+    e.vy = 0;
+    depenetrate(world, e);
+    return false;
+  }
+  return true;
 }

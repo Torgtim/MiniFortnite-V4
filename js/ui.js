@@ -2,7 +2,7 @@
 
 import { SEASONS } from './seasons.js';
 import { WEAPONS, AMMO } from './weapons.js';
-import { settings, saveSettings, resetSettings, KEY_ACTIONS, keyLabel } from './settings.js';
+import { settings, saveSettings, resetSettings, applyPreset, KEY_ACTIONS, keyLabel } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -53,10 +53,17 @@ export class UI {
     $('seasonTitle').textContent = `${season.name}: ${season.title}`;
     $('seasonBlurb').textContent = season.blurb;
     const weap = season.weapons.map(([id]) => `<li>${WEAPONS[id].name} <small>(${AMMO[WEAPONS[id].ammo].name})</small></li>`).join('');
-    const items = Object.values(season.items).map((i) => `<li style="color:${i.color === '#f4f4f4' ? '#fff' : i.color}">${i.name}</li>`).join('');
+    const readable = (c) => { const n = parseInt(c.slice(1), 16), l = ((n >> 16) * 0.3 + ((n >> 8) & 255) * 0.59 + (n & 255) * 0.11); return l > 170 ? '#666' : c; };
+    const items = Object.values(season.items).map((i) => `<li style="color:${readable(i.color)}">${i.name}</li>`).join('');
     $('lootList').innerHTML = `<b>Weapons</b><ul>${weap}</ul><b>Healing</b><ul>${items}</ul>`;
     const w = this.game.world;
     $('poiList').innerHTML = `<b>Places</b><ul>${w.sites.map((s) => `<li>${s.name}</li>`).join('')}</ul><i>${LIQUID_TEXT[season.liquid.type]}</i>`;
+    this.refreshMatchInfo();
+  }
+
+  refreshMatchInfo() {
+    const diff = ['Easy', 'Normal', 'Hard'][settings.botDifficulty] || 'Normal';
+    $('matchInfo').innerHTML = `${settings.botCount + 1} players (${settings.botCount} bots, ${diff}) &middot; ${settings.thirdPerson ? '3rd' : '1st'} person &middot; ${settings.style === 'retro' ? '1998 graphics' : 'modern graphics'} <small>(change in Settings)</small>`;
   }
 
   showLobby(on) { $('lobby').classList.toggle('hidden', !on); }
@@ -65,7 +72,7 @@ export class UI {
   showPause(on) { $('pause').classList.toggle('hidden', !on); }
 
   showResult(r) {
-    $('resTitle').textContent = r.victory ? '*** VICTORY ROYALE ***' : 'You were eliminated';
+    $('resTitle').textContent = r.victory ? '#1 VICTORY ROYALE!' : 'You were eliminated';
     $('resTitle').className = r.victory ? 'blink' : '';
     $('resBody').innerHTML = `<table class="stats"><tr><td>Placement</td><td><b>#${r.place}</b> / ${r.total}</td></tr>
       <tr><td>Eliminations</td><td><b>${r.kills}</b></td></tr>
@@ -97,14 +104,18 @@ export class UI {
     const input = document.createElement('input');
     input.type = 'range'; input.min = min; input.max = max; input.step = step; input.value = settings[key];
     const val = document.createElement('span'); val.textContent = fmt(settings[key]);
-    input.oninput = () => { settings[key] = +input.value; val.textContent = fmt(settings[key]); saveSettings(); };
+    input.oninput = () => {
+      settings[key] = +input.value; val.textContent = fmt(settings[key]);
+      if (['renderScale', 'drawDist', 'decor'].includes(key)) settings.quality = 'custom';
+      saveSettings(); this.refreshMatchInfo();
+    };
     return [input, val];
   }
 
-  _check(key) {
+  _check(key, after) {
     const input = document.createElement('input');
     input.type = 'checkbox'; input.checked = !!settings[key];
-    input.onchange = () => { settings[key] = input.checked; saveSettings(); };
+    input.onchange = () => { settings[key] = input.checked; saveSettings(); this.refreshMatchInfo(); if (after) after(); };
     return input;
   }
 
@@ -120,28 +131,53 @@ export class UI {
     };
     const S = (label, key, min, max, step, fmt) => { const [i, v] = this._slider(key, min, max, step, fmt); return this._row(label, i, v); };
 
+    const sel = (key, opts, onChange) => {
+      const el = document.createElement('select');
+      opts.forEach(([v, n]) => { const o = document.createElement('option'); o.value = v; o.textContent = n; el.appendChild(o); });
+      el.value = String(settings[key]);
+      el.onchange = () => { const v = el.value; settings[key] = typeof settings[key] === 'number' ? +v : v; if (onChange) onChange(); saveSettings(); this.refreshMatchInfo(); };
+      return el;
+    };
+    const rebuild = () => { if (this.game.mode === 'lobby') this.game.buildWorld(); };
+
     section('Mouse', [
       S('Sensitivity', 'sens', 0.1, 3, 0.05, (v) => (+v).toFixed(2)),
       S('Aim-down-sights multiplier', 'adsSens', 0.2, 1.5, 0.05, (v) => (+v).toFixed(2)),
       this._row('Invert Y axis', this._check('invertY')),
     ]);
 
-    const crossSel = document.createElement('select');
-    [['cross', 'Cross'], ['dot', 'Dot'], ['circle', 'Circle'], ['none', 'None']].forEach(([v, n]) => { const o = document.createElement('option'); o.value = v; o.textContent = n; crossSel.appendChild(o); });
-    crossSel.value = settings.crosshair;
-    crossSel.onchange = () => { settings.crosshair = crossSel.value; saveSettings(); };
+    section('Gameplay', [
+      this._row('Camera', sel('thirdPerson', [['true', '3rd person (Fortnite style)'], ['false', '1st person']], () => { settings.thirdPerson = settings.thirdPerson === 'true' || settings.thirdPerson === true; })),
+      this._row('Sprint by default', this._check('sprintDefault')),
+      this._row('Toggle crouch', this._check('toggleCrouch')),
+      this._row('Confirm edit on release', this._check('editOnRelease')),
+      S('Bots', 'botCount', 1, 39, 1, (v) => v),
+      this._row('Bot difficulty', sel('botDifficulty', [['0', 'Easy'], ['1', 'Normal'], ['2', 'Hard']])),
+    ]);
+
+    const crossSel = sel('crosshair', [['cross', 'Cross'], ['dot', 'Dot'], ['circle', 'Circle'], ['none', 'None']]);
     const crossCol = document.createElement('input'); crossCol.type = 'color'; crossCol.value = settings.crosshairColor;
     crossCol.oninput = () => { settings.crosshairColor = crossCol.value; saveSettings(); };
+    const preset = sel('quality', [['low', 'Low (fast)'], ['medium', 'Medium'], ['high', 'High'], ['custom', 'Custom']], () => { applyPreset(settings.quality); this._buildSettings(); rebuild(); });
 
     section('Video', [
+      this._row('Quality preset', preset),
+      this._row('Graphics style', sel('style', [['modern', 'Modern'], ['retro', '1998 (chunky pixels + dithering)']])),
+      S('1998 mode resolution (lines)', 'retroLines', 160, 540, 20, (v) => v + 'p'),
+      this._row('1998 mode scanlines', this._check('scanlines')),
       S('Field of view', 'fov', 60, 110, 1, (v) => v + '°'),
       S('Render scale', 'renderScale', 0.4, 1, 0.05, (v) => Math.round(v * 100) + '%'),
-      S('Draw distance', 'drawDist', 100, 500, 20, (v) => v + 'm'),
-      this._row('Shadows (slower)', this._check('shadows')),
+      S('Draw distance', 'drawDist', 120, 520, 20, (v) => v + 'm'),
+      S('Grass & decoration', 'decor', 0, 2, 0.1, (v) => Math.round(v * 100) + '%'),
+      this._row('Shadows', this._check('shadows')),
+      this._row('Clouds', this._check('clouds', rebuild)),
+      this._row('Weather (snow, embers...)', this._check('weather', rebuild)),
       this._row('Show FPS', this._check('showFps')),
       this._row('Crosshair', crossSel),
       this._row('Crosshair colour', crossCol),
     ]);
+    // decoration density needs a world rebuild once you let go of the slider
+    host.querySelectorAll('input[type=range]').forEach((r) => { if (r.max === '2') r.onchange = rebuild; });
 
     section('Audio', [S('Master volume', 'volume', 0, 1, 0.05, (v) => Math.round(v * 100) + '%')]);
 
@@ -155,6 +191,7 @@ export class UI {
       return this._row(a.label, b);
     });
     keyRows.push(this._row('Hotbar slots', Object.assign(document.createElement('span'), { textContent: '1-6 / mouse wheel' })));
+    keyRows.push(this._row('Edit: reset / build: material', Object.assign(document.createElement('span'), { textContent: 'right mouse button' })));
     section('Controls (click, then press a key)', keyRows);
   }
 

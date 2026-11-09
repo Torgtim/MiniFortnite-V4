@@ -25,7 +25,7 @@ export const WEAPONS = {
   ar: { name: 'Assault Rifle', short: 'AR', cls: 'rifle', ammo: 'medium', dmg: 30, rate: 5.5, mag: 30, reload: 2.3, spread: 0.014, range: 220, auto: true },
   smg: { name: 'SMG', short: 'SMG', cls: 'smg', ammo: 'light', dmg: 18, rate: 11, mag: 30, reload: 1.9, spread: 0.022, range: 140, auto: true },
   sniper: { name: 'Bolt Sniper', short: 'SNP', cls: 'sniper', ammo: 'heavy', dmg: 105, rate: 0.55, mag: 1, reload: 2.5, spread: 0.0008, range: 500, zoom: 4, head: 2 },
-  rocket: { name: 'Rocket Launcher', short: 'RPG', cls: 'launcher', ammo: 'rockets', dmg: 0, rate: 0.75, mag: 1, reload: 3.2, spread: 0.004, range: 300, blast: { r: 6, dmg: 115 } },
+  rocket: { name: 'Rocket Launcher', short: 'RPG', cls: 'launcher', ammo: 'rockets', dmg: 0, rate: 0.75, mag: 1, reload: 3.2, spread: 0.004, range: 300, blast: { r: 6, dmg: 115 }, proj: { speed: 55, grav: 0, kind: 'rocket' } },
 
   burst_ar: { name: 'Burst Rifle', short: 'BRS', cls: 'rifle', ammo: 'medium', dmg: 27, rate: 3.0, burst: 3, burstGap: 0.07, mag: 30, reload: 2.2, spread: 0.012, range: 220 },
   double_barrel: { name: 'Double Barrel', short: 'DBL', cls: 'shotgun', ammo: 'shells', dmg: 10, pellets: 12, rate: 1.5, mag: 2, reload: 2.6, spread: 0.06, range: 60, fall: [6, 26], head: 1.5 },
@@ -38,7 +38,7 @@ export const WEAPONS = {
   lever: { name: 'Lever Action', short: 'LVR', cls: 'rifle', ammo: 'heavy', dmg: 62, rate: 1.8, mag: 8, reload: 3.0, spread: 0.004, range: 260, zoom: 1.6, head: 2 },
   tommy: { name: 'Tommy Gun', short: 'TMY', cls: 'smg', ammo: 'light', dmg: 20, rate: 10, mag: 40, reload: 2.4, spread: 0.024, range: 140, auto: true },
   scoped_ar: { name: 'Scoped AR', short: 'SAR', cls: 'rifle', ammo: 'medium', dmg: 36, rate: 4.0, mag: 20, reload: 2.4, spread: 0.007, range: 300, zoom: 2.2, auto: true },
-  grenade: { name: 'Grenade Launcher', short: 'GRN', cls: 'launcher', ammo: 'rockets', dmg: 0, rate: 0.9, mag: 6, reload: 3.6, spread: 0.01, range: 120, blast: { r: 5, dmg: 95 } },
+  grenade: { name: 'Grenade Launcher', short: 'GRN', cls: 'launcher', ammo: 'rockets', dmg: 0, rate: 0.9, mag: 6, reload: 3.6, spread: 0.01, range: 120, blast: { r: 5, dmg: 95 }, proj: { speed: 40, grav: 16, kind: 'grenade', fuse: 1.6, bounce: true } },
 
   blaster: { name: 'Blaster Pistol', short: 'BLS', cls: 'pistol', ammo: 'cells', dmg: 22, rate: 5.0, mag: 18, reload: 1.4, spread: 0.010, range: 160 },
   plasma_rifle: { name: 'Plasma Rifle', short: 'PLS', cls: 'rifle', ammo: 'cells', dmg: 25, rate: 9, mag: 36, reload: 2.2, spread: 0.014, range: 220, auto: true },
@@ -57,9 +57,14 @@ export const CLASS_COLORS = {
 export const ITEM_KINDS = {
   heal_s: { hp: 15, max: 75, time: 3.2, short: 'HP+' },
   heal_l: { hp: 100, max: 100, time: 6.0, short: 'MED' },
-  shield_s: { sh: 25, max: 50, time: 2.5, short: 'SH+' },
+  shield_s: { sh: 25, max: 50, time: 2.2, short: 'SH+' },
   shield_l: { sh: 50, max: 100, time: 4.5, short: 'SH++' },
+  // throwables: stack up to 6, thrown with the fire button
+  nade: { throw: true, stack: 6, time: 0, short: 'NADE', blast: { r: 5, dmg: 75 }, fuse: 2.2 },
 };
+
+// how much each shot adds to the weapon's bloom (spread grows while spraying)
+export const BLOOM = { pistol: 0.25, smg: 0.12, rifle: 0.16, shotgun: 0, sniper: 0, launcher: 0 };
 
 /** Computed stats for a weapon instance {id, rarity, mag}. */
 export function weaponStats(inst) {

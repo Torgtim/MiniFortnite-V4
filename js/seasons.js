@@ -55,10 +55,16 @@ export const SEASONS = [
       { res: 'metal', count: 24, hp: 120, yield: 8, r: 0.9, h: 1.2, scale: [0.9, 1.3], parts: [
         { geo: box(1.7, 1.0, 1.2, 0.5), color: '#6d6d73' }, { geo: box(0.9, 0.5, 0.9, 1.25), color: '#8a5a3a' }] },
     ],
+    decor: [
+      { geo: cone(0.09, 0.32, 3, 0.15), colors: ['#6fbf4a', '#7fd05a', '#5fae3c', '#8cd46a'], count: 3200, scale: [0.7, 1.3] },
+      { geo: oct(0.11, 1.2, 0.32), colors: ['#ff5a5a', '#ffd84a', '#ffffff', '#b07cff', '#ff8ad8'], count: 600, scale: [0.8, 1.3] },
+      { geo: ico(0.6, 0.3), colors: ['#3f8a38', '#4a9a3f', '#357a30'], count: 160, scale: [0.6, 1.3] },
+    ],
     weapons: [['pistol', 14], ['pump', 12], ['ar', 14], ['smg', 12], ['sniper', 6], ['rocket', 4]],
     items: {
       heal_s: { name: 'Bandage', color: '#f4f4f4', w: 30 }, heal_l: { name: 'Medkit', color: '#ff4d4d', w: 10 },
       shield_s: { name: 'Mini Shield', color: '#4da6ff', w: 22 }, shield_l: { name: 'Big Shield', color: '#2f6bff', w: 8 },
+      nade: { name: 'Grenade', color: '#4f7a3a', w: 14 },
     },
   },
 
@@ -98,10 +104,16 @@ export const SEASONS = [
       { res: 'brick', count: 50, hp: 120, yield: 10, r: 1.1, h: 1.6, scale: [0.8, 1.8], parts: [{ geo: ico(1.3, 0.55), color: '#b8cfe0' }] },
       { res: 'metal', count: 22, hp: 120, yield: 8, r: 0.8, h: 2.2, scale: [0.8, 1.4], parts: [{ geo: oct(0.8, 1.8, 1.2), color: '#7fd6ff' }] },
     ],
+    decor: [
+      { geo: ico(0.55, 0.05).scale(1, 0.45, 1), colors: ['#ffffff', '#eef5fb', '#e2ecf5'], count: 500, scale: [0.7, 1.8] },
+      { geo: oct(0.16, 2.6, 0.36), colors: ['#9fe3ff', '#c8f1ff', '#7fd0ee'], count: 320, scale: [0.6, 1.4] },
+      { geo: cone(0.5, 1.1, 5, 0.55), colors: ['#2f6b4a', '#3b7d58', '#2a5a40'], count: 260, scale: [0.6, 1.2] },
+    ],
     weapons: [['hand_cannon', 12], ['double_barrel', 12], ['burst_ar', 14], ['frost_smg', 14], ['hunting_rifle', 7], ['crossbow', 5]],
     items: {
       heal_s: { name: 'Hot Cocoa', color: '#9b5a34', w: 30 }, heal_l: { name: 'Campfire Kit', color: '#ff8a3d', w: 10 },
       shield_s: { name: 'Frost Flask', color: '#8fe3ff', w: 22 }, shield_l: { name: 'Ice Armor', color: '#4fc3ff', w: 8 },
+      nade: { name: 'Snowball Bomb', color: '#e8f6ff', w: 14 },
     },
   },
 
@@ -142,10 +154,16 @@ export const SEASONS = [
       { res: 'metal', count: 26, hp: 110, yield: 8, r: 0.6, h: 1.1, scale: [0.9, 1.3], parts: [
         { geo: cyl(0.5, 0.5, 1.0, 8, 0.5), color: '#8b3a2e' }, { geo: cyl(0.52, 0.52, 0.12, 8, 0.7), color: '#555' }] },
     ],
+    decor: [
+      { geo: ico(0.45, 0.28), colors: ['#8a7a3a', '#9a8a4a', '#7a6a32', '#a08a50'], count: 450, scale: [0.5, 1.2] },
+      { geo: ico(0.2, 0.06).scale(1, 0.6, 1), colors: ['#b5602f', '#c97b3e', '#9a5028'], count: 700, scale: [0.6, 1.8] },
+      { geo: cone(0.07, 0.4, 3, 0.2), colors: ['#d8c070', '#c0b060'], count: 900, scale: [0.6, 1.3] },
+    ],
     weapons: [['revolver', 13], ['lever', 11], ['pump', 12], ['tommy', 13], ['scoped_ar', 10], ['grenade', 5]],
     items: {
       heal_s: { name: 'Water Canteen', color: '#6ab8ff', w: 30 }, heal_l: { name: 'Doc\'s Kit', color: '#ff5a3d', w: 10 },
       shield_s: { name: 'Leather Vest', color: '#a0703a', w: 22 }, shield_l: { name: 'Iron Plate', color: '#9aa0a8', w: 8 },
+      nade: { name: 'Dynamite', color: '#d0302a', w: 14 },
     },
   },
 
@@ -156,7 +174,7 @@ export const SEASONS = [
     title: 'Neon Meltdown',
     blurb: 'A glowing volcano island. Lava seas, neon crystal forests and plasma weapons only.',
     seed: 44,
-    sky: '#1a0b2e', fog: '#2a1040', sun: '#8a6bff', sunI: 0.75, hemiSky: '#ff4fd8', hemiGround: '#2de2ff', hemiI: 0.7,
+    sky: '#1a0b2e', fog: '#2a1040', sun: '#a58bff', sunI: 0.95, hemiSky: '#ff7fe4', hemiGround: '#2de2ff', hemiI: 1.05,
     liquid: { type: 'lava', y: -0.8, color: '#ff5a14', opacity: 0.95, dps: 28 },
     poiCount: 5,
     poiNames: ['Reactor Ring', 'Obsidian Pods', 'Magma Dock', 'Neon Spire', 'Shard Yard'],
@@ -185,10 +203,16 @@ export const SEASONS = [
       { res: 'metal', count: 26, hp: 120, yield: 8, r: 0.6, h: 2.6, scale: [0.9, 1.3], parts: [
         { geo: box(0.9, 0.5, 0.9, 0.25), color: '#2a2a3a' }, { geo: box(0.55, 2.2, 0.55, 1.5), color: '#2de2ff', basic: true }] },
     ],
+    decor: [
+      { geo: cone(0.32, 0.26, 6, 0.13), colors: ['#ff4fd8', '#2de2ff', '#b06bff'], count: 520, scale: [0.6, 1.5], basic: true },
+      { geo: oct(0.18, 2.6, 0.45), colors: ['#2de2ff', '#7a5cff', '#ff2bd6'], count: 380, scale: [0.5, 1.3], basic: true },
+      { geo: ico(0.3, 0.08), colors: ['#2b2638', '#3a3350', '#1f1b2b'], count: 500, scale: [0.6, 1.8] },
+    ],
     weapons: [['blaster', 14], ['plasma_rifle', 13], ['arc_shotgun', 11], ['pulse_smg', 13], ['laser_sniper', 6], ['rail_cannon', 4]],
     items: {
       heal_s: { name: 'Nano Patch', color: '#7dffb0', w: 30 }, heal_l: { name: 'Repair Swarm', color: '#2dff8a', w: 10 },
       shield_s: { name: 'Cell Charge', color: '#38e8ff', w: 22 }, shield_l: { name: 'Overshield', color: '#ff2bd6', w: 8 },
+      nade: { name: 'Plasma Orb', color: '#ff4fd8', w: 14 },
     },
   },
 ];

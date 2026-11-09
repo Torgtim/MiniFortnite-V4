@@ -5,42 +5,61 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mini-Fortnite V4</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=4.0">
+<link rel="stylesheet" href="css/style.css?v=4.1">
 </head>
 <body>
 <canvas id="game"></canvas>
 
-<!-- ============================ IN-GAME HUD ============================ -->
+<!-- ============================ IN-GAME HUD (Windows 95 flavoured) ============================ -->
 <div id="hud" class="hidden">
   <div id="vignette"></div>
   <div id="scope"></div>
   <div id="crosshair"></div>
   <div id="hitmarker"></div>
+  <div id="weakpoint"></div>
   <div id="dmgnums"></div>
 
-  <div id="topcenter"><div id="storm"></div></div>
+  <div id="topcenter">
+    <div class="w95 mini" id="stormwin"><div class="tbar">Storm.exe</div><div class="wbody"><span id="storm"></span></div></div>
+    <div id="elim" class="w95 hidden"><div class="tbar">Elimination!</div><div class="wbody"><span class="ico">&#9760;</span> <span id="elimtxt"></span></div></div>
+  </div>
 
   <div id="topright">
-    <canvas id="minimap" width="190" height="190"></canvas>
-    <div id="stats"><span class="stat">&#9786; <b id="alive">0</b></span><span class="stat">&#9876; <b id="kills">0</b></span><span id="fps"></span></div>
+    <div class="w95"><div class="tbar">Map.exe <span class="tb"><b>_</b><b>X</b></span></div>
+      <div class="wbody pad0"><canvas id="minimap" width="200" height="200"></canvas></div>
+      <div class="sbar"><span>&#9786; <b id="alive">0</b> left</span><span>&#9876; <b id="kills">0</b></span><span id="fps"></span></div>
+    </div>
   </div>
-  <div id="feed"></div>
+  <div id="feedwin" class="w95"><div class="tbar">Feed.txt</div><div class="wbody" id="feed"></div></div>
 
   <div id="statusmsg"></div>
-  <div id="buildinfo"></div>
-  <div id="prompt"></div>
+  <div id="buildbar" class="w95 hidden"><div class="tbar">Build - <span id="buildmat">Wood</span></div><div class="wbody" id="buildbtns"></div></div>
+  <div id="editinfo" class="tip hidden">EDIT MODE &middot; click / drag tiles &middot; <b id="editkey">G</b> = confirm &middot; right click = reset</div>
+  <div id="pieceinfo" class="tip hidden"></div>
+  <div id="prompt" class="tip"></div>
   <div id="usebar"><div id="usefill"></div></div>
   <div id="matpops"></div>
 
-  <div id="bottomleft">
-    <div class="bar sh"><div id="shbar"></div><span id="shtxt">0</span></div>
-    <div class="bar hp"><div id="hpbar"></div><span id="hptxt">100</span></div>
+  <div id="bottomleft" class="w95">
+    <div class="tbar">Health</div>
+    <div class="wbody">
+      <div class="brow"><span class="blab">SH</span><span class="num" id="shtxt">0</span><div class="pbar sh"><div id="shbar"></div></div></div>
+      <div class="brow"><span class="blab">HP</span><span class="num" id="hptxt">100</span><div class="pbar hp"><div id="hpbar"></div></div></div>
+      <div id="mats"></div>
+    </div>
   </div>
   <div id="hotbar"></div>
-  <div id="bottomright">
-    <div id="ammo"></div>
-    <div id="mats"></div>
+  <div id="bottomright" class="w95">
+    <div class="tbar" id="ammoname">Pickaxe</div>
+    <div class="wbody"><div id="ammo" class="lcd"></div></div>
   </div>
+
+  <div id="bigmap" class="w95 hidden">
+    <div class="tbar">Island Map - <span id="bigmapname"></span> <span class="tb"><b>X</b></span></div>
+    <div class="wbody pad0"><canvas id="bigmapc" width="560" height="560"></canvas></div>
+    <div class="sbar"><span>M = close</span><span>&#9632; you &nbsp; <font color="#4da6ff">&#9632;</font> supply drop &nbsp; - - bus route</span></div>
+  </div>
+  <div id="spectate" class="tip hidden"></div>
 </div>
 
 <!-- ============================ LOBBY (season switcher) ============================ -->
@@ -49,7 +68,7 @@
     <tr><td class="titlebar"><span>Mini-Fortnite V4 - Season Select</span><span class="tb"><b>_</b><b>&#9633;</b><b>X</b></span></td></tr>
     <tr><td class="body">
       <h1 class="logo">MINI-FORTNITE <span class="blink">V4</span></h1>
-      <div class="ticker"><span>*** NOW IN 3D *** PC FIRST *** 4 SEASONS *** EVERY SEASON SWAPS THE ENTIRE MAP AND LOOT POOL *** BUILD, LOOT, SURVIVE ***</span></div>
+      <div class="ticker"><span>*** NEW: PARTY BUS 95 *** SLIDING + MANTLING *** EDIT YOUR BUILDS *** SMARTER BOTS THAT BUILD *** SUPPLY DROPS *** 1998 GRAPHICS MODE *** 4 SEASONS - EACH SWAPS THE WHOLE MAP AND LOOT POOL ***</span></div>
 
       <p class="lbl">Choose your season:</p>
       <table class="seasons" cellspacing="4"><tr id="seasonRow"></tr></table>
@@ -66,6 +85,7 @@
         </tr>
       </table>
 
+      <p class="lbl">Match: <span id="matchInfo"></span></p>
       <p class="btnrow">
         <button id="btnPlay" class="big">&nbsp;PLAY!&nbsp;</button>
         <button id="btnSettings">Settings...</button>
@@ -74,10 +94,11 @@
       <table class="help" cellspacing="0" cellpadding="2">
         <tr><td><b>WASD</b> move</td><td><b>Shift</b> sprint</td><td><b>Space</b> jump / glider</td></tr>
         <tr><td><b>Mouse</b> aim &amp; fire</td><td><b>Right mouse</b> aim down sights</td><td><b>1-6 / wheel</b> hotbar</td></tr>
-        <tr><td><b>E</b> pick up / chest</td><td><b>R</b> reload</td><td><b>Q</b> build mode</td></tr>
-        <tr><td><b>Z / X / C</b> wall / floor / ramp</td><td><b>T</b> change material</td><td><b>Esc</b> pause</td></tr>
+        <tr><td><b>Ctrl</b> crouch / slide</td><td><b>Space</b> at a ledge: mantle</td><td><b>E</b> pick up / open</td></tr>
+        <tr><td><b>Q</b> build mode</td><td><b>Z X C V</b> wall floor ramp cone</td><td><b>G</b> edit &middot; <b>T</b> material</td></tr>
+        <tr><td><b>R</b> reload</td><td><b>M</b> map &middot; <b>H</b> 1st/3rd person</td><td><b>Esc</b> pause</td></tr>
       </table>
-      <p class="foot">Best viewed in Netscape Navigator 4.0 &middot; 800x600 &middot; <a href="https://github.com/Torgtim/MiniFortnite-V4">source on GitHub</a> &middot; v4.0</p>
+      <p class="foot">Best viewed in Netscape Navigator 4.0 &middot; 800x600 &middot; <a href="https://github.com/Torgtim/MiniFortnite-V4">source on GitHub</a> &middot; v4.1</p>
     </td></tr>
   </table>
 </div>
@@ -117,6 +138,6 @@
   </table>
 </div>
 
-<script type="module" src="js/main.js?v=4.0"></script>
+<script type="module" src="js/main.js?v=4.1"></script>
 </body>
 </html>

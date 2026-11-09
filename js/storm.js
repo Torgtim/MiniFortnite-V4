@@ -5,7 +5,7 @@ import { lerp, mulberry32 } from './util.js';
 import { MAP_R } from './world.js';
 
 const PHASES = [
-  { wait: 50, shrink: 35, r: 140, dmg: 1 },
+  { wait: 75, shrink: 40, r: 140, dmg: 1 },
   { wait: 40, shrink: 30, r: 90, dmg: 2 },
   { wait: 35, shrink: 25, r: 55, dmg: 4 },
   { wait: 30, shrink: 22, r: 28, dmg: 6 },
@@ -17,8 +17,21 @@ export class Storm {
   constructor(game) {
     this.game = game;
     const geo = new THREE.CylinderGeometry(1, 1, 220, 72, 1, true);
+    // vertical fade + swirling stripes, drawn into a small texture
+    const cv = document.createElement('canvas'); cv.width = 64; cv.height = 128;
+    const g = cv.getContext('2d');
+    for (let y = 0; y < 128; y++) {
+      const k = Math.pow(y / 127, 1.6); // 0 at the top of the texture, 1 at the bottom
+      for (let x = 0; x < 64; x++) {
+        const stripe = 0.75 + 0.25 * Math.sin((x / 64) * Math.PI * 8 + y * 0.15);
+        g.fillStyle = `rgba(255,255,255,${(0.05 + 0.6 * k) * stripe})`;
+        g.fillRect(x, y, 1, 1);
+      }
+    }
+    this.tex = new THREE.CanvasTexture(cv);
+    this.tex.wrapS = THREE.RepeatWrapping; this.tex.repeat.set(10, 1);
     this.wall = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-      color: 0x8a3dff, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false,
+      color: 0x8a3dff, map: this.tex, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false,
     }));
     this.wall.position.y = 70;
     this.wall.frustumCulled = false;
@@ -32,7 +45,7 @@ export class Storm {
     this.phase = -1;
     this.t = 0;
     this.state = 'idle'; // idle -> waiting -> shrinking
-    this.cx = 0; this.cz = 0; this.r = MAP_R + 25;
+    this.cx = 0; this.cz = 0; this.r = MAP_R + 130;
     this.fromX = 0; this.fromZ = 0; this.fromR = this.r;
     this.toX = 0; this.toZ = 0; this.toR = this.r;
     this.dmg = 0;
@@ -45,7 +58,7 @@ export class Storm {
     this.phase++;
     const p = PHASES[Math.min(this.phase, PHASES.length - 1)];
     this.fromX = this.cx; this.fromZ = this.cz; this.fromR = this.r;
-    const slack = Math.max(0, this.r - p.r) * 0.85;
+    const slack = Math.max(0, Math.min(this.r, MAP_R) - p.r) * 0.85;
     const a = this.rnd() * Math.PI * 2, d = Math.sqrt(this.rnd()) * slack;
     this.toX = this.cx + Math.cos(a) * d;
     this.toZ = this.cz + Math.sin(a) * d;
@@ -78,6 +91,7 @@ export class Storm {
   }
 
   _apply() {
+    if (this.tex) this.tex.offset.x = (this.tex.offset.x + 0.0006) % 1;
     const r = Math.max(0.5, this.r);
     this.wall.scale.set(r, 1, r);
     this.wall.position.x = this.cx;

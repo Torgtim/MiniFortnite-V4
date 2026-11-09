@@ -1,7 +1,8 @@
 // Shared state + inventory logic for anything that fights: the player and the bots.
+// Also the shared "air" movement (bus -> skydive -> glider) and the character model hookup.
 
 import { AMMO, ITEM_KINDS, RARITIES, WEAPONS, weaponStats, makeWeapon } from './weapons.js';
-import { PLAYER_H } from './physics.js';
+import { PLAYER_H, CROUCH_H, FALL_SAFE, groundAt } from './physics.js';
 
 export class Entity {
   constructor(game, name, isPlayer = false) {
@@ -15,19 +16,29 @@ export class Entity {
     this.hp = 100; this.shield = 0;
     this.alive = true;
     this.kills = 0;
+    this.h = PLAYER_H;
+    this.crouch = false; this.sliding = false; this.mantle = null; this.sprinting = false;
+    this.air = null; // 'bus' | 'fall' | 'glide' | null (on foot)
     // slot 0 = pickaxe, 1..5 = weapons / healing items
     this.slots = [{ type: 'pickaxe' }, null, null, null, null, null];
     this.slot = 0;
     this.ammo = { light: 0, medium: 0, heavy: 0, shells: 0, rockets: 0, cells: 0 };
     this.mats = { wood: 0, brick: 0, metal: 0 };
     this.fireCd = 0; this.reloadT = 0; this.useT = 0; this.burstLeft = 0;
-    this.swingT = 0; this.recoil = 0;
+    this.swingT = 0; this.recoil = 0; this.idleT = 1; this.bloom = 0;
     this.wantFire = false; this.firedHeld = false; this.ads = false;
-    this.onFall = (speed) => this.game.combat.damage(this, (speed - 13) * 5, null, 'fall damage');
+    this.lastDamaged = -99; this.lastAttacker = null;
+    this.onFall = (speed) => this.game.combat.damage(this, (speed - FALL_SAFE) * 6, null, 'fall damage');
   }
 
-  get eyeY() { return this.y + 1.62; }
+  get eyeY() { return this.y + (this.sliding ? 0.8 : this.crouch ? 1.08 : 1.62); }
   get held() { return this.slots[this.slot]; }
+  get airborne() { return this.air !== null; }
+
+  setCrouch(on) {
+    this.crouch = on;
+    this.h = on ? CROUCH_H : PLAYER_H;
+  }
 
   selectSlot(i) {
     if (i < 0 || i > 5 || i === this.slot) return;
@@ -36,13 +47,45 @@ export class Entity {
     this.recoil = 0;
   }
 
+  // ------------------------------------------------------------------ air: skydive + glider
+  /** Leave the bus (or spawn in the sky) at the current position. */
+  jumpFromBus() {
+    this.air = 'fall';
+    this.vy = -6;
+    this.untargetable = false;
+  }
+
+  /**
+   * One step of skydiving/gliding. (wx, wz) is the wanted horizontal direction (length <= 1),
+   * `dive` 0..1 how much the entity pushes forward.
+   */
+  airStep(dt, wx, wz, dive) {
+    const w = this.game.world;
+    const glide = this.air === 'glide';
+    const targetVy = glide ? -6.5 : -30 - dive * 14;
+    this.vy += (targetVy - this.vy) * Math.min(1, dt * (glide ? 3 : 1.6));
+    const sp = glide ? 13 + dive * 4 : 9 + dive * 13;
+    this.vx += (wx * sp - this.vx) * Math.min(1, dt * 2);
+    this.vz += (wz * sp - this.vz) * Math.min(1, dt * 2);
+    this.x += this.vx * dt; this.z += this.vz * dt; this.y += this.vy * dt;
+    const R = w.mapRadius + 25, rr = Math.hypot(this.x, this.z);
+    if (rr > R) { this.x *= R / rr; this.z *= R / rr; }
+    const gr = groundAt(w, this.x, this.z, this.y + 60);
+    if (this.air === 'fall' && this.y - gr < 62) this.air = 'glide';
+    if (this.y <= gr + 0.02) {
+      this.y = gr; this.vy = 0; this.vx *= 0.35; this.vz *= 0.35;
+      this.air = null; this.grounded = true;
+      this.game.onLanded(this);
+    }
+  }
+
+  // ------------------------------------------------------------------ inventory
   /** Put a weapon into the inventory. Returns the weapon that got replaced (to be dropped), or null. */
   giveWeapon(w) {
     for (let i = 1; i <= 5; i++) {
       if (!this.slots[i]) { this.slots[i] = w; return null; }
     }
-    // full: replace the held weapon slot, else the lowest-value weapon
-    let idx = this.slot >= 1 && this.slots[this.slot] && this.slots[this.slot].type === 'weapon' ? this.slot : -1;
+    let idx = this.slot >= 1 ? this.slot : -1;
     if (idx < 0) {
       let worst = Infinity;
       for (let i = 1; i <= 5; i++) {
@@ -50,20 +93,22 @@ export class Entity {
         if (s.type === 'weapon') { const sc = weaponStats(s).dps; if (sc < worst) { worst = sc; idx = i; } }
       }
     }
-    if (idx < 0) return w; // inventory is all items; nothing to swap
+    if (idx < 0) return w;
     const old = this.slots[idx];
     this.slots[idx] = w;
+    this.reloadT = 0; this.useT = 0;
     return old;
   }
 
-  /** Items stack up to 3 per slot. Returns true when picked up. */
-  giveItem(id) {
+  /** Items stack (grenades up to 6, healing up to 3). Returns true when picked up. */
+  giveItem(id, n = 1) {
+    const max = ITEM_KINDS[id].stack || 3;
     for (let i = 1; i <= 5; i++) {
       const s = this.slots[i];
-      if (s && s.type === 'item' && s.id === id && s.count < 3) { s.count++; return true; }
+      if (s && s.type === 'item' && s.id === id && s.count < max) { s.count = Math.min(max, s.count + n); return true; }
     }
     for (let i = 1; i <= 5; i++) {
-      if (!this.slots[i]) { this.slots[i] = { type: 'item', id, count: 1 }; return true; }
+      if (!this.slots[i]) { this.slots[i] = { type: 'item', id, count: Math.min(max, n) }; return true; }
     }
     return false;
   }
@@ -89,8 +134,7 @@ export class Entity {
     const it = this.held;
     if (!it || it.type !== 'weapon') return;
     const st = weaponStats(it);
-    const need = st.mag - it.mag;
-    const take = Math.min(need, this.ammo[st.ammo]);
+    const take = Math.min(st.mag - it.mag, this.ammo[st.ammo]);
     it.mag += take;
     this.ammo[st.ammo] -= take;
   }
@@ -102,15 +146,21 @@ export class Entity {
     const k = ITEM_KINDS[s.id];
     if (k.hp) this.hp = Math.min(Math.max(this.hp, k.max), this.hp + k.hp);
     if (k.sh) this.shield = Math.min(Math.max(this.shield, k.max), this.shield + k.sh);
+    this.consume(slotIdx);
+    this.game.audio.play('heal', this);
+  }
+
+  consume(slotIdx) {
+    const s = this.slots[slotIdx];
     s.count--;
     if (s.count <= 0) this.slots[slotIdx] = null;
-    this.game.audio.play('heal', this);
   }
 
   canUse(slotIdx) {
     const s = this.slots[slotIdx];
     if (!s || s.type !== 'item') return false;
     const k = ITEM_KINDS[s.id];
+    if (k.throw) return true;
     if (k.hp) return this.hp < k.max;
     if (k.sh) return this.shield < k.max;
     return false;
@@ -121,6 +171,25 @@ export class Entity {
     const st = weaponStats(w);
     const has = w.mag > 0 || this.ammo[st.ammo] > 0;
     return has ? st.dps + w.rarity * 4 : -1;
+  }
+
+  /** Feed the character model with the current state. */
+  animateModel(dt) {
+    const m = this.model;
+    if (!m) return;
+    m.root.position.set(this.x, this.y, this.z);
+    m.root.rotation.y = this.yaw;
+    const it = this.held;
+    if (!it) m.setHeld(null);
+    else if (it.type === 'weapon') m.setHeld('gun', WEAPONS[it.id].cls);
+    else if (it.type === 'pickaxe') m.setHeld('pickaxe');
+    else m.setHeld('item', null, this.game.season.items[it.id] ? this.game.season.items[it.id].color : '#fff');
+    m.animate(dt, {
+      speed: Math.hypot(this.vx, this.vz), grounded: this.grounded, crouch: this.crouch, slide: this.sliding,
+      air: this.air === 'bus' ? 'fall' : this.air, aiming: this.ads || this.aiming, pitch: this.pitch, recoil: this.recoil,
+      swing: this.swingT, reloading: this.reloadT > 0, using: this.useT > 0, mantle: !!this.mantle, sprint: this.sprinting,
+      kind: !it ? null : it.type === 'weapon' ? 'gun' : it.type,
+    });
   }
 }
 

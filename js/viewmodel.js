@@ -42,14 +42,23 @@ function buildPickaxe() {
 export class ViewModel {
   constructor(camera) {
     this.root = new THREE.Group();
+    this.root.scale.setScalar(0.62);
     camera.add(this.root);
     this.guns = {};
     this.pickaxe = buildPickaxe();
     this.item = part(0.12, 0.16, 0.12, 0xffffff, 0, -0.02, -0.25);
     this.root.add(this.pickaxe, this.item);
+    // muzzle flash
+    const cv = document.createElement('canvas'); cv.width = cv.height = 32;
+    const g = cv.getContext('2d'), gr = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+    gr.addColorStop(0, 'rgba(255,255,230,1)'); gr.addColorStop(0.4, 'rgba(255,200,80,0.8)'); gr.addColorStop(1, 'rgba(255,120,0,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 32, 32);
+    this.flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false, transparent: true }));
+    this.flash.scale.setScalar(0.22); this.flash.renderOrder = 1000; this.flash.visible = false;
+    this.root.add(this.flash);
     this.current = null;
     this.t = 0;
-    this.pos = new THREE.Vector3(0.26, -0.24, -0.45);
+    this.pos = new THREE.Vector3(0.2, -0.17, -0.32);
   }
 
   _gun(cls) {
@@ -63,7 +72,7 @@ export class ViewModel {
     this.pickaxe.visible = false; this.item.visible = false;
     const it = p.held;
     let show = null, st = null;
-    if (!p.alive || game.build.active || p.state !== 'ground') { this.root.visible = false; return; }
+    if (!p.alive || game.build.active || game.edit.active || p.airborne) { this.root.visible = false; return; }
     this.root.visible = true;
     if (!it) { this.root.visible = false; return; }
     if (it.type === 'weapon') {
@@ -75,11 +84,15 @@ export class ViewModel {
     else { show = this.item; show.visible = true; show.material = mat(parseInt(game.season.items[it.id].color.slice(1), 16)); }
 
     // pose
+    let rx0 = 0;
     const speed = Math.hypot(p.vx, p.vz);
-    const bob = p.grounded ? Math.sin(this.t * 9) * 0.008 * Math.min(1, speed / 6) : 0;
-    const tgt = p.ads && st ? new THREE.Vector3(0, -0.105, -0.32) : new THREE.Vector3(0.26, -0.24, -0.45);
+    const bob = p.grounded ? Math.sin(this.t * (p.sprinting ? 13 : 9)) * (p.sprinting ? 0.016 : 0.008) * Math.min(1, speed / 6) : 0;
+    if (p.sprinting && !p.ads) { rx0 = -0.35; }
+    const tgt = p.ads && st ? new THREE.Vector3(0, -0.075, -0.24) : new THREE.Vector3(0.2, -0.17, -0.32);
     this.pos.lerp(tgt, Math.min(1, dt * 14));
-    let rx = 0, ry = 0, rz = 0, py = 0, pz = 0;
+    let rx = rx0, ry = 0, rz = p.sliding ? 0.25 : 0, py = 0, pz = 0;
+    this.flash.visible = !!st && p.recoil > 0.75 && p.reloadT <= 0;
+    if (this.flash.visible) { this.flash.position.set(0, 0.02, st.cls === 'pistol' ? -0.36 : -0.7); this.flash.material.rotation = Math.random() * 6; }
     if (st) {
       pz += p.recoil * 0.05; rx += p.recoil * 0.07;
       if (p.reloadT > 0) {

@@ -1,37 +1,38 @@
-// The human player: parachute drop, ground movement (PC controls), interaction and building input.
+// The human player: bus jump, skydive/glider, ground movement (sprint, crouch, slide, mantle,
+// vault), shooting, building and editing input. PC controls.
 
 import { Entity } from './entity.js';
-import { stepEntity, groundAt } from './physics.js';
+import { stepEntity, findLedge, startMantle, stepMantle, canStand, GRAVITY } from './physics.js';
+import { CharacterModel } from './characters.js';
 import { clamp } from './util.js';
 
-const WALK = 6.2, SPRINT = 8.8, JUMP = 7.6;
+const WALK = 6.0, SPRINT = 8.6, CROUCH = 3.4, JUMP = 7.6;
+const SLIDE_MIN = 10.5, SLIDE_END = 4.2;
 
 export class Player extends Entity {
   constructor(game) {
     super(game, 'You', true);
-    this.input = { f: 0, b: 0, l: 0, r: 0, jump: false, sprint: false };
-    this.state = 'fall'; // fall -> glide -> ground
+    this.input = { f: 0, b: 0, l: 0, r: 0, jump: false, sprint: false, crouch: false };
+    this.jumpEdge = false;
+    this.crouchToggle = false;
     this.moving = false;
     this.buildCd = 0;
     this.mouseLeft = false;
-    this.spawnY = 0;
+    this.slideCd = 0;
+    this.slideDir = { x: 0, z: 0 };
+    this.slideSpeed = 0;
+    this.model = new CharacterModel(3, null, { outfit: ['#ff8a1e', '#23324a'], hat: 'cap', accent: '#2f6bff', hair: '#5a3a1a' });
   }
 
-  drop(x, z) {
-    const w = this.game.world;
-    this.x = x; this.z = z;
-    this.y = w.heightAt(x, z) + 175;
-    this.vx = this.vz = this.vy = 0;
-    this.state = 'fall';
-    this.grounded = false;
-    this.yaw = Math.atan2(x, z) + (Math.random() - 0.5) * 0.6; // face the island centre
-    this.pitch = -0.5;
+  resetInput() { this.input = { f: 0, b: 0, l: 0, r: 0, jump: false, sprint: false, crouch: false }; this.mouseLeft = false; }
+
+  pressJump() {
+    this.jumpEdge = true;
+    if (this.air === 'bus') { if (this.game.bus.canDrop) this.jumpFromBus(); }
+    else if (this.air === 'fall') this.air = 'glide';
   }
 
-  toggleGlider() {
-    if (this.state === 'fall') this.state = 'glide';
-    else if (this.state === 'glide') this.state = 'fall';
-  }
+  get wantCrouch() { return this.game.settings.toggleCrouch ? this.crouchToggle : this.input.crouch; }
 
   update(dt) {
     if (!this.alive) return;
@@ -42,49 +43,95 @@ export class Player extends Entity {
     let wx = fx * fwd + rx * side, wz = fz * fwd + rz * side;
     const len = Math.hypot(wx, wz);
     if (len > 1) { wx /= len; wz /= len; }
+    const jumpPressed = this.jumpEdge; this.jumpEdge = false;
 
-    if (this.state !== 'ground') {
-      // ---- skydive / glider: no collisions until we touch something
-      const glide = this.state === 'glide';
-      const targetVy = glide ? -7 : -32;
-      this.vy += (targetVy - this.vy) * Math.min(1, dt * 3);
-      const sp = glide ? 15 : 10;
-      const tx = (fx * (glide ? 0.8 + fwd * 0.2 : 0.4 + Math.max(0, fwd) * 0.6) + rx * side * 0.6) * sp;
-      const tz = (fz * (glide ? 0.8 + fwd * 0.2 : 0.4 + Math.max(0, fwd) * 0.6) + rz * side * 0.6) * sp;
-      this.vx += (tx - this.vx) * Math.min(1, dt * 2.5);
-      this.vz += (tz - this.vz) * Math.min(1, dt * 2.5);
-      this.x += this.vx * dt; this.z += this.vz * dt; this.y += this.vy * dt;
-      const R = w.mapRadius + 20, rr = Math.hypot(this.x, this.z);
-      if (rr > R) { this.x *= R / rr; this.z *= R / rr; }
-      const gr = groundAt(w, this.x, this.z, this.y + 50);
-      if (this.state === 'fall' && this.y - gr < 70) this.state = 'glide';
-      if (this.y <= gr) { this.y = gr; this.vy = 0; this.vx *= 0.3; this.vz *= 0.3; this.state = 'ground'; this.grounded = true; g.onPlayerLanded(); }
+    if (this.air === 'bus') { this.moving = false; return; }
+    if (this.air) {
+      this.airStep(dt, wx, wz, Math.max(0, fwd));
       this.moving = false;
       return;
     }
 
-    // ---- on the ground
-    const liq = w.liquidAt(this.x, this.z, this.y + 0.2);
-    let speed = inp.sprint && fwd > 0 && !this.ads && !g.build.active ? SPRINT : WALK;
-    if (this.ads) speed *= 0.55;
-    if (liq && liq.type !== 'lava') speed *= 0.6;
-    if (this.reloadT > 0) speed *= 0.9;
-    const k = Math.min(1, dt * (this.grounded ? 14 : 3));
-    this.vx += (wx * speed - this.vx) * k;
-    this.vz += (wz * speed - this.vz) * k;
-    if (inp.jump && this.grounded) { this.vy = JUMP; this.grounded = false; }
-    this.moving = len > 0.05;
-    stepEntity(w, this, dt);
+    // ---- mantling takes over everything for a moment
+    if (this.mantle) {
+      stepMantle(w, this, dt);
+      this.moving = true;
+      g.combat.update_shooter(this, dt);
+      return;
+    }
 
-    // weapon / interaction
-    this.wantFire = this.mouseLeft && !g.build.active;
+    const liq = w.liquidAt(this.x, this.z, this.y + 0.2);
+    const editing = g.edit.active;
+    const sprintKey = g.settings.sprintDefault ? !inp.sprint : inp.sprint;
+    this.slideCd -= dt;
+
+    // ---- crouch / slide state
+    const wantCrouch = this.wantCrouch;
+    const hSpeed = Math.hypot(this.vx, this.vz);
+    if (wantCrouch && !this.sliding && this.grounded && this.sprinting && hSpeed > 6.5 && this.slideCd <= 0) {
+      this.sliding = true;
+      this.slideSpeed = Math.max(SLIDE_MIN, hSpeed * 1.2);
+      this.slideDir.x = this.vx / hSpeed; this.slideDir.z = this.vz / hSpeed;
+      g.audio.play('slide', this);
+    }
+    if (this.sliding && (!wantCrouch || !this.grounded && this.vy < -6)) { this.sliding = false; this.slideCd = 0.35; }
+    const crouchNow = (wantCrouch || this.sliding) || (this.crouch && !canStand(w, this));
+    if (crouchNow !== this.crouch) this.setCrouch(crouchNow);
+
+    // ---- horizontal velocity
+    if (this.sliding) {
+      // slopes speed you up going down and slow you down going up
+      const ahead = w.heightAt(this.x + this.slideDir.x * 0.8, this.z + this.slideDir.z * 0.8) - w.heightAt(this.x, this.z);
+      this.slideSpeed += (-ahead / 0.8) * GRAVITY * 0.55 * dt - 4.2 * dt;
+      this.slideSpeed = Math.min(16, this.slideSpeed);
+      if (len > 0.05) {
+        const k = Math.min(1, dt * 1.6);
+        this.slideDir.x += (wx - this.slideDir.x) * k; this.slideDir.z += (wz - this.slideDir.z) * k;
+        const l = Math.hypot(this.slideDir.x, this.slideDir.z) || 1; this.slideDir.x /= l; this.slideDir.z /= l;
+      }
+      this.vx = this.slideDir.x * this.slideSpeed; this.vz = this.slideDir.z * this.slideSpeed;
+      if (this.slideSpeed < SLIDE_END) { this.sliding = false; this.slideCd = 0.25; }
+      this.sprinting = false;
+    } else {
+      this.sprinting = sprintKey && fwd > 0 && !this.ads && !this.crouch && !editing && g.time - this.lastShot > 0.35 && this.useT <= 0 && this.reloadT <= 0;
+      let speed = this.crouch ? CROUCH : this.sprinting ? SPRINT : WALK;
+      if (this.ads) speed *= 0.6;
+      if (liq && liq.type !== 'lava') speed *= 0.6;
+      if (this.held && this.held.type === 'item' && this.useT > 0) speed *= 0.55;
+      const k = Math.min(1, dt * (this.grounded ? 14 : 2.8));
+      this.vx += (wx * speed - this.vx) * k;
+      this.vz += (wz * speed - this.vz) * k;
+    }
+
+    // ---- jump, vault, mantle
+    if (jumpPressed && this.grounded) {
+      const ledge = fwd > 0 && this.sprinting ? findLedge(w, this, fx, fz, 1.5, true) : null;
+      if (ledge && ledge.vault) { startMantle(this, ledge); g.audio.play('mantle', this); return; }
+      this.vy = this.sliding ? JUMP * 1.08 : JUMP;
+      this.grounded = false;
+      this.sprintJump = this.sprinting || this.sliding;
+      if (this.sliding) { this.sliding = false; this.slideCd = 0.3; }
+      else if (this.crouch && canStand(w, this)) this.setCrouch(false);
+    } else if (!this.grounded && fwd > 0 && (inp.jump || this.vy < 2.5) && this.vy < 4) {
+      const ledge = findLedge(w, this, fx, fz, 2.75, !!this.sprintJump);
+      if (ledge) { startMantle(this, ledge); g.audio.play('mantle', this); return; }
+    }
+    this.moving = len > 0.05 || this.sliding;
+    stepEntity(w, this, dt);
+    if (this.grounded) this.sprintJump = false;
+    if (this.landSpeed > 9 && g.fx) g.fx.landing(this.x, this.y, this.z);
+
+    // ---- weapon / interaction
+    this.wantFire = this.mouseLeft && !g.build.active && !editing;
+    if (this.wantFire && this.held && this.held.type === 'weapon') this.lastShot = g.time;
     g.combat.update_shooter(this, dt);
 
-    // building: click (or hold) to place
+    // ---- building: click (or hold) to place
     this.buildCd -= dt;
-    if (g.build.active && this.mouseLeft && this.buildCd <= 0) { g.build.place(this); this.buildCd = 0.14; }
+    if (g.build.active && this.mouseLeft && this.buildCd <= 0) { g.build.placeFromUI(this); this.buildCd = 0.12; }
     g.loot.autoPickup(this);
   }
 }
 
+Player.prototype.lastShot = -9;
 export { clamp };

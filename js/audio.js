@@ -55,7 +55,7 @@ export class GameAudio {
     if (!this.ctx || settings.volume <= 0) return;
     let v = 1;
     const p = this.game.player;
-    if (pos && p && pos !== p && pos.x !== undefined) {
+    if (pos && p && pos !== p && pos.x !== undefined && this.game.mode !== 'lobby') {
       const d = Math.hypot(pos.x - p.x, pos.z - p.z);
       v = clamp(1 - d / 110, 0, 1);
       v *= v;
@@ -83,6 +83,21 @@ export class GameAudio {
       case 'heal': this._tone(440, 0.25, 'sine', 0.22, 880); break;
       case 'hurt': this._tone(140, 0.12, 'sawtooth', 0.22, 70); break;
       case 'eliminate': this._tone(660, 0.12, 'square', 0.2); setTimeout(() => this.ctx && this._tone(990, 0.2, 'square', 0.2), 110); break;
+      case 'edit': this._tone(620, 0.05, 'square', 0.14 * v, 900); this._noise(0.05, 1800, 1.5, 0.15 * v); break;
+      case 'edit_open': this._tone(400, 0.06, 'triangle', 0.16, 600); break;
+      case 'tile': this._tone(1200, 0.025, 'square', 0.07); break;
+      case 'break': this._noise(0.25, 600, 0.6, 0.45 * v); this._tone(120, 0.18, 'square', 0.12 * v, 60); break;
+      case 'slide': this._noise(0.35, 500, 0.5, 0.18 * v, 'lowpass'); break;
+      case 'mantle': this._noise(0.12, 900, 0.8, 0.15 * v); break;
+      case 'crit': this._tone(880, 0.06, 'square', 0.16 * v, 1320); this._noise(0.06, 1400, 1.2, 0.3 * v); break;
+      case 'shield_break': [1400, 900, 600].forEach((f, i) => setTimeout(() => this.ctx && this._tone(f, 0.08, 'triangle', 0.18), i * 45)); break;
+      case 'throw': this._noise(0.12, 1200, 0.7, 0.18 * v); break;
+      case 'bounce': this._tone(500, 0.04, 'triangle', 0.12 * v, 300); break;
+      case 'hum': this._tone(196, 0.5, 'sine', 0.05 * v, 220); this._tone(294, 0.5, 'sine', 0.035 * v, 330); break;
+      case 'supply': [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => this.ctx && this._tone(f, 0.18, 'square', 0.12), i * 110)); break;
+      case 'horn': this._tone(330, 0.3, 'square', 0.18, 320); setTimeout(() => this.ctx && this._tone(262, 0.4, 'square', 0.18, 255), 320); break;
+      case 'land': this._noise(0.15, 400, 0.6, 0.3 * v, 'lowpass'); break;
+      case 'glider': this._noise(0.4, 300, 0.5, 0.15, 'lowpass'); break;
       default: break;
     }
   }

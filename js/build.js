@@ -1,18 +1,21 @@
-// Fortnite-style building: walls, floors and ramps on a 4x4x3 grid, three materials.
+// Fortnite-style building: walls, floors, ramps and cones on a 4x4x3 grid, three materials that
+// build up their health over time, structural support (unsupported pieces collapse), edits.
 
 import * as THREE from '../lib/three.module.min.js';
 import { clamp } from './util.js';
-import { PLAYER_H, depenetrate } from './physics.js';
+import { depenetrate, PLAYER_R } from './physics.js';
+import { colliderTop } from './geom.js';
+import { CS, LV, defaultEdit, pieceShape, shapeColliders, shapeGeometry } from './pieces.js';
+import { TEX } from './textures.js';
 
-const CS = 4;          // grid cell size
-const LV = 3;          // level height
 export const COST = 10;
 export const MATERIALS = [
-  { id: 'wood', name: 'Wood', color: '#a8793f', hp: 150 },
-  { id: 'brick', name: 'Brick', color: '#b5503c', hp: 300 },
-  { id: 'metal', name: 'Metal', color: '#9aa4ad', hp: 500 },
+  { id: 'wood', name: 'Wood', color: '#c08a4e', hp: 150, start: 70, time: 3.5, tex: 'wood' },
+  { id: 'brick', name: 'Brick', color: '#b5543c', hp: 300, start: 90, time: 8, tex: 'brick' },
+  { id: 'metal', name: 'Metal', color: '#a7b0b8', hp: 450, start: 110, time: 14, tex: 'metal' },
 ];
-const RAMP_TILT = Math.atan2(LV, CS);
+export const BUILD_TYPES = ['wall', 'floor', 'ramp', 'cone'];
+const MAX_LEVEL = 24;
 
 export class BuildSystem {
   constructor(game) {
@@ -21,40 +24,43 @@ export class BuildSystem {
     this.pieces = [];
     this.byKey = new Map();
     this.cellBase = new Map();
+    this.collapseQ = [];
+    this._id = 0;
+    // player UI state
     this.active = false;
     this.type = 'wall';
     this.matIndex = 0;
     this.valid = false;
     this.cur = null;
 
-    this.geos = {
-      wall: new THREE.BoxGeometry(CS, LV, 0.3),
-      floor: new THREE.BoxGeometry(CS, 0.4, CS),
-      ramp: new THREE.BoxGeometry(Math.hypot(CS, LV), 0.3, CS),
-    };
-    this.ghostMat = new THREE.MeshBasicMaterial({ color: 0x4dff7a, transparent: true, opacity: 0.42, depthWrite: false });
-    this.ghost = new THREE.Mesh(this.geos.wall, this.ghostMat);
+    this.baseMats = MATERIALS.map((m) => new THREE.MeshLambertMaterial({ map: TEX[m.tex](), side: THREE.DoubleSide }));
+    this.ghostMat = new THREE.MeshBasicMaterial({ color: 0x4da6ff, transparent: true, opacity: 0.38, depthWrite: false, side: THREE.DoubleSide });
+    this.ghostEdgeMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 });
+    this.ghost = new THREE.Mesh(new THREE.BufferGeometry(), this.ghostMat);
+    this.ghostEdges = new THREE.LineSegments(new THREE.BufferGeometry(), this.ghostEdgeMat);
+    this.ghost.add(this.ghostEdges);
     this.ghost.visible = false;
+    this.ghost.renderOrder = 5;
+    this.ghostKey = '';
     this.group.add(this.ghost);
-    this.mats = MATERIALS.map((m) => new THREE.MeshLambertMaterial({ color: m.color }));
   }
 
   clear() {
-    for (const p of this.pieces) this.group.remove(p.mesh);
+    for (const p of this.pieces) { this.group.remove(p.mesh); p.mesh.geometry.dispose(); p.mesh.material.dispose(); }
     this.pieces.length = 0;
     this.byKey.clear();
     this.cellBase.clear();
+    this.collapseQ.length = 0;
     this.setActive(false);
   }
 
   setActive(on) {
     this.active = on;
-    this.ghost.visible = on && !!this.cur;
+    if (!on) this.ghost.visible = false;
   }
 
   setType(t) { this.type = t; if (!this.active) this.setActive(true); }
-
-  cycleMaterial() { this.matIndex = (this.matIndex + 1) % MATERIALS.length; }
+  cycleMaterial(dir = 1) { this.matIndex = (this.matIndex + dir + MATERIALS.length) % MATERIALS.length; }
 
   // ------------------------------------------------------------------ placement maths
   findBase(gx, gz, fallbackY) {
@@ -65,158 +71,264 @@ export class BuildSystem {
     return Math.round(fallbackY * 2) / 2;
   }
 
-  compute(e) {
-    const w = this.game.world;
-    const fx = -Math.sin(e.yaw), fz = -Math.cos(e.yaw);
-    const alongX = Math.abs(fx) > Math.abs(fz);       // facing mostly along the x axis?
-    const sx = alongX ? Math.sign(fx) : 0, sz = alongX ? 0 : Math.sign(fz);
-    // lateral aim: lets you steer into the neighbouring column/row a little
-    const lx = e.x + fx * 2.4, lz = e.z + fz * 2.4;
-    const out = { type: this.type, ok: true };
+  /** The build ramp the entity is standing on, if any. */
+  rampUnder(e) {
+    const list = this.game.world.query(e.x, e.z, PLAYER_R);
+    for (const c of list) {
+      if (c.kind !== 'ramp' || !c.piece) continue;
+      if (e.x < c.minx || e.x > c.maxx || e.z < c.minz || e.z > c.maxz) continue;
+      if (Math.abs(colliderTop(c, e.x, e.z) - e.y) < 0.4) return c.piece;
+    }
+    return null;
+  }
 
-    if (this.type === 'wall') {
-      if (alongX) {  // wall plane perpendicular to x, spanning one cell in z
+  /** Where would a piece of `type` go for entity e looking along yaw/pitch? */
+  compute(e, type, yaw = e.yaw, pitch = e.pitch) {
+    const w = this.game.world;
+    const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
+    const alongX = Math.abs(fx) > Math.abs(fz);
+    const sx = alongX ? Math.sign(fx) : 0, sz = alongX ? 0 : Math.sign(fz);
+    const lx = e.x + fx * 2.4, lz = e.z + fz * 2.4;
+    const cgx = Math.floor(e.x / CS), cgz = Math.floor(e.z / CS);
+    const baseAt = (gx, gz) => this.findBase(gx, gz, w.heightAt((gx + 0.5) * CS, (gz + 0.5) * CS));
+    const levelOf = (base) => Math.max(0, Math.round((e.y - base) / LV));
+    const out = { type, ok: true };
+    let gx, gz;
+
+    if (type === 'wall') {
+      if (alongX) {
         let line = (Math.floor(e.x / CS) + (sx > 0 ? 1 : 0)) * CS;
         if ((line - e.x) * sx < 1.0) line += sx * CS;
-        const gz = Math.floor(lz / CS);
+        gz = Math.floor(lz / CS);
         out.axis = 'z'; out.cx = line; out.cz = (gz + 0.5) * CS;
       } else {
         let line = (Math.floor(e.z / CS) + (sz > 0 ? 1 : 0)) * CS;
         if ((line - e.z) * sz < 1.0) line += sz * CS;
-        const gx = Math.floor(lx / CS);
+        gx = Math.floor(lx / CS);
         out.axis = 'x'; out.cx = (gx + 0.5) * CS; out.cz = line;
       }
-      const gx = Math.floor(out.cx / CS), gz = Math.floor(out.cz / CS);
-      out.base = this.findBase(gx, gz, w.heightAt(out.cx, out.cz));
-      out.k = Math.max(0, Math.round((e.y - out.base) / LV));
-      out.y0 = out.base + out.k * LV;
-      out.key = `w${out.axis}:${Math.round(out.cx)},${Math.round(out.cz)}:${out.k}`;
-      out.cells = [[gx, gz]];
+      gx = Math.floor(out.cx / CS); gz = Math.floor(out.cz / CS);
+      out.base = baseAt(gx, gz);
+      out.k = levelOf(out.base) + (pitch > 0.6 ? 1 : 0);
     } else {
-      // floors and ramps go into the cell next to the one we stand in
-      let gx, gz;
-      if (alongX) { gx = Math.floor(e.x / CS) + sx; gz = Math.floor(lz / CS); }
-      else { gz = Math.floor(e.z / CS) + sz; gx = Math.floor(lx / CS); }
+      let cur = false;
+      if (type === 'floor') cur = pitch > 0.5 || pitch < -0.75;
+      else if (type === 'cone') cur = pitch > -0.6;
+      if (cur) { gx = cgx; gz = cgz; }
+      else if (alongX) { gx = cgx + sx; gz = Math.floor(lz / CS); }
+      else { gz = cgz + sz; gx = Math.floor(lx / CS); }
       out.cx = (gx + 0.5) * CS; out.cz = (gz + 0.5) * CS;
-      out.base = this.findBase(gx, gz, w.heightAt(out.cx, out.cz));
-      out.k = Math.max(0, Math.round((e.y - out.base) / LV));
-      out.y0 = out.base + out.k * LV;
-      out.key = `c:${gx},${gz}:${out.k}`;
-      out.cells = [[gx, gz]];
-      if (this.type === 'ramp') { out.dx = sx; out.dz = sz; }
-    }
-    // bounds for overlap checks
-    if (this.type === 'wall') {
-      const hx = out.axis === 'z' ? 0.15 : CS / 2, hz = out.axis === 'z' ? CS / 2 : 0.15;
-      out.box = [out.cx - hx, out.y0, out.cz - hz, out.cx + hx, out.y0 + LV, out.cz + hz];
-    } else if (this.type === 'floor') {
-      out.box = [out.cx - CS / 2, out.y0 - 0.4, out.cz - CS / 2, out.cx + CS / 2, out.y0, out.cz + CS / 2];
-    } else {
-      out.box = [out.cx - CS / 2, out.y0, out.cz - CS / 2, out.cx + CS / 2, out.y0 + LV, out.cz + CS / 2];
-    }
-    // validity
-    if (this.byKey.has(out.key)) out.ok = false;
-    if (Math.hypot(out.cx, out.cz) > this.game.world.mapRadius) out.ok = false;
-    if (out.ok) {
-      const [x0, y0, z0, x1, y1, z1] = out.box;
-      for (const o of this.game.entities) {
-        if (!o.alive) continue;
-        if (o.x + 0.2 > x0 && o.x - 0.2 < x1 && o.z + 0.2 > z0 && o.z - 0.2 < z1 && y1 > o.y + 0.3 && y0 < o.y + PLAYER_H) { out.ok = false; break; }
+      out.base = baseAt(gx, gz);
+      out.k = levelOf(out.base);
+      if ((type === 'floor' && pitch > 0.5) || (type === 'cone' && cur)) out.k++;
+      if (type === 'ramp') {
+        out.dx = sx; out.dz = sz;
+        const r = this.rampUnder(e);
+        if (r && r.edit.dx === sx && r.edit.dz === sz && Math.floor(r.c.cx / CS) === cgx && Math.floor(r.c.cz / CS) === cgz) out.k = r.c.k + 1;
       }
     }
+    out.k = Math.min(MAX_LEVEL, out.k);
+    out.y0 = out.base + out.k * LV;
+    out.gx = gx; out.gz = gz;
+    const tag = { wall: 'w' + out.axis, floor: 'f', ramp: 'r', cone: 'c' }[type];
+    out.key = type === 'wall' ? `${tag}:${Math.round(out.cx * 2)},${Math.round(out.cz * 2)}:${out.k}` : `${tag}:${gx},${gz}:${out.k}`;
+    if (this.byKey.has(out.key)) out.ok = false;
+    if (Math.hypot(out.cx, out.cz) > w.mapRadius) out.ok = false;
     return out;
   }
 
+  canAfford(e, mi) { return e.mats[MATERIALS[mi].id] >= COST; }
+
   // ------------------------------------------------------------------ per frame
-  update(dt, e) {
-    if (!this.active || !e || !e.alive) { this.ghost.visible = false; return; }
-    const c = this.compute(e);
-    this.cur = c;
-    const canPay = e.mats[MATERIALS[this.matIndex].id] >= COST;
-    this.valid = c.ok && canPay;
-    this.ghost.geometry = this.geos[c.type];
-    this.ghostMat.color.setHex(this.valid ? 0x4dff7a : 0xff4d4d);
-    this.ghost.visible = true;
-    this._pose(this.ghost, c, 0);
-  }
-
-  _pose(mesh, c, skirt) {
-    mesh.rotation.set(0, 0, 0);
-    if (c.type === 'wall') {
-      mesh.rotation.y = c.axis === 'z' ? Math.PI / 2 : 0;
-      mesh.position.set(c.cx, c.y0 + LV / 2 - skirt / 2, c.cz);
-      mesh.scale.set(1, (LV + skirt) / LV, 1);
-    } else if (c.type === 'floor') {
-      mesh.position.set(c.cx, c.y0 - 0.2, c.cz);
-      mesh.scale.set(1, 1, 1);
-    } else {
-      mesh.rotation.set(0, Math.atan2(-c.dz, c.dx), RAMP_TILT);
-      mesh.position.set(c.cx, c.y0 + LV / 2 - 0.12, c.cz);
-      mesh.scale.set(1, 1, 1);
-    }
-  }
-
-  place(e) {
-    if (!this.active || !this.cur) return false;
-    this.update(0, e);
-    if (!this.valid) { this.game.audio.play('deny', null); return false; }
-    const c = this.cur, m = MATERIALS[this.matIndex], w = this.game.world;
-    e.mats[m.id] -= COST;
-
-    let skirt = 0;
-    const collider = { piece: null };
-    if (c.type === 'wall') {
-      if (c.k === 0) {
-        const a = c.axis === 'z' ? [[c.cx, c.cz - 2], [c.cx, c.cz], [c.cx, c.cz + 2]] : [[c.cx - 2, c.cz], [c.cx, c.cz], [c.cx + 2, c.cz]];
-        const low = Math.min(...a.map(([x, z]) => w.heightAt(x, z)));
-        skirt = clamp(c.y0 - low, 0, 8);
+  update(dt) {
+    for (const p of this.pieces) {
+      if (p.buildLeft > 0) {
+        const step = Math.min(dt, p.buildLeft);
+        p.buildLeft -= dt;
+        p.hp = Math.min(p.maxHp, p.hp + p.growth * step);
+        p.mesh.material.emissiveIntensity = clamp((p.buildLeft / p.buildDur - 0.6) / 0.4, 0, 1) * 0.28;
       }
-      const [x0, y0, z0, x1, y1, z1] = c.box;
-      Object.assign(collider, { kind: 'box', minx: x0, miny: y0 - skirt, minz: z0, maxx: x1, maxy: y1, maxz: z1 });
-    } else if (c.type === 'floor') {
-      const [x0, y0, z0, x1, y1, z1] = c.box;
-      Object.assign(collider, { kind: 'box', minx: x0, miny: y0, minz: z0, maxx: x1, maxy: y1, maxz: z1 });
-    } else {
-      const [x0, y0, z0, x1, y1, z1] = c.box;
-      Object.assign(collider, { kind: 'ramp', minx: x0, miny: y0, minz: z0, maxx: x1, maxy: y1, maxz: z1, cx: c.cx, cz: c.cz, dx: c.dx, dz: c.dz, len: CS, base: c.y0, rise: LV });
+      if (p.pop < 1) {
+        p.pop = Math.min(1, p.pop + dt * 7);
+        const s = 0.55 + 0.45 * p.pop;
+        p.mesh.scale.set(s, s, s);
+      }
     }
-    const mesh = new THREE.Mesh(this.geos[c.type], this.mats[this.matIndex].clone());
-    mesh.castShadow = true; mesh.receiveShadow = true;
-    this._pose(mesh, c, skirt);
-    this.group.add(mesh);
+    // staggered collapse of unsupported pieces
+    for (let i = this.collapseQ.length - 1; i >= 0; i--) {
+      const q = this.collapseQ[i];
+      q.t -= dt;
+      if (q.t <= 0) { this.collapseQ.splice(i, 1); if (!q.p.dead) this.destroy(q.p, true); }
+    }
+  }
 
-    const piece = { type: c.type, key: c.key, mat: this.matIndex, hp: m.hp, maxHp: m.hp, mesh, collider, c, x: c.cx, y: c.y0 + 1.5, z: c.cz };
-    collider.piece = piece;
-    w.addCollider(collider);
+  /** Player ghost preview. */
+  updateGhost(e) {
+    if (!this.active || !e || !e.alive) { this.ghost.visible = false; this.cur = null; return; }
+    const c = this.compute(e, this.type);
+    this.cur = c;
+    this.valid = c.ok && this.canAfford(e, this.matIndex);
+    const gkey = c.key + c.y0;
+    if (gkey !== this.ghostKey) {
+      this.ghostKey = gkey;
+      const shape = pieceShape(c, defaultEdit(c.type, c));
+      this.ghost.geometry.dispose();
+      this.ghost.geometry = shapeGeometry(shape);
+      this.ghostEdges.geometry.dispose();
+      this.ghostEdges.geometry = new THREE.EdgesGeometry(this.ghost.geometry, 25);
+    }
+    this.ghostMat.color.setHex(this.valid ? 0x4da6ff : 0xff4d4d);
+    this.ghost.visible = true;
+  }
+
+  // ------------------------------------------------------------------ placing
+  /** Player: place the previewed piece. */
+  placeFromUI(e) {
+    if (!this.active) return null;
+    this.updateGhost(e);
+    if (!this.cur || !this.valid) { this.game.audio.play('deny', null); return null; }
+    return this.place(e, this.cur, this.matIndex);
+  }
+
+  /** Bots: place a piece of `type` facing yaw with the best material they can afford. */
+  placeFor(e, type, yaw = e.yaw, pitch = 0) {
+    let mi = -1;
+    for (let i = 0; i < MATERIALS.length; i++) if (this.canAfford(e, i)) { mi = i; break; }
+    if (mi < 0) return null;
+    const c = this.compute(e, type, yaw, pitch);
+    if (!c.ok) return null;
+    return this.place(e, c, mi);
+  }
+
+  place(e, c, mi) {
+    const m = MATERIALS[mi], w = this.game.world;
+    e.mats[m.id] -= COST;
+    let skirt = 0;
+    if (c.type === 'wall' && c.k === 0) {
+      const a = c.axis === 'z' ? [[c.cx, c.cz - 2], [c.cx, c.cz], [c.cx, c.cz + 2]] : [[c.cx - 2, c.cz], [c.cx, c.cz], [c.cx + 2, c.cz]];
+      const low = Math.min(...a.map(([x, z]) => w.heightAt(x, z)));
+      skirt = clamp(c.y0 - low, 0, 8);
+    }
+    const mat = this.baseMats[mi].clone();
+    mat.emissive = new THREE.Color(0x3b7bff);
+    mat.emissiveIntensity = 0.28;
+    const piece = {
+      id: ++this._id, type: c.type, key: c.key, c, mat: mi, owner: e, skirt,
+      hp: m.start, maxHp: m.hp, buildLeft: m.time, buildDur: m.time, growth: (m.hp - m.start) / m.time,
+      edit: defaultEdit(c.type, c), mesh: new THREE.Mesh(new THREE.BufferGeometry(), mat), colliders: [], links: new Set(), pop: 0,
+    };
+    piece.mesh.castShadow = true; piece.mesh.receiveShadow = true;
+    this.group.add(piece.mesh);
+    this._rebuild(piece);
     this.pieces.push(piece);
     this.byKey.set(c.key, piece);
-    for (const [gx, gz] of c.cells) this.cellBase.set(gx + ',' + gz, c.base);
-    if (c.type === 'wall') {
-      const gx = Math.floor(c.cx / CS), gz = Math.floor(c.cz / CS);
-      this.cellBase.set(gx + ',' + gz, c.base);
-    }
-    for (const o of this.game.entities) if (o.alive) depenetrate(w, o);
-    this.game.audio.play('build', null);
-    return true;
+    this.cellBase.set(c.gx + ',' + c.gz, c.base);
+    this._link(piece);
+    for (const o of this.game.entities) if (o.alive && !o.airborne) depenetrate(w, o);
+    this.game.audio.play('build', e);
+    this.game.noise(e, 40);
+    if (this.game.fx) this.game.fx.dust(piece.x, piece.y, piece.z, MATERIALS[mi].color);
+    return piece;
   }
 
-  damage(piece, amount) {
+  /** (Re)create colliders and mesh from the piece's placement + edit state. */
+  _rebuild(piece) {
+    const w = this.game.world;
+    for (const c of piece.colliders) w.removeCollider(c);
+    piece.shape = pieceShape(piece.c, piece.edit, piece.skirt);
+    piece.colliders = shapeColliders(piece.shape, piece);
+    for (const c of piece.colliders) w.addCollider(c);
+    const b = piece.shape.bounds;
+    piece.x = (b[0] + b[3]) / 2; piece.y = (b[1] + b[4]) / 2; piece.z = (b[2] + b[5]) / 2;
+    piece.bounds = b;
+    const geo = shapeGeometry(piece.shape);
+    geo.translate(-piece.x, -piece.y, -piece.z);
+    piece.mesh.geometry.dispose();
+    piece.mesh.geometry = geo;
+    piece.mesh.position.set(piece.x, piece.y, piece.z);
+  }
+
+  applyEdit(piece, edit) {
+    if (piece.dead) return;
+    piece.edit = edit;
+    this._rebuild(piece);
+    this.game.audio.play('edit', piece);
+    // removing tiles can disconnect things that rested on this piece
+    for (const n of [...piece.links]) if (!this._supported(n, new Set())) this._collapseFrom(n);
+  }
+
+  // ------------------------------------------------------------------ structural support
+  _grounded(piece) {
+    const w = this.game.world, b = piece.bounds;
+    const pts = [[b[0] + 0.3, b[2] + 0.3], [b[3] - 0.3, b[2] + 0.3], [b[0] + 0.3, b[5] - 0.3], [b[3] - 0.3, b[5] - 0.3], [(b[0] + b[3]) / 2, (b[2] + b[5]) / 2]];
+    let ground = -Infinity;
+    for (const [x, z] of pts) ground = Math.max(ground, w.heightAt(x, z));
+    if (b[1] <= ground + 0.45) return true;
+    for (const c of w.query(piece.x, piece.z, 3)) {
+      if (c.piece || c.node) continue;
+      if (b[0] - 0.2 < c.maxx && b[3] + 0.2 > c.minx && b[2] - 0.2 < c.maxz && b[5] + 0.2 > c.minz && b[1] - 0.2 < c.maxy && b[4] + 0.2 > c.miny) return true;
+    }
+    return false;
+  }
+
+  _link(piece) {
+    const b = piece.bounds, e = 0.3;
+    for (const o of this.pieces) {
+      if (o === piece || o.dead) continue;
+      const q = o.bounds;
+      if (b[0] - e < q[3] && b[3] + e > q[0] && b[1] - e < q[4] && b[4] + e > q[1] && b[2] - e < q[5] && b[5] + e > q[2]) {
+        piece.links.add(o); o.links.add(piece);
+      }
+    }
+    piece.grounded = this._grounded(piece);
+  }
+
+  _supported(start, seen) {
+    const stack = [start];
+    seen.add(start);
+    while (stack.length) {
+      const p = stack.pop();
+      if (p.grounded) return true;
+      for (const n of p.links) if (!n.dead && !seen.has(n)) { seen.add(n); stack.push(n); if (seen.size > 600) return true; }
+    }
+    return false;
+  }
+
+  _collapseFrom(start) {
+    const comp = new Set();
+    if (this._supported(start, comp)) return;
+    let i = 0;
+    for (const p of comp) this.collapseQ.push({ p, t: 0.06 + (i++) * 0.045 });
+  }
+
+  // ------------------------------------------------------------------ damage
+  damage(piece, amount, src) {
     if (!piece || piece.dead) return;
     piece.hp -= amount;
+    piece.lastHit = this.game.time;
     const k = clamp(piece.hp / piece.maxHp, 0, 1);
-    piece.mesh.material.color.set(MATERIALS[piece.mat].color).multiplyScalar(0.45 + 0.55 * k);
+    piece.mesh.material.color.setScalar(0.4 + 0.6 * k);
     if (piece.hp <= 0) this.destroy(piece);
   }
 
-  destroy(piece) {
+  destroy(piece, collapsed = false) {
+    if (piece.dead) return;
     piece.dead = true;
-    this.game.world.removeCollider(piece.collider);
+    const w = this.game.world;
+    for (const c of piece.colliders) w.removeCollider(c);
+    piece.colliders = [];
     this.group.remove(piece.mesh);
+    piece.mesh.geometry.dispose();
     piece.mesh.material.dispose();
     const i = this.pieces.indexOf(piece);
     if (i >= 0) this.pieces.splice(i, 1);
-    this.byKey.delete(piece.key);
-    this.game.combat.puff(piece.x, piece.y, piece.z, 0xc8b89a);
+    if (this.byKey.get(piece.key) === piece) this.byKey.delete(piece.key);
+    if (this.game.fx) this.game.fx.debris(piece.x, piece.y, piece.z, MATERIALS[piece.mat].color, collapsed ? 6 : 10);
+    this.game.audio.play('break', piece);
+    const ns = [...piece.links];
+    for (const n of ns) n.links.delete(piece);
+    piece.links.clear();
+    for (const n of ns) if (!n.dead) this._collapseFrom(n);
   }
 
   explosion(x, y, z, r, dmg) {

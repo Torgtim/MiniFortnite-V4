@@ -1,36 +1,50 @@
 // World generation for one season: terrain, liquid, points of interest (buildings),
-// resource props, loot spots, colliders, raycasting and a pre-rendered minimap.
+// resource props, decoration, loot spots, colliders, raycasting and a pre-rendered minimap.
 
 import * as THREE from '../lib/three.module.min.js';
 import { mulberry32, createNoise, clamp, lerp, smoothstep } from './util.js';
+import { rayCollider } from './geom.js';
+import { TEX, TERRAIN_TEX, HOUSE_TEX } from './textures.js';
+import { buildLiquid } from './liquid.js';
 
 export const MAP_R = 190;
 const SIZE = 420;
 const WALL_H = 3.2;
 const WALL_T = 0.4;
 
-/** Accumulates many axis-aligned coloured boxes into ONE geometry (one draw call). */
+/** Accumulates many axis-aligned boxes into ONE geometry with a draw group per material layer. */
 class BoxBatch {
-  constructor() { this.pos = []; this.nor = []; this.col = []; this.idx = []; }
-  add(minx, miny, minz, maxx, maxy, maxz, color) {
+  constructor(layers) { this.layers = Array.from({ length: layers }, () => ({ pos: [], nor: [], col: [], uv: [] })); }
+  add(minx, miny, minz, maxx, maxy, maxz, color, layer = 0, uvScale = 2) {
+    const L = this.layers[layer];
     const u = BoxBatch.unit;
-    const p = u.attributes.position, n = u.attributes.normal, ix = u.index;
-    const base = this.pos.length / 3;
+    const p = u.attributes.position, n = u.attributes.normal, uv = u.attributes.uv, ix = u.index;
     const sx = maxx - minx, sy = maxy - miny, sz = maxz - minz;
     const cx = (minx + maxx) / 2, cy = (miny + maxy) / 2, cz = (minz + maxz) / 2;
-    for (let i = 0; i < p.count; i++) {
-      this.pos.push(p.getX(i) * sx + cx, p.getY(i) * sy + cy, p.getZ(i) * sz + cz);
-      this.nor.push(n.getX(i), n.getY(i), n.getZ(i));
-      this.col.push(color.r, color.g, color.b);
+    for (let k = 0; k < ix.count; k++) {
+      const i = ix.getX(k);
+      const nx = n.getX(i), ny = n.getY(i);
+      L.pos.push(p.getX(i) * sx + cx, p.getY(i) * sy + cy, p.getZ(i) * sz + cz);
+      L.nor.push(nx, ny, n.getZ(i));
+      L.col.push(color.r, color.g, color.b);
+      const w = Math.abs(nx) > 0.5 ? sz : sx, h = Math.abs(ny) > 0.5 ? sz : sy;
+      L.uv.push(uv.getX(i) * w / uvScale, uv.getY(i) * h / uvScale);
     }
-    for (let i = 0; i < ix.count; i++) this.idx.push(ix.getX(i) + base);
   }
   build() {
     const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(this.pos, 3));
-    g.setAttribute('normal', new THREE.Float32BufferAttribute(this.nor, 3));
-    g.setAttribute('color', new THREE.Float32BufferAttribute(this.col, 3));
-    g.setIndex(this.idx);
+    const pos = [], nor = [], col = [], uv = [];
+    let start = 0;
+    this.layers.forEach((L, i) => {
+      pos.push(...L.pos); nor.push(...L.nor); col.push(...L.col); uv.push(...L.uv);
+      const n = L.pos.length / 3;
+      if (n) g.addGroup(start, n, i);
+      start += n;
+    });
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     g.computeBoundingSphere();
     return g;
   }
@@ -38,8 +52,9 @@ class BoxBatch {
 BoxBatch.unit = new THREE.BoxGeometry(1, 1, 1);
 
 export class World {
-  constructor(season, seed = 1) {
+  constructor(season, seed = 1, opts = {}) {
     this.season = season;
+    this.opts = opts;
     this.seed = seed;
     this.mapRadius = MAP_R;
     this.noise = createNoise(season.seed * 977 + seed);
@@ -61,6 +76,8 @@ export class World {
     this._buildLiquid();
     this._buildBuildings();
     this._scatterProps();
+    this._scatterDecor(opts.decor === undefined ? 1 : opts.decor);
+    this.shaking = [];
     this.minimap = this._renderMinimap(192);
   }
 
@@ -110,8 +127,11 @@ export class World {
     const seg = 170;
     const geo = new THREE.PlaneGeometry(SIZE, SIZE, seg, seg);
     geo.rotateX(-Math.PI / 2);
-    const pos = geo.attributes.position;
-    for (let i = 0; i < pos.count; i++) pos.setY(i, this.heightAt(pos.getX(i), pos.getZ(i)));
+    const pos = geo.attributes.position, uv = geo.attributes.uv;
+    for (let i = 0; i < pos.count; i++) {
+      pos.setY(i, this.heightAt(pos.getX(i), pos.getZ(i)));
+      uv.setXY(i, pos.getX(i) / 3.2, pos.getZ(i) / 3.2);
+    }
     geo.computeVertexNormals();
     const nor = geo.attributes.normal;
     const cols = new Float32Array(pos.count * 3);
@@ -119,38 +139,34 @@ export class World {
       const x = pos.getX(i), z = pos.getZ(i), h = pos.getY(i);
       const slope = 1 - nor.getY(i);
       const c = this.season.ground(h, slope, x, z, this.noise, this.liquidY);
-      cols[i * 3] = c.r; cols[i * 3 + 1] = c.g; cols[i * 3 + 2] = c.b;
+      cols[i * 3] = Math.min(1, c.r * 1.12); cols[i * 3 + 1] = Math.min(1, c.g * 1.12); cols[i * 3 + 2] = Math.min(1, c.b * 1.12);
     }
     geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
-    const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+    const tex = TEX[TERRAIN_TEX[this.season.id] || 'grass']();
+    const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, map: tex });
+    if (this.season.id === 4) { mat.emissive = new THREE.Color('#3a1250'); mat.emissiveIntensity = 0.9; }
     this.terrain = new THREE.Mesh(geo, mat);
     this.terrain.receiveShadow = true;
     this.group.add(this.terrain);
   }
 
   _buildLiquid() {
-    const l = this.season.liquid;
-    const geo = new THREE.PlaneGeometry(1600, 1600).rotateX(-Math.PI / 2);
-    const mat = new THREE.MeshLambertMaterial({
-      color: l.color, transparent: true, opacity: l.opacity,
-      emissive: l.type === 'lava' ? new THREE.Color('#ff3a00') : new THREE.Color('#000000'), emissiveIntensity: l.type === 'lava' ? 0.9 : 0,
-    });
-    this.liquidMesh = new THREE.Mesh(geo, mat);
-    this.liquidMesh.position.y = l.y;
+    this.liquidMesh = buildLiquid(this.season.liquid, (x, z) => this.heightAt(x, z), MAP_R);
     this.group.add(this.liquidMesh);
   }
 
   // ---------------------------------------------------------------- buildings
   _buildBuildings() {
-    const batch = new BoxBatch();
+    // layers: 0 walls (season texture), 1 roofs (shingles), 2 floors (boards), 3 plain trim
+    const batch = new BoxBatch(4);
     const st = this.season.building;
     const colWall = new THREE.Color(st.wall), colRoof = new THREE.Color(st.roof);
     const colFloor = new THREE.Color(st.floor), colTrim = new THREE.Color(st.trim);
     const rnd = this.rnd;
     const jit = (c, a = 0.07) => c.clone().multiplyScalar(1 - a + rnd() * a * 2);
 
-    const addBox = (x0, y0, z0, x1, y1, z1, color, collide = true) => {
-      batch.add(x0, y0, z0, x1, y1, z1, color);
+    const addBox = (x0, y0, z0, x1, y1, z1, color, collide = true, layer = 0) => {
+      batch.add(x0, y0, z0, x1, y1, z1, color, layer);
       if (collide) this.addCollider({ kind: 'box', minx: x0, miny: y0, minz: z0, maxx: x1, maxy: y1, maxz: z1 });
     };
 
@@ -169,13 +185,23 @@ export class World {
         const dx = site.x - cx, dz = site.z - cz;
         const door = Math.hypot(dx, dz) < 4 ? Math.floor(rnd() * 4) : Math.abs(dx) > Math.abs(dz) ? (dx > 0 ? 0 : 1) : (dz > 0 ? 2 : 3);
         this._house(addBox, cx, cz, w, d, door, site.h, { colWall: jit(colWall), colRoof: jit(colRoof), colFloor, colTrim }, rnd);
-        this.buildings.push({ x0: cx - w / 2, z0: cz - d / 2, x1: cx + w / 2, z1: cz + d / 2 });
+        const dv = [[1, 0], [-1, 0], [0, 1], [0, -1]][door];
+        const dxp = cx + dv[0] * w / 2, dzp = cz + dv[1] * d / 2;
+        this.buildings.push({
+          x0: cx - w / 2, z0: cz - d / 2, x1: cx + w / 2, z1: cz + d / 2,
+          door: { x: dxp - dv[0] * 1.4, z: dzp - dv[1] * 1.4, ox: dxp + dv[0] * 2.2, oz: dzp + dv[1] * 2.2 },
+        });
       }
     }
-    this.staticMesh = new THREE.Mesh(
-      batch.build(),
+    const wallTex = TEX[HOUSE_TEX[this.season.id] || 'siding']();
+    const mats = [
+      new THREE.MeshLambertMaterial({ vertexColors: true, map: wallTex }),
+      new THREE.MeshLambertMaterial({ vertexColors: true, map: TEX.shingles() }),
+      new THREE.MeshLambertMaterial({ vertexColors: true, map: TEX.floorboards() }),
       new THREE.MeshLambertMaterial({ vertexColors: true }),
-    );
+    ];
+    if (this.season.id === 4) { mats[3].emissive = new THREE.Color(st.trim); mats[3].emissiveIntensity = 0.8; }
+    this.staticMesh = new THREE.Mesh(batch.build(), mats);
     this.staticMesh.castShadow = true;
     this.staticMesh.receiveShadow = true;
     this.group.add(this.staticMesh);
@@ -184,7 +210,7 @@ export class World {
   _house(addBox, cx, cz, w, d, door, yb, c, rnd) {
     const H = WALL_H, T = WALL_T;
     const x0 = cx - w / 2, x1 = cx + w / 2, z0 = cz - d / 2, z1 = cz + d / 2;
-    addBox(x0, yb - 0.4, z0, x1, yb + 0.03, z1, c.colFloor, false);
+    addBox(x0, yb - 0.4, z0, x1, yb + 0.03, z1, c.colFloor, false, 2);
 
     const seg = (axis, fixed, a0, a1, v0, v1) => {
       if (a1 - a0 < 0.01) return;
@@ -210,13 +236,15 @@ export class World {
         seg(s.axis, s.fixed, mid - 0.8, mid + 0.8, 2.1, H);
       } else seg(s.axis, s.fixed, s.lo, s.hi, 0, H);
     });
-    addBox(x0 - 0.4, yb + H, z0 - 0.4, x1 + 0.4, yb + H + 0.35, z1 + 0.4, c.colRoof);
+    addBox(x0 - 0.4, yb + H, z0 - 0.4, x1 + 0.4, yb + H + 0.35, z1 + 0.4, c.colRoof, true, 1);
+    // a low pitched cap on top so roofs don't look flat
+    addBox(x0 + 0.6, yb + H + 0.35, z0 + 0.6, x1 - 0.6, yb + H + 0.75, z1 - 0.6, c.colRoof, true, 1);
     // trim strips along the roof edge (visual only)
     const ty = yb + H + 0.35;
-    addBox(x0 - 0.4, ty, z0 - 0.4, x1 + 0.4, ty + 0.14, z0 - 0.25, c.colTrim, false);
-    addBox(x0 - 0.4, ty, z1 + 0.25, x1 + 0.4, ty + 0.14, z1 + 0.4, c.colTrim, false);
-    addBox(x0 - 0.4, ty, z0 - 0.25, x0 - 0.25, ty + 0.14, z1 + 0.25, c.colTrim, false);
-    addBox(x1 + 0.25, ty, z0 - 0.25, x1 + 0.4, ty + 0.14, z1 + 0.25, c.colTrim, false);
+    addBox(x0 - 0.4, ty, z0 - 0.4, x1 + 0.4, ty + 0.14, z0 - 0.25, c.colTrim, false, 3);
+    addBox(x0 - 0.4, ty, z1 + 0.25, x1 + 0.4, ty + 0.14, z1 + 0.4, c.colTrim, false, 3);
+    addBox(x0 - 0.4, ty, z0 - 0.25, x0 - 0.25, ty + 0.14, z1 + 0.25, c.colTrim, false, 3);
+    addBox(x1 + 0.25, ty, z0 - 0.25, x1 + 0.4, ty + 0.14, z1 + 0.25, c.colTrim, false, 3);
 
     // a table to hide behind, a chest in a back corner and loot on the floor
     const back = [[-1, 0], [1, 0], [0, -1], [0, 1]][door];
@@ -224,7 +252,7 @@ export class World {
     const sx = back[1] !== 0 ? (rnd() < 0.5 ? -1 : 1) * (w / 2 - 1.3) : 0;
     const sz = back[0] !== 0 ? (rnd() < 0.5 ? -1 : 1) * (d / 2 - 1.3) : 0;
     if (rnd() < 0.65) this.chests.push({ x: bx + sx, y: yb, z: bz + sz });
-    if (rnd() < 0.6) addBox(cx - 0.6, yb, cz - 0.6, cx + 0.6, yb + 0.85, cz + 0.6, c.colTrim);
+    if (rnd() < 0.6) addBox(cx - 0.6, yb, cz - 0.6, cx + 0.6, yb + 0.85, cz + 0.6, c.colTrim, true, 3);
     const nLoot = 1 + Math.floor(rnd() * 2);
     for (let i = 0; i < nLoot; i++) {
       this.lootSpots.push({ x: cx + (rnd() - 0.5) * (w - 3), y: yb, z: cz + (rnd() - 0.5) * (d - 3) });
@@ -257,6 +285,7 @@ export class World {
         const mat = p.basic ? new THREE.MeshBasicMaterial({ color: 0xffffff }) : new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true });
         const m = new THREE.InstancedMesh(p.geo, mat, spots.length);
         m.castShadow = !p.basic;
+        m.receiveShadow = !p.basic;
         this.group.add(m);
         return m;
       });
@@ -272,7 +301,7 @@ export class World {
         });
         const rr = def.r * sp.s;
         const collider = { kind: 'box', minx: sp.x - rr, maxx: sp.x + rr, minz: sp.z - rr, maxz: sp.z + rr, miny: sp.h - 0.5, maxy: sp.h + def.h * sp.s };
-        const node = { res: def.res, hp: def.hp, maxHp: def.hp, yield: def.yield, collider, meshes, idx, x: sp.x, y: sp.h, z: sp.z };
+        const node = { res: def.res, hp: def.hp, maxHp: def.hp, yield: def.yield, collider, meshes, idx, x: sp.x, y: sp.h, z: sp.z, s: sp.s, rot: sp.rot, color: def.parts[def.parts.length - 1].color };
         collider.node = node;
         this.addCollider(collider);
         this.nodes.push(node);
@@ -290,12 +319,69 @@ export class World {
     }
   }
 
+  /** Grass tufts, flowers, snow mounds, glowing mushrooms... purely visual, no colliders. */
+  _scatterDecor(density) {
+    const defs = this.season.decor || [];
+    if (density <= 0) return;
+    const rnd = mulberry32(this.season.seed * 13 + 5);
+    const dummy = new THREE.Object3D(), tint = new THREE.Color();
+    for (const def of defs) {
+      const n = Math.floor(def.count * density);
+      const m = new THREE.InstancedMesh(def.geo, def.basic ? new THREE.MeshBasicMaterial({ color: 0xffffff }) : new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true }), n);
+      let k = 0;
+      for (let tries = 0; k < n && tries < n * 6; tries++) {
+        const a = rnd() * Math.PI * 2, r = Math.sqrt(rnd()) * (MAP_R - 8);
+        const x = Math.cos(a) * r, z = Math.sin(a) * r;
+        const h = this.heightAt(x, z);
+        if (h < this.liquidY + 0.5) continue;
+        if (def.minH !== undefined && h < def.minH) continue;
+        if (Math.abs(this.heightAt(x + 1, z) - h) > 0.8) continue;
+        if (this.buildings.some((b) => x > b.x0 - 0.5 && x < b.x1 + 0.5 && z > b.z0 - 0.5 && z < b.z1 + 0.5)) continue;
+        dummy.position.set(x, h - 0.05, z);
+        dummy.rotation.set(0, rnd() * Math.PI * 2, 0);
+        dummy.scale.setScalar(def.scale[0] + rnd() * (def.scale[1] - def.scale[0]));
+        dummy.updateMatrix();
+        m.setMatrixAt(k, dummy.matrix);
+        const cs = def.colors;
+        m.setColorAt(k, tint.set(cs[Math.floor(rnd() * cs.length)]).multiplyScalar(0.85 + rnd() * 0.3));
+        k++;
+      }
+      m.count = k;
+      m.receiveShadow = true;
+      this.group.add(m);
+    }
+  }
+
   /** Remove a harvested resource node (hides its instances and drops its collider). */
   destroyNode(node) {
     const m4 = new THREE.Matrix4().makeScale(0, 0, 0);
     node.meshes.forEach((m) => { m.setMatrixAt(node.idx, m4); m.instanceMatrix.needsUpdate = true; });
     this.removeCollider(node.collider);
     node.dead = true;
+    node.shake = 0;
+  }
+
+  /** Make a node wobble when it gets hit. */
+  shakeNode(node) {
+    if (!node.shake) this.shaking.push(node);
+    node.shake = 0.35;
+  }
+
+  update(dt, time) {
+    if (this.liquidMesh) this.liquidMesh.userData.mat.uniforms.uTime.value = time;
+    if (!this.shaking.length) return;
+    const q = new THREE.Quaternion(), e = new THREE.Euler(), m4 = new THREE.Matrix4(), p = new THREE.Vector3(), sc = new THREE.Vector3();
+    for (let i = this.shaking.length - 1; i >= 0; i--) {
+      const n = this.shaking[i];
+      if (n.dead) { this.shaking.splice(i, 1); continue; }
+      n.shake = Math.max(0, n.shake - dt);
+      const k = n.shake / 0.35;
+      e.set(Math.sin(time * 40) * 0.06 * k, n.rot, Math.cos(time * 37) * 0.06 * k);
+      q.setFromEuler(e);
+      m4.compose(p.set(n.x, n.y, n.z), q, sc.setScalar(n.s * (1 - 0.04 * k)));
+      n.meshes.forEach((m) => { m.setMatrixAt(n.idx, m4); m.instanceMatrix.needsUpdate = true; });
+      if (n.shake <= 0) this.shaking.splice(i, 1);
+    }
   }
 
   // ---------------------------------------------------------------- colliders / spatial grid
@@ -351,20 +437,32 @@ export class World {
     return out;
   }
 
-  /** Ray vs colliders + terrain. Returns {t, collider|null, terrain}. t === maxT means no hit. */
-  raycast(ox, oy, oz, dx, dy, dz, maxT, terrainStep = 1.2) {
+  /** Ray vs colliders + terrain. Returns {t, collider|null, terrain}. t === maxT means no hit.
+   *  Walks the collider grid cell by cell (2D DDA) so long rays stay cheap. */
+  raycast(ox, oy, oz, dx, dy, dz, maxT, terrainStep = 1.2, ignore = null) {
     let best = maxT, hitC = null, hitTerrain = false;
-    const cols = this.colliders;
-    for (let i = 0; i < cols.length; i++) {
-      const c = cols[i];
-      let tmin = 0, tmax = best;
-      if (Math.abs(dx) < 1e-9) { if (ox < c.minx || ox > c.maxx) continue; }
-      else { let a = (c.minx - ox) / dx, b = (c.maxx - ox) / dx; if (a > b) { const t = a; a = b; b = t; } if (a > tmin) tmin = a; if (b < tmax) tmax = b; if (tmin > tmax) continue; }
-      if (Math.abs(dy) < 1e-9) { if (oy < c.miny || oy > c.maxy) continue; }
-      else { let a = (c.miny - oy) / dy, b = (c.maxy - oy) / dy; if (a > b) { const t = a; a = b; b = t; } if (a > tmin) tmin = a; if (b < tmax) tmax = b; if (tmin > tmax) continue; }
-      if (Math.abs(dz) < 1e-9) { if (oz < c.minz || oz > c.maxz) continue; }
-      else { let a = (c.minz - oz) / dz, b = (c.maxz - oz) / dz; if (a > b) { const t = a; a = b; b = t; } if (a > tmin) tmin = a; if (b < tmax) tmax = b; if (tmin > tmax) continue; }
-      if (tmin > 0.0001 && tmin < best) { best = tmin; hitC = c; }
+    const cs = this.cell;
+    let cx = Math.floor(ox / cs), cz = Math.floor(oz / cs);
+    const sx = dx > 0 ? 1 : -1, sz = dz > 0 ? 1 : -1;
+    const tdx = Math.abs(dx) < 1e-9 ? Infinity : cs / Math.abs(dx);
+    const tdz = Math.abs(dz) < 1e-9 ? Infinity : cs / Math.abs(dz);
+    let tmx = Math.abs(dx) < 1e-9 ? Infinity : ((dx > 0 ? (cx + 1) * cs - ox : ox - cx * cs) / Math.abs(dx));
+    let tmz = Math.abs(dz) < 1e-9 ? Infinity : ((dz > 0 ? (cz + 1) * cs - oz : oz - cz * cs) / Math.abs(dz));
+    const stamp = ++this._stamp;
+    let tEnter = 0;
+    for (let guard = 0; guard < 400 && tEnter <= best; guard++) {
+      const a = this.grid.get(this._key(cx, cz));
+      if (a) {
+        for (let i = 0; i < a.length; i++) {
+          const c = a[i];
+          if (c._q === stamp) continue;
+          c._q = stamp;
+          if (ignore && c.piece && ignore(c)) continue;
+          const t = rayCollider(c, ox, oy, oz, dx, dy, dz, best);
+          if (t > 0.0001 && t < best) { best = t; hitC = c; }
+        }
+      }
+      if (tmx < tmz) { tEnter = tmx; tmx += tdx; cx += sx; } else { tEnter = tmz; tmz += tdz; cz += sz; }
     }
     // terrain march
     let t = 0.4;

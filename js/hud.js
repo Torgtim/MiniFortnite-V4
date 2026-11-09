@@ -1,12 +1,15 @@
-// In-game HUD (DOM based): health/shield, hotbar, ammo, materials, minimap, storm timer, feed.
+// In-game HUD (DOM based, Windows 95 flavoured): health/shield progress bars, hotbar, LCD ammo
+// counter, materials, minimap + big map, storm window, kill feed, prompts, build/edit bars,
+// damage numbers, weak points, elimination popups.
 
 import * as THREE from '../lib/three.module.min.js';
 import { RARITIES, weaponStats, ITEM_KINDS } from './weapons.js';
-import { MATERIALS, COST } from './build.js';
+import { MATERIALS, COST, BUILD_TYPES } from './build.js';
 import { fmtTime } from './util.js';
-import { settings } from './settings.js';
+import { settings, keyLabel } from './settings.js';
 
 const $ = (id) => document.getElementById(id);
+const ICON = { wall: '&#9646;', floor: '&#9644;', ramp: '&#9698;', cone: '&#9650;' };
 
 export class HUD {
   constructor(game) {
@@ -14,19 +17,22 @@ export class HUD {
     this.root = $('hud');
     this.el = {
       hp: $('hpbar'), hpt: $('hptxt'), sh: $('shbar'), sht: $('shtxt'),
-      hot: $('hotbar'), ammo: $('ammo'), mats: $('mats'), alive: $('alive'), kills: $('kills'),
+      hot: $('hotbar'), ammo: $('ammo'), ammoName: $('ammoname'), mats: $('mats'), alive: $('alive'), kills: $('kills'),
       storm: $('storm'), prompt: $('prompt'), feed: $('feed'), nums: $('dmgnums'), cross: $('crosshair'),
       hit: $('hitmarker'), vig: $('vignette'), use: $('usebar'), useFill: $('usefill'), msg: $('statusmsg'),
-      fps: $('fps'), build: $('buildinfo'), scope: $('scope'), map: $('minimap'), pops: $('matpops'),
+      fps: $('fps'), buildbar: $('buildbar'), buildbtns: $('buildbtns'), buildmat: $('buildmat'), editinfo: $('editinfo'), editkey: $('editkey'),
+      scope: $('scope'), map: $('minimap'), pops: $('matpops'), wp: $('weakpoint'), piece: $('pieceinfo'),
+      elim: $('elim'), elimtxt: $('elimtxt'), big: $('bigmap'), bigc: $('bigmapc'), bigname: $('bigmapname'), spec: $('spectate'),
     };
     this.mapCtx = this.el.map.getContext('2d');
+    this.bigCtx = this.el.bigc.getContext('2d');
     this.slotEls = [];
     for (let i = 0; i < 6; i++) {
       const d = document.createElement('div');
       d.className = 'slot';
-      d.innerHTML = `<i>${i + 1}</i><b></b><u></u>`;
+      d.innerHTML = `<i>${i + 1}</i><b></b><u></u><div class="rar"></div>`;
       this.el.hot.appendChild(d);
-      this.slotEls.push({ d, b: d.children[1], u: d.children[2], last: '' });
+      this.slotEls.push({ d, b: d.children[1], u: d.children[2], r: d.children[3], last: '' });
     }
     this.matEls = MATERIALS.map((m) => {
       const d = document.createElement('div');
@@ -35,8 +41,15 @@ export class HUD {
       this.el.mats.appendChild(d);
       return { d, b: d.querySelector('b'), last: -1 };
     });
+    this.buildEls = BUILD_TYPES.map((t) => {
+      const d = document.createElement('div');
+      d.className = 'bbtn';
+      d.innerHTML = `<i></i><span class="ic">${ICON[t]}</span>${t[0].toUpperCase() + t.slice(1)}`;
+      this.el.buildbtns.appendChild(d);
+      return { d, t, k: d.querySelector('i') };
+    });
     this.fpsAcc = 0; this.fpsN = 0;
-    this.hitT = 0; this.hurtT = 0;
+    this.hitT = 0; this.hurtT = 0; this.elimT = 0; this.mapT = 0;
     this._v = new THREE.Vector3();
     this.applyCrosshair();
   }
@@ -47,12 +60,13 @@ export class HUD {
     const c = this.el.cross;
     c.className = 'ch-' + settings.crosshair;
     c.style.setProperty('--cc', settings.crosshairColor);
+    this.buildEls.forEach((b) => { b.k.textContent = keyLabel(settings.keys[b.t]); });
+    this.el.editkey.textContent = keyLabel(settings.keys.edit);
   }
 
   // ------------------------------------------------------------------ transient things
   hitMarker(head) {
-    const h = this.el.hit;
-    h.className = 'on' + (head ? ' head' : '');
+    this.el.hit.className = 'on' + (head ? ' head' : '');
     this.hitT = 0.15;
   }
 
@@ -63,15 +77,21 @@ export class HUD {
     d.innerHTML = html;
     this.el.feed.appendChild(d);
     while (this.el.feed.children.length > 5) this.el.feed.removeChild(this.el.feed.firstChild);
-    setTimeout(() => d.remove(), 6000);
+    setTimeout(() => d.remove(), 7000);
   }
 
-  damageNumber(x, y, z, amount, head) {
+  elimBanner(name, weapon) {
+    this.el.elimtxt.innerHTML = `You eliminated <b>${name}</b> <small>(${weapon})</small>`;
+    this.el.elim.classList.remove('hidden');
+    this.elimT = 2.6;
+  }
+
+  damageNumber(x, y, z, amount, head, shield) {
     if (this.el.nums.children.length > 14) return;
     const v = this._v.set(x, y, z).project(this.game.camera);
     if (v.z > 1) return;
     const d = document.createElement('div');
-    d.className = 'dn' + (head ? ' head' : '');
+    d.className = 'dn' + (head ? ' head' : shield ? ' sh' : '');
     d.textContent = amount;
     d.style.left = ((v.x * 0.5 + 0.5) * innerWidth + (Math.random() - 0.5) * 30) + 'px';
     d.style.top = ((-v.y * 0.5 + 0.5) * innerHeight) + 'px';
@@ -79,10 +99,10 @@ export class HUD {
     setTimeout(() => d.remove(), 800);
   }
 
-  matPop(res, n) {
+  matPop(res, n, crit) {
     const d = document.createElement('div');
-    d.textContent = '+' + n + ' ' + res;
-    d.className = 'pop';
+    d.textContent = '+' + n + ' ' + res + (crit ? ' (weak point!)' : '');
+    d.className = 'pop' + (crit ? ' crit' : '');
     this.el.pops.appendChild(d);
     setTimeout(() => d.remove(), 900);
   }
@@ -91,12 +111,13 @@ export class HUD {
   update(dt) {
     const g = this.game, p = g.player, e = this.el;
     if (!p) return;
-    // fps
     this.fpsAcc += dt; this.fpsN++;
-    if (this.fpsAcc > 0.5) { e.fps.textContent = settings.showFps ? Math.round(this.fpsN / this.fpsAcc) + ' FPS' : ''; this.fpsAcc = 0; this.fpsN = 0; }
+    if (this.fpsAcc > 0.5) { e.fps.textContent = settings.showFps ? Math.round(this.fpsN / this.fpsAcc) + ' FPS' : g.season.title; this.fpsAcc = 0; this.fpsN = 0; }
     if (this.hitT > 0) { this.hitT -= dt; if (this.hitT <= 0) e.hit.className = ''; }
     if (this.hurtT > 0) { this.hurtT -= dt; if (this.hurtT <= 0) e.vig.classList.remove('hurt'); }
-    e.vig.classList.toggle('storm', g.storm.outside(p.x, p.z) && p.alive);
+    if (this.elimT > 0) { this.elimT -= dt; if (this.elimT <= 0) e.elim.classList.add('hidden'); }
+    const outside = g.storm.outside(p.x, p.z) && p.alive && !p.airborne;
+    e.vig.classList.toggle('storm', outside);
 
     // bars
     e.hp.style.width = Math.max(0, p.hp) + '%';
@@ -104,38 +125,48 @@ export class HUD {
     e.sh.style.width = Math.max(0, p.shield) + '%';
     e.sht.textContent = Math.ceil(Math.max(0, p.shield));
 
-    // hotbar
+    // hotbar (or build bar)
+    const building = g.build.active;
+    e.hot.style.display = building ? 'none' : 'flex';
+    e.buildbar.classList.toggle('hidden', !building);
+    if (building) {
+      this.buildEls.forEach((b) => b.d.classList.toggle('sel', b.t === g.build.type));
+      const m = MATERIALS[g.build.matIndex];
+      e.buildmat.textContent = `${m.name} (${p.mats[m.id]}) - ${COST} per piece - right click / ${keyLabel(settings.keys.material)} = material`;
+    }
     for (let i = 0; i < 6; i++) {
       const s = p.slots[i], el = this.slotEls[i];
-      let key = '', label = '', sub = '', color = '#555';
+      let label = '', sub = '', color = 'transparent';
       if (s) {
-        if (s.type === 'pickaxe') { label = 'PICK'; color = '#9aa4ad'; }
+        if (s.type === 'pickaxe') { label = 'PICK'; color = '#808080'; }
         else if (s.type === 'weapon') { const st = weaponStats(s); label = st.short; sub = s.mag + '/' + p.ammo[st.ammo]; color = RARITIES[s.rarity].color; }
         else { label = ITEM_KINDS[s.id].short; sub = 'x' + s.count; color = g.season.items[s.id].color; }
       }
-      key = label + sub + color + (i === p.slot);
+      const key = label + sub + color + (i === p.slot);
       if (key !== el.last) {
         el.last = key;
         el.b.textContent = label; el.u.textContent = sub;
-        el.d.style.borderColor = s ? color : '#3a3f48';
-        el.d.style.boxShadow = s ? `inset 0 -14px 18px -10px ${color}` : 'none';
+        el.r.style.background = color;
+        el.b.style.color = s && s.type === 'weapon' ? shadeText(color) : '#000';
         el.d.classList.toggle('sel', i === p.slot);
       }
     }
 
     // ammo + use bar
     const it = p.held;
-    let ammoTxt = '';
-    let use = 0;
+    let ammoTxt = '', name = 'Pickaxe', use = 0;
     if (it && it.type === 'weapon') {
       const st = weaponStats(it);
-      ammoTxt = `<b>${it.mag}</b><span> / ${p.ammo[st.ammo]}</span><em>${st.name.toUpperCase()}</em>`;
-      if (p.reloadT > 0) use = 1 - p.reloadT / st.reload;
+      ammoTxt = `<b>${String(it.mag).padStart(2, '0')}</b><span> / ${String(p.ammo[st.ammo]).padStart(3, '0')}</span>`;
+      name = `${st.name} - ${RARITIES[it.rarity].name}`;
+      if (p.reloadT > 0) { use = 1 - p.reloadT / st.reload; ammoTxt = '<span>RELOADING</span>'; }
     } else if (it && it.type === 'item') {
-      ammoTxt = `<em>${g.season.items[it.id].name.toUpperCase()}</em>`;
+      name = g.season.items[it.id].name;
+      ammoTxt = `<b>x${it.count}</b>`;
       if (p.useT > 0) use = p.useT / g.itemTime(it);
-    }
+    } else ammoTxt = '<span>&#9874; HARVEST</span>';
     if (e.ammo._last !== ammoTxt) { e.ammo.innerHTML = ammoTxt; e.ammo._last = ammoTxt; }
+    if (e.ammoName._last !== name) { e.ammoName.textContent = name; e.ammoName._last = name; }
     e.use.style.display = use > 0 ? 'block' : 'none';
     e.useFill.style.width = (use * 100) + '%';
 
@@ -143,55 +174,110 @@ export class HUD {
     for (let i = 0; i < 3; i++) {
       const m = MATERIALS[i], el = this.matEls[i], v = p.mats[m.id];
       if (el.last !== v) { el.b.textContent = v; el.last = v; }
-      el.d.classList.toggle('sel', g.build.active && g.build.matIndex === i);
+      el.d.classList.toggle('sel', building && g.build.matIndex === i);
     }
 
     // scoreboard / storm
     e.alive.textContent = g.aliveCount();
     e.kills.textContent = p.kills;
     const st = g.storm.label();
-    e.storm.innerHTML = `${st.text} <b>${fmtTime(st.t)}</b>`;
+    const busWait = g.bus.active && g.bus.dist <= 120;
+    e.storm.innerHTML = busWait ? 'Storm forms after the bus leaves' : `${st.text} <b>${fmtTime(st.t)}</b>${outside ? ' - GET IN THE CIRCLE!' : ''}`;
+    e.storm.classList.toggle('danger', outside || g.storm.state === 'shrinking');
 
     // prompt + status
     e.prompt.textContent = g.prompt || '';
     e.prompt.style.display = g.prompt ? 'block' : 'none';
     let msg = '';
-    if (p.state === 'fall') msg = 'FREEFALL - press SPACE to open glider (auto-opens low)';
-    else if (p.state === 'glide') msg = 'GLIDING - steer with the mouse + WASD, SPACE toggles';
-    else if (g.build.active) msg = '';
+    if (p.air === 'bus') msg = '';
+    else if (p.air === 'fall') msg = 'SKYDIVING - W to dive faster, SPACE opens the glider';
+    else if (p.air === 'glide') msg = 'GLIDING - steer with mouse + WASD';
     e.msg.textContent = msg;
-    e.build.style.display = g.build.active ? 'block' : 'none';
-    if (g.build.active) {
-      e.build.textContent = `BUILD: ${g.build.type.toUpperCase()} · ${MATERIALS[g.build.matIndex].name} (${COST}) · click = place`;
-    }
-    e.scope.classList.toggle('on', !!(p.ads && it && it.type === 'weapon' && weaponStats(it).zoom >= 2.4 && p.state === 'ground'));
+    e.editinfo.classList.toggle('hidden', !g.edit.active);
+    e.scope.classList.toggle('on', !!(p.ads && it && it.type === 'weapon' && weaponStats(it).zoom >= 2.4 && !p.airborne));
+    e.cross.style.display = e.scope.classList.contains('on') ? 'none' : '';
+    e.spec.classList.toggle('hidden', g.mode !== 'spectating');
+    if (g.mode === 'spectating' && g.spectateTarget) e.spec.textContent = `Spectating ${g.spectateTarget.name} - click / A D to switch`;
 
-    this.drawMap();
+    this.updateWeakPoint();
+    this.updatePieceInfo(p);
+    this.mapT -= dt;
+    if (this.mapT <= 0) { this.mapT = 0.05; this.drawMap(this.mapCtx, this.el.map.width, false); }
+    e.big.classList.toggle('hidden', !g.bigMap);
+    if (g.bigMap) { e.bigname.textContent = g.season.name + ': ' + g.season.title; this.drawMap(this.bigCtx, this.el.bigc.width, true); }
   }
 
-  drawMap() {
-    const g = this.game, c = this.mapCtx, S = this.el.map.width, p = g.player, w = g.world;
+  updateWeakPoint() {
+    const wp = this.game.combat.weakPoint, el = this.el.wp;
+    if (!wp) { el.style.display = 'none'; return; }
+    const v = this._v.set(wp.x, wp.y, wp.z).project(this.game.camera);
+    if (v.z > 1) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    el.style.left = ((v.x * 0.5 + 0.5) * innerWidth) + 'px';
+    el.style.top = ((-v.y * 0.5 + 0.5) * innerHeight) + 'px';
+  }
+
+  updatePieceInfo(p) {
+    const g = this.game, el = this.el.piece;
+    this._pieceT = (this._pieceT || 0) - 1;
+    if (this._pieceT > 0) return;
+    this._pieceT = 4;
+    if (!p.alive || p.airborne) { el.classList.add('hidden'); return; }
+    const a = g.aimRay();
+    const hit = g.world.raycast(a.ox, a.oy, a.oz, a.dx, a.dy, a.dz, 30 + a.back, 1.5);
+    const pc = hit.collider && hit.collider.piece;
+    if (!pc) { el.classList.add('hidden'); return; }
+    el.classList.remove('hidden');
+    el.textContent = `${MATERIALS[pc.mat].name} ${pc.type}: ${Math.ceil(pc.hp)}/${pc.maxHp}${pc.buildLeft > 0 ? ' (building)' : ''}`;
+  }
+
+  drawMap(c, S, big) {
+    const g = this.game, p = g.player, w = g.world;
     const k = S / w.minimap.worldSize;
     c.clearRect(0, 0, S, S);
+    c.imageSmoothingEnabled = !big;
     c.drawImage(w.minimap, 0, 0, S, S);
     const X = (x) => (x * k + S / 2), Z = (z) => (z * k + S / 2);
+    // POI names on the big map
+    if (big) {
+      c.font = 'bold 13px "Times New Roman", serif'; c.textAlign = 'center';
+      for (const s of w.sites) { c.fillStyle = '#000'; c.fillText(s.name, X(s.x) + 1, Z(s.z) + 1); c.fillStyle = '#fff'; c.fillText(s.name, X(s.x), Z(s.z)); }
+      c.textAlign = 'left';
+    }
+    // bus route
+    if (g.bus.active) {
+      c.setLineDash([5, 4]); c.strokeStyle = '#ffffff'; c.lineWidth = big ? 2 : 1.2;
+      c.beginPath(); c.moveTo(X(g.bus.x0), Z(g.bus.z0)); c.lineTo(X(g.bus.x1), Z(g.bus.z1)); c.stroke(); c.setLineDash([]);
+      c.fillStyle = '#2f6bff'; c.strokeStyle = '#fff';
+      c.beginPath(); c.arc(X(g.bus.x), Z(g.bus.z), big ? 7 : 4, 0, Math.PI * 2); c.fill(); c.stroke();
+    }
     // storm
     c.fillStyle = 'rgba(120,40,200,0.38)';
     c.beginPath(); c.rect(0, 0, S, S); c.arc(X(g.storm.cx), Z(g.storm.cz), g.storm.r * k, 0, Math.PI * 2, true); c.fill('evenodd');
     c.strokeStyle = '#b86bff'; c.lineWidth = 1.5;
     c.beginPath(); c.arc(X(g.storm.cx), Z(g.storm.cz), g.storm.r * k, 0, Math.PI * 2); c.stroke();
     if (g.storm.toR > 0) { c.strokeStyle = '#fff'; c.beginPath(); c.arc(X(g.storm.toX), Z(g.storm.toZ), g.storm.toR * k, 0, Math.PI * 2); c.stroke(); }
+    // supply drops
+    c.fillStyle = '#4da6ff'; c.strokeStyle = '#000';
+    for (const ch of g.loot.chests) if (ch.supply && !ch.opened) { c.fillRect(X(ch.x) - 3, Z(ch.z) - 3, 6, 6); c.strokeRect(X(ch.x) - 3, Z(ch.z) - 3, 6, 6); }
+    for (const f of g.loot.falling) { c.fillRect(X(f.x) - 3, Z(f.z) - 3, 6, 6); }
     // player arrow
-    c.save();
-    c.translate(X(p.x), Z(p.z));
-    c.rotate(-p.yaw);
-    c.fillStyle = '#ffee33'; c.strokeStyle = '#000'; c.lineWidth = 1;
-    c.beginPath(); c.moveTo(0, -6); c.lineTo(4.5, 5); c.lineTo(0, 2.5); c.lineTo(-4.5, 5); c.closePath(); c.fill(); c.stroke();
-    c.restore();
-    // season label on the map
-    if (g.mode === 'playing') {
-      c.fillStyle = 'rgba(0,0,0,0.55)'; c.fillRect(0, S - 14, S, 14);
-      c.fillStyle = '#fff'; c.font = 'bold 10px Arial'; c.fillText(g.season.name + ' · ' + g.season.title, 4, S - 4);
+    if (p && p.alive) {
+      c.save();
+      c.translate(X(p.x), Z(p.z));
+      c.rotate(-p.yaw);
+      const s = big ? 1.6 : 1;
+      c.fillStyle = '#ffee33'; c.strokeStyle = '#000'; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(0, -6 * s); c.lineTo(4.5 * s, 5 * s); c.lineTo(0, 2.5 * s); c.lineTo(-4.5 * s, 5 * s); c.closePath(); c.fill(); c.stroke();
+      c.restore();
     }
   }
+}
+
+/** Readable text colour for a rarity colour on the grey Win95 buttons. */
+function shadeText(hex) {
+  const c = new THREE.Color(hex);
+  const hsl = {}; c.getHSL(hsl);
+  c.setHSL(hsl.h, Math.min(1, hsl.s * 1.1), Math.min(hsl.l, 0.38));
+  return '#' + c.getHexString();
 }
