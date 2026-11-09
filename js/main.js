@@ -203,6 +203,11 @@ class Game {
     this.lastStormPhase = this.storm.phase;
     this.time = 0;
     this.bus.start(rnd);
+    // some seasons have bounce pads built into the map
+    for (let i = 0; i < (this.season.worldPads || 0); i++) {
+      const q = this.world.randomLandPoint(rnd, 20);
+      this.gadgets.placePad(q.x, q.y, q.z, null);
+    }
 
     const n = clamp(settings.botCount | 0, 1, 39);
     const names = BOT_NAMES.slice().sort(() => Math.random() - 0.5);
@@ -528,14 +533,14 @@ class Game {
         p.animateModel(dt);
         if (!p.airborne) { this.build.updateGhost(p); this.edit.update(p); } else { this.build.setActive(false); this.edit.cancel(); }
         if (!this.victory) this.hazards(p, dt);
-        this.prompt = '';
+        this.prompt = ''; this.promptColor = '';
         if (p.air === 'bus') this.prompt = this.bus.canDrop ? `[${keyName(settings.keys.jump)}] Jump from the bus` : 'Get ready to jump...';
         else if (!p.airborne && !this.build.active && !this.edit.active) {
           const t = this.loot.nearestInteractable(p, 2.6);
           if (t) {
             const K = keyName(settings.keys.interact);
             if (t.type === 'chest') this.prompt = `[${K}] Open ${t.c.kind === 'ammo' ? 'ammo box' : t.c.kind === 'supply' ? 'supply drop' : 'chest'}`;
-            else if (t.p.kind === 'weapon') this.prompt = `[${K}] ${WEAPONS[t.p.inst.id].name} (${RARITIES[t.p.inst.rarity].name})`;
+            else if (t.p.kind === 'weapon') { this.prompt = `[${K}] ${WEAPONS[t.p.inst.id].name} (${RARITIES[t.p.inst.rarity].name})`; this.promptColor = RARITIES[t.p.inst.rarity].color; }
             else this.prompt = `[${K}] ${this.season.items[t.p.itemId].name}`;
           }
         }

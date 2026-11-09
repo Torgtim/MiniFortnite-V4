@@ -28,17 +28,7 @@ export class Gadgets {
       const fx = -Math.sin(e.yaw), fz = -Math.cos(e.yaw);
       const x = e.x + fx * 2.2, z = e.z + fz * 2.2;
       const y = Math.max(w.heightAt(x, z), e.y);
-      const color = g.season.items.pad.color;
-      const mesh = new THREE.Group();
-      const base = new THREE.Mesh(this.padGeo, new THREE.MeshLambertMaterial({ color: '#333' }));
-      const top = new THREE.Mesh(new THREE.CylinderGeometry(PAD_R - 0.2, PAD_R - 0.2, 0.08, 12), new THREE.MeshBasicMaterial({ color }));
-      top.position.y = 0.16;
-      const spring = new THREE.Mesh(this.springGeo, new THREE.MeshBasicMaterial({ color }));
-      spring.position.y = 0.3;
-      mesh.add(base, top, spring);
-      mesh.position.set(x, y + 0.12, z);
-      this.group.add(mesh);
-      this.pads.push({ x, y, z, mesh, spring, t: 0, owner: e });
+      this.placePad(x, y, z, e);
       e.consume(slot);
       g.audio.play('build', e);
       return true;
@@ -55,6 +45,20 @@ export class Gadgets {
       return true;
     }
     return false;
+  }
+
+  placePad(x, y, z, owner) {
+    const color = this.game.season.items.pad.color;
+    const mesh = new THREE.Group();
+    const base = new THREE.Mesh(this.padGeo, new THREE.MeshLambertMaterial({ color: '#333' }));
+    const top = new THREE.Mesh(new THREE.CylinderGeometry(PAD_R - 0.2, PAD_R - 0.2, 0.08, 12), new THREE.MeshBasicMaterial({ color }));
+    top.position.y = 0.16;
+    const spring = new THREE.Mesh(this.springGeo, new THREE.MeshBasicMaterial({ color }));
+    spring.position.y = 0.3;
+    mesh.add(base, top, spring);
+    mesh.position.set(x, y + 0.12, z);
+    this.group.add(mesh);
+    this.pads.push({ x, y, z, mesh, spring, t: 0, owner });
   }
 
   update(dt) {

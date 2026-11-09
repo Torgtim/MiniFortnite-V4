@@ -219,6 +219,7 @@ export const SEASONS = [
       { geo: oct(0.18, 2.6, 0.45), colors: ['#2de2ff', '#7a5cff', '#ff2bd6'], count: 380, scale: [0.5, 1.3], basic: true },
       { geo: ico(0.3, 0.08), colors: ['#2b2638', '#3a3350', '#1f1b2b'], count: 500, scale: [0.6, 1.8] },
     ],
+    worldPads: 12,
     weapons: [['blaster', 14], ['plasma_rifle', 13], ['arc_shotgun', 11], ['pulse_smg', 13], ['laser_sniper', 6], ['rail_cannon', 4]],
     items: {
       heal_s: { name: 'Nano Patch', color: '#7dffb0', w: 30 }, heal_l: { name: 'Repair Swarm', color: '#2dff8a', w: 10 },

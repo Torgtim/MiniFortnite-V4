@@ -213,6 +213,7 @@ export class HUD {
     // prompt + status
     e.prompt.textContent = g.prompt || '';
     e.prompt.style.display = g.prompt ? 'block' : 'none';
+    e.prompt.style.borderLeft = g.promptColor ? `8px solid ${g.promptColor}` : '';
     let msg = '';
     if (p.air === 'bus') msg = '';
     else if (p.air === 'fall') msg = 'SKYDIVING - W to dive faster, SPACE opens the glider';
@@ -264,7 +265,8 @@ export class HUD {
     const pc = hit.collider && hit.collider.piece;
     if (!pc) { el.classList.add('hidden'); return; }
     el.classList.remove('hidden');
-    el.textContent = `${MATERIALS[pc.mat].name} ${pc.type}: ${Math.ceil(pc.hp)}/${pc.maxHp}${pc.buildLeft > 0 ? ' (building)' : ''}`;
+    const mine = pc.owner === p && !g.edit.active ? ` \u00b7 [${keyLabel(settings.keys.edit)}] edit` : '';
+    el.textContent = `${MATERIALS[pc.mat].name} ${pc.type}: ${Math.ceil(pc.hp)}/${pc.maxHp}${pc.buildLeft > 0 ? ' (building)' : ''}${mine}`;
   }
 
   drawMap(c, S, big) {
