@@ -2,11 +2,11 @@
 // counter, materials, minimap + big map, storm window, kill feed, prompts, build/edit bars,
 // damage numbers, weak points, elimination popups.
 
-import * as THREE from '../lib/three.module.min.js?v=41';
-import { RARITIES, weaponStats, ITEM_KINDS } from './weapons.js?v=41';
-import { MATERIALS, COST, BUILD_TYPES } from './build.js?v=41';
-import { fmtTime } from './util.js?v=41';
-import { settings, keyLabel } from './settings.js?v=41';
+import * as THREE from '../lib/three.module.min.js?v=42';
+import { RARITIES, weaponStats, ITEM_KINDS } from './weapons.js?v=42';
+import { MATERIALS, COST, BUILD_TYPES } from './build.js?v=42';
+import { fmtTime } from './util.js?v=42';
+import { settings, keyLabel } from './settings.js?v=42';
 
 const $ = (id) => document.getElementById(id);
 const ICON = { wall: '&#9646;', floor: '&#9644;', ramp: '&#9698;', cone: '&#9650;' };
@@ -29,8 +29,8 @@ export class HUD {
     this.slotEls = [];
     for (let i = 0; i < 6; i++) {
       const d = document.createElement('div');
-      d.className = 'slot';
-      d.innerHTML = `<i>${i + 1}</i><b></b><u></u><div class="rar"></div>`;
+      d.className = i === 0 ? 'slot pick' : 'slot';
+      d.innerHTML = `<i>${i === 0 ? keyLabel(settings.keys.pickaxe) : i}</i><b></b><u></u><div class="rar"></div>`;
       this.el.hot.appendChild(d);
       this.slotEls.push({ d, b: d.children[1], u: d.children[2], r: d.children[3], last: '' });
     }
@@ -166,13 +166,14 @@ export class HUD {
         else if (s.type === 'weapon') { const st = weaponStats(s); label = st.short; sub = s.mag + '/' + p.ammo[st.ammo]; color = RARITIES[s.rarity].color; }
         else { label = ITEM_KINDS[s.id].short; sub = 'x' + s.count; color = g.season.items[s.id].color; }
       }
-      const key = label + sub + color + (i === p.slot);
+      const key = label + sub + color + (i === p.slot) + (i === 0 ? settings.keys.pickaxe : '');
       if (key !== el.last) {
         el.last = key;
         el.b.textContent = label; el.u.textContent = sub;
         el.r.style.background = color;
         el.b.style.color = s && s.type === 'weapon' ? shadeText(color) : '#000';
         el.d.classList.toggle('sel', i === p.slot);
+        if (i === 0) el.d.children[0].textContent = keyLabel(settings.keys.pickaxe);
       }
     }
 

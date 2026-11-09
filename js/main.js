@@ -1,29 +1,29 @@
 // Game orchestration: renderer, match lifecycle (bus -> drop -> storm), input, cameras, main loop.
 
-import * as THREE from '../lib/three.module.min.js?v=41';
-import { SEASONS } from './seasons.js?v=41';
-import { World } from './world.js?v=41';
-import { Player } from './player.js?v=41';
-import { Bot, BOT_NAMES } from './bots.js?v=41';
-import { Combat } from './combat.js?v=41';
-import { Loot } from './loot.js?v=41';
-import { BuildSystem } from './build.js?v=41';
-import { EditSystem } from './edit.js?v=41';
-import { Storm } from './storm.js?v=41';
-import { Bus } from './bus.js?v=41';
-import { Sky } from './sky.js?v=41';
-import { FX } from './fx.js?v=41';
-import { Gadgets } from './gadgets.js?v=41';
-import { RetroPass } from './retro.js?v=41';
-import { BloomPass } from './bloom.js?v=41';
-import { HUD } from './hud.js?v=41';
-import { UI } from './ui.js?v=41';
-import { ViewModel } from './viewmodel.js?v=41';
-import { GameAudio } from './audio.js?v=41';
-import { settings, saveSettings, onSettingsChange } from './settings.js?v=41';
-import { ITEM_KINDS, RARITIES, weaponStats, WEAPONS } from './weapons.js?v=41';
-import { mulberry32, clamp, dirFromAngles } from './util.js?v=41';
-import { recordMatch } from './stats.js?v=41';
+import * as THREE from '../lib/three.module.min.js?v=42';
+import { SEASONS } from './seasons.js?v=42';
+import { World } from './world.js?v=42';
+import { Player } from './player.js?v=42';
+import { Bot, BOT_NAMES } from './bots.js?v=42';
+import { Combat } from './combat.js?v=42';
+import { Loot } from './loot.js?v=42';
+import { BuildSystem } from './build.js?v=42';
+import { EditSystem } from './edit.js?v=42';
+import { Storm } from './storm.js?v=42';
+import { Bus } from './bus.js?v=42';
+import { Sky } from './sky.js?v=42';
+import { FX } from './fx.js?v=42';
+import { Gadgets } from './gadgets.js?v=42';
+import { RetroPass } from './retro.js?v=42';
+import { BloomPass } from './bloom.js?v=42';
+import { HUD } from './hud.js?v=42';
+import { UI } from './ui.js?v=42';
+import { ViewModel } from './viewmodel.js?v=42';
+import { GameAudio } from './audio.js?v=42';
+import { settings, saveSettings, onSettingsChange } from './settings.js?v=42';
+import { ITEM_KINDS, RARITIES, weaponStats, WEAPONS } from './weapons.js?v=42';
+import { mulberry32, clamp, dirFromAngles } from './util.js?v=42';
+import { recordMatch } from './stats.js?v=42';
 
 const SUN_DIR = new THREE.Vector3(0.45, 0.8, 0.3).normalize();
 
@@ -424,7 +424,8 @@ class Game {
       else if (c === K.ramp) { this.edit.cancel(); this.build.setType('ramp'); }
       else if (c === K.cone) { this.edit.cancel(); this.build.setType('cone'); }
       else if (c === K.material) this.build.cycleMaterial();
-      else if (/^Digit[1-6]$/.test(c)) { this.build.setActive(false); this.edit.cancel(); p.selectSlot(+c[5] - 1); }
+      else if (c === K.pickaxe) { this.build.setActive(false); this.edit.cancel(); p.selectSlot(p.slot === 0 ? (p.lastSlot || 1) : 0); }
+      else if (/^Digit[1-5]$/.test(c)) { this.build.setActive(false); this.edit.cancel(); p.selectSlot(+c[5]); }
     };
     const up = (e) => {
       const p = this.player;
@@ -477,7 +478,9 @@ class Game {
         if (e.deltaY !== 0) { const i = ['wall', 'floor', 'ramp', 'cone'].indexOf(this.build.type); this.build.setType(['wall', 'floor', 'ramp', 'cone'][(i + (e.deltaY > 0 ? 1 : 3)) % 4]); }
         return;
       }
-      p.selectSlot((p.slot + (e.deltaY > 0 ? 1 : 5)) % 6);
+      // the wheel cycles weapon slots 1-5 only (the pickaxe lives on its own key)
+      const from = p.slot === 0 ? (p.lastSlot || 1) - (e.deltaY > 0 ? 1 : -1) : p.slot;
+      p.selectSlot(((from - 1 + (e.deltaY > 0 ? 1 : 4)) % 5 + 5) % 5 + 1);
     }, { passive: true });
 
     document.addEventListener('pointerlockchange', () => {
@@ -697,9 +700,9 @@ class Game {
       const ads = p.ads;
       const rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw);
       const pivotY = p.y + (p.sliding ? 0.9 : p.crouch ? 1.25 : 1.68);
-      const wantBack = p.airborne ? 6.5 : ads ? 1.6 : 3.3;
-      const side = p.airborne ? 0 : ads ? 0.6 : 0.78;
-      const up = p.airborne ? 1.0 : 0.35;
+      const wantBack = p.airborne ? 6.5 : ads ? 2.2 : 3.3;
+      const side = p.airborne ? 0 : ads ? 1.0 : 0.82;
+      const up = p.airborne ? 1.0 : ads ? 0.42 : 0.35;
       this.camBack += (wantBack - this.camBack) * Math.min(1, dt * 10);
       const px = p.x + rx * side, py = pivotY + up, pz = p.z + rz * side;
       // pull the camera in when something is between it and the player

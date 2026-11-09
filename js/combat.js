@@ -1,10 +1,10 @@
 // Shooting (hitscan + projectiles), spread/bloom, hit detection, damage, explosions,
 // grenades and the pickaxe (with Fortnite-style weak points).
 
-import * as THREE from '../lib/three.module.min.js?v=41';
-import { clamp, lerp, dirFromAngles } from './util.js?v=41';
-import { weaponStats, ITEM_KINDS, BLOOM } from './weapons.js?v=41';
-import { rayBox } from './geom.js?v=41';
+import * as THREE from '../lib/three.module.min.js?v=42';
+import { clamp, lerp, dirFromAngles } from './util.js?v=42';
+import { weaponStats, ITEM_KINDS, BLOOM } from './weapons.js?v=42';
+import { rayBox } from './geom.js?v=42';
 
 const CLASS_KICK = { pistol: 0.004, smg: 0.0025, rifle: 0.0045, shotgun: 0.03, sniper: 0.035, launcher: 0.04 };
 const BODY_R = 0.38;
@@ -174,12 +174,21 @@ export class Combat {
     e.sprinting = false;
 
     // muzzle position for tracers / flashes
-    const mz = e.model && (this.game.thirdPerson || !e.isPlayer) ? e.model.muzzleWorld(_v) : null;
-    const mx0 = mz ? mz.x : ox + d.x * 0.7 + rx * 0.22, my0 = mz ? mz.y : oy - 0.18 + d.y * 0.7, mz0 = mz ? mz.z : oz + d.z * 0.7 + rz * 0.22;
+    const fp = e.isPlayer && !this.game.thirdPerson;
+    const mz = fp ? this.game.viewmodel.muzzleWorld(_v) : e.model ? e.model.muzzleWorld(_v) : null;
+    const mx0 = mz ? mz.x : ox + d.x * 0.7, my0 = mz ? mz.y : oy - 0.1 + d.y * 0.7, mz0 = mz ? mz.z : oz + d.z * 0.7;
     if (this.game.fx) this.game.fx.muzzle(mx0, my0, mz0, st.cls === 'launcher' ? 0xffa040 : 0xfff0a0, e.isPlayer && !this.game.thirdPerson);
 
     if (st.proj) {
-      this.launch(e, st, mx0, my0, mz0, d.x, d.y, d.z);
+      // rockets leave the barrel but fly at the point under the crosshair
+      let lx = d.x, ly = d.y, lz = d.z;
+      if (st.proj.kind !== 'bullet') {
+        const aimHit = this.trace(e, ox, oy, oz, d.x, d.y, d.z, 300);
+        const tx = ox + d.x * aimHit.t - mx0, ty = oy + d.y * aimHit.t - my0, tz = oz + d.z * aimHit.t - mz0;
+        const tl = Math.hypot(tx, ty, tz);
+        if (tl > 2) { lx = tx / tl; ly = ty / tl; lz = tz / tl; }
+      }
+      this.launch(e, st, mx0, my0, mz0, lx, ly, lz);
     } else {
       const hits = new Map();
       for (let p = 0; p < st.pellets; p++) {

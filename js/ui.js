@@ -1,9 +1,9 @@
 // Menus: lobby (season switcher), settings, pause and result windows.
 
-import { SEASONS } from './seasons.js?v=41';
-import { WEAPONS, AMMO } from './weapons.js?v=41';
-import { settings, saveSettings, resetSettings, applyPreset, KEY_ACTIONS, keyLabel } from './settings.js?v=41';
-import { stats } from './stats.js?v=41';
+import { SEASONS } from './seasons.js?v=42';
+import { WEAPONS, AMMO } from './weapons.js?v=42';
+import { settings, saveSettings, resetSettings, applyPreset, KEY_ACTIONS, keyLabel } from './settings.js?v=42';
+import { stats } from './stats.js?v=42';
 
 const TIPS = [
   'Press <b>C</b> while sprinting to <b>slide</b>. Sliding downhill makes you even faster, and you can jump out of a slide.',
@@ -264,7 +264,7 @@ export class UI {
     ]);
 
     section('Gameplay', [
-      this._row('Camera', sel('thirdPerson', [['true', '3rd person (Fortnite style)'], ['false', '1st person']], () => { settings.thirdPerson = settings.thirdPerson === 'true' || settings.thirdPerson === true; })),
+      this._row('Camera', sel('thirdPerson', [['true', '3rd person'], ['false', '1st person']], () => { settings.thirdPerson = settings.thirdPerson === 'true' || settings.thirdPerson === true; })),
       this._row('Sprint by default', this._check('sprintDefault')),
       this._row('Toggle crouch', this._check('toggleCrouch')),
       this._row('Confirm edit on release', this._check('editOnRelease')),
@@ -309,7 +309,7 @@ export class UI {
       };
       return this._row(a.label, b);
     });
-    keyRows.push(this._row('Hotbar slots', Object.assign(document.createElement('span'), { textContent: '1-6 / mouse wheel' })));
+    keyRows.push(this._row('Hotbar slots', Object.assign(document.createElement('span'), { textContent: '1-5 / mouse wheel' })));
     keyRows.push(this._row('Edit: reset / build: material', Object.assign(document.createElement('span'), { textContent: 'right mouse button' })));
     section('Controls (click, then press a key)', keyRows);
   }

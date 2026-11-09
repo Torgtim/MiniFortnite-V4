@@ -1,13 +1,13 @@
 // Loot: floor pickups, chests, ammo boxes, supply drops, material drops, season loot tables
 // and pickup logic.
 
-import * as THREE from '../lib/three.module.min.js?v=41';
-import { weightedPick } from './util.js?v=41';
-import { AMMO, ITEM_KINDS, RARITIES, WEAPONS, CLASS_COLORS, makeWeapon, weaponStats } from './weapons.js?v=41';
-import { RARITY_GROUND } from './seasons.js?v=41';
-import { heldGun } from './characters.js?v=41';
-import { TEX } from './textures.js?v=41';
-import { MATERIALS } from './build.js?v=41';
+import * as THREE from '../lib/three.module.min.js?v=42';
+import { weightedPick } from './util.js?v=42';
+import { AMMO, ITEM_KINDS, RARITIES, WEAPONS, CLASS_COLORS, makeWeapon, weaponStats } from './weapons.js?v=42';
+import { RARITY_GROUND } from './seasons.js?v=42';
+import { buildGunModel } from './gunmodels.js?v=42';
+import { TEX } from './textures.js?v=42';
+import { MATERIALS } from './build.js?v=42';
 
 const beamGeo = new THREE.CylinderGeometry(0.22, 0.3, 3.4, 6, 1, true).translate(0, 1.7, 0);
 const beamMats = {};
@@ -103,7 +103,7 @@ export class Loot {
     const color = RARITIES[inst.rarity].color;
     const g = this._group(x, y, z, color);
     const body = new THREE.Group();
-    const gun = heldGun(WEAPONS[inst.id].cls);
+    const gun = buildGunModel(inst.id, inst.rarity);
     gun.scale.setScalar(1.4);
     body.add(gun);
     const glow = new THREE.Mesh(geo.glow, glowMat(color));

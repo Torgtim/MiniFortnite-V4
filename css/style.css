@@ -107,13 +107,13 @@ select { background: #fff; border: 2px inset #fff; }
 
 #crosshair { position: absolute; left: 50%; top: 50%; width: 0; height: 0; --g: 4px; }
 #crosshair i { position: absolute; display: none; background: var(--cc, #fff); box-shadow: 0 0 0 1px rgba(0,0,0,.6); }
-.ch-cross .ct, .ch-cross .cb { display: block; left: -1px; width: 2px; height: 8px; }
-.ch-cross .ct { top: calc(-8px - var(--g)); } .ch-cross .cb { top: var(--g); }
-.ch-cross .cl, .ch-cross .cr { display: block; top: -1px; width: 8px; height: 2px; }
-.ch-cross .cl { left: calc(-8px - var(--g)); } .ch-cross .cr { left: var(--g); }
-.ch-cross .cd, .ch-dot .cd { display: block; left: -1px; top: -1px; width: 2px; height: 2px; }
-.ch-dot .cd { left: -2px; top: -2px; width: 4px; height: 4px; border-radius: 50%; }
-.ch-circle .cd { display: block; background: transparent; border: 2px solid var(--cc, #fff); border-radius: 50%; width: calc(var(--g) * 2 + 10px); height: calc(var(--g) * 2 + 10px); left: calc(-5px - var(--g) - 2px); top: calc(-5px - var(--g) - 2px); }
+#crosshair.ch-cross .ct, #crosshair.ch-cross .cb { display: block; left: -1px; width: 2px; height: 8px; }
+#crosshair.ch-cross .ct { top: calc(-8px - var(--g)); } #crosshair.ch-cross .cb { top: var(--g); }
+#crosshair.ch-cross .cl, #crosshair.ch-cross .cr { display: block; top: -1px; width: 8px; height: 2px; }
+#crosshair.ch-cross .cl { left: calc(-8px - var(--g)); } #crosshair.ch-cross .cr { left: var(--g); }
+#crosshair.ch-cross .cd, #crosshair.ch-dot .cd { display: block; left: -1px; top: -1px; width: 2px; height: 2px; }
+#crosshair.ch-dot .cd { left: -2px; top: -2px; width: 4px; height: 4px; border-radius: 50%; }
+#crosshair.ch-circle .cd { display: block; background: transparent; border: 2px solid var(--cc, #fff); border-radius: 50%; width: calc(var(--g) * 2 + 10px); height: calc(var(--g) * 2 + 10px); left: calc(-5px - var(--g) - 2px); top: calc(-5px - var(--g) - 2px); }
 #dmgdir { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
 #dmgdir .arc { position: absolute; left: -70px; top: -70px; width: 140px; height: 140px; border-radius: 50%; border: 6px solid transparent; border-top-color: rgba(255,30,30,.85); animation: dmgfade 1s ease-out forwards; filter: drop-shadow(0 0 3px #000); }
 @keyframes dmgfade { from { opacity: 1; } to { opacity: 0; } }
@@ -184,6 +184,7 @@ select { background: #fff; border: 2px inset #fff; }
 .slot i { position: absolute; top: 0; left: 3px; font-style: normal; font-size: 12px; color: #333; }
 .slot b { display: block; margin-top: 15px; font-size: 18px; }
 .slot u { position: absolute; bottom: 6px; width: 100%; left: 0; text-decoration: none; font-size: 12px; font-family: "Courier New", monospace; }
+.slot.pick { width: 56px; margin-right: 8px; }
 .slot .rar { position: absolute; left: 3px; right: 3px; bottom: 2px; height: 4px; }
 #buildbar { bottom: 8px; left: 50%; transform: translateX(-50%); }
 #buildbtns { display: flex; gap: 3px; padding: 3px; }

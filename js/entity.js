@@ -1,8 +1,8 @@
 // Shared state + inventory logic for anything that fights: the player and the bots.
 // Also the shared "air" movement (bus -> skydive -> glider) and the character model hookup.
 
-import { AMMO, ITEM_KINDS, RARITIES, WEAPONS, weaponStats, makeWeapon } from './weapons.js?v=41';
-import { PLAYER_H, CROUCH_H, FALL_SAFE, groundAt, isFree } from './physics.js?v=41';
+import { AMMO, ITEM_KINDS, RARITIES, WEAPONS, weaponStats, makeWeapon } from './weapons.js?v=42';
+import { PLAYER_H, CROUCH_H, FALL_SAFE, groundAt, isFree } from './physics.js?v=42';
 
 export class Entity {
   constructor(game, name, isPlayer = false) {
@@ -43,6 +43,7 @@ export class Entity {
 
   selectSlot(i) {
     if (i < 0 || i > 5 || i === this.slot) return;
+    if (this.slot >= 1) this.lastSlot = this.slot;
     this.slot = i;
     this.reloadT = 0; this.useT = 0; this.burstLeft = 0; this.fireCd = Math.max(this.fireCd, 0.25);
     this.recoil = 0;
@@ -205,7 +206,7 @@ export class Entity {
     }
     const it = this.held;
     if (!it) m.setHeld(null);
-    else if (it.type === 'weapon') m.setHeld('gun', WEAPONS[it.id].cls);
+    else if (it.type === 'weapon') m.setHeld('gun', it.id, it.rarity);
     else if (it.type === 'pickaxe') m.setHeld('pickaxe');
     else m.setHeld('item', null, this.game.season.items[it.id] ? this.game.season.items[it.id].color : '#fff');
     m.animate(dt, {

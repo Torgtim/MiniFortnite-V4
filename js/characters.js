@@ -1,8 +1,8 @@
 // Low-poly character models (player + bots): random outfits, pixel-art faces, gliders,
 // held weapon models and a small procedural animation system.
 
-import * as THREE from '../lib/three.module.min.js?v=41';
-import { CLASS_COLORS } from './weapons.js?v=41';
+import * as THREE from '../lib/three.module.min.js?v=42';
+import { buildGunModel, setGunRarity } from './gunmodels.js?v=42';
 
 const SKINS = ['#f2c9a0', '#e0ac7e', '#c68955', '#9a6640', '#6e4529', '#f6d7bd'];
 const OUTFITS = [
@@ -57,25 +57,6 @@ function nameTag(name) {
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
   sp.scale.set(2.0, 0.5, 1); sp.position.y = 2.5; sp.renderOrder = 10;
   return sp;
-}
-
-/** Third-person weapon model (one per weapon class). */
-export function heldGun(cls) {
-  const g = new THREE.Group();
-  const body = CLASS_COLORS[cls] || 0x555555, dark = 0x22262c, wood = 0x6b4a2b;
-  const add = (w, h, d, c, x, y, z) => { const m = new THREE.Mesh(box(w, h, d), lam(c)); m.position.set(x, y, z); g.add(m); return m; };
-  switch (cls) {
-    case 'pistol': add(0.08, 0.1, 0.3, body, 0, 0, -0.12); add(0.06, 0.14, 0.07, dark, 0, -0.09, 0); break;
-    case 'smg': add(0.09, 0.12, 0.45, body, 0, 0, -0.18); add(0.05, 0.18, 0.06, dark, 0, -0.13, -0.2); break;
-    case 'rifle': add(0.09, 0.12, 0.7, body, 0, 0, -0.25); add(0.07, 0.12, 0.25, wood, 0, -0.02, 0.18); add(0.05, 0.18, 0.07, dark, 0, -0.13, -0.25); break;
-    case 'shotgun': add(0.08, 0.08, 0.8, dark, 0, 0.01, -0.3); add(0.1, 0.09, 0.22, wood, 0, -0.05, -0.3); add(0.08, 0.11, 0.28, wood, 0, -0.03, 0.15); break;
-    case 'sniper': add(0.08, 0.1, 0.55, body, 0, 0, -0.1); add(0.04, 0.04, 0.6, dark, 0, 0.01, -0.62); add(0.07, 0.08, 0.25, dark, 0, 0.11, -0.12); break;
-    default: add(0.18, 0.18, 0.9, body, 0, 0.02, -0.25); add(0.2, 0.2, 0.06, dark, 0, 0.02, -0.72); break;
-  }
-  g.userData.muzzle = new THREE.Object3D();
-  g.userData.muzzle.position.set(0, 0.02, cls === 'shotgun' ? -0.72 : cls === 'pistol' ? -0.28 : -0.65);
-  g.add(g.userData.muzzle);
-  return g;
 }
 
 function heldPickaxe(color = 0xb0b6bd) {
@@ -174,7 +155,7 @@ export class CharacterModel {
     });
   }
 
-  /** Show the right model in the hand. kind: 'gun' | 'pickaxe' | 'item' | null */
+  /** Show the right model in the hand. kind: 'gun' (cls = weapon id, color = rarity) | 'pickaxe' | 'item' | null */
   setHeld(kind, cls, color) {
     const key = kind + ':' + cls + ':' + color;
     if (key === this.heldKey) return;
@@ -182,9 +163,12 @@ export class CharacterModel {
     for (const k in this.guns) this.guns[k].visible = false;
     this.pick.visible = false; this.itemCube.visible = false;
     if (kind === 'gun') {
-      if (!this.guns[cls]) { this.guns[cls] = heldGun(cls); this.guns[cls].traverse((o) => { if (o.isMesh) o.castShadow = true; }); this.p.grip.add(this.guns[cls]); }
-      this.guns[cls].visible = true;
-      this.curGun = this.guns[cls];
+      // cls = weapon id, color = rarity index
+      const id = cls;
+      if (!this.guns[id]) { this.guns[id] = buildGunModel(id, color || 0); this.guns[id].traverse((o) => { if (o.isMesh) o.castShadow = true; }); this.p.grip.add(this.guns[id]); }
+      setGunRarity(this.guns[id], color || 0);
+      this.guns[id].visible = true;
+      this.curGun = this.guns[id];
     } else if (kind === 'pickaxe') { this.pick.visible = true; this.curGun = null; }
     else if (kind === 'item') { this.itemCube.visible = true; this.itemCube.material = lam(color || '#ffffff'); this.curGun = null; }
     else this.curGun = null;

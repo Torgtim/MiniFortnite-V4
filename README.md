@@ -25,7 +25,7 @@ Choose **Playground** in the lobby to practise building, editing and aiming. The
 - The frozen lake in Frostbite is slippery ice.
 
 ### Building and editing
-- Four pieces: **wall (Z), floor (X), ramp (F), cone (V)**. Press **Q** to toggle build mode, and switch material (wood, brick or metal) with **T** or the right mouse button.
+- Four pieces: **wall (Z), floor (X), ramp (Caps Lock), cone (V)**. Press **Q** to toggle build mode, and switch material (wood, brick or metal) with **T** or the right mouse button.
 - Pieces start weak and build up their health over time: wood is fast, metal is slow but strong.
 - Structural support: if you break what holds a structure up, the unsupported pieces collapse.
 - Edit mode (**G**): click or drag tiles, then press **G** to confirm. Right-click resets the piece.
@@ -95,11 +95,12 @@ Every map also has a three-storey **lookout tower** near the middle, with ramps 
 | Space | jump / glider / mantle |
 | Mouse | aim & fire |
 | Right mouse | aim down sights (in build mode: material; in edit mode: reset) |
-| 1-6 / wheel | hotbar |
+| 1-5 / wheel | weapon slots |
+| F | pickaxe (press again for your last weapon) |
 | E | pick up / open |
 | R | reload |
 | Q | build mode |
-| Z X F V | wall, floor, ramp, cone |
+| Z X Caps V | wall, floor, ramp, cone |
 | G | edit |
 | T | material |
 | M | big map |

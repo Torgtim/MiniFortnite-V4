@@ -12,10 +12,11 @@ export const KEY_ACTIONS = [
   { id: 'crouch', label: 'Crouch / slide', def: 'KeyC' },
   { id: 'interact', label: 'Pick up / open', def: 'KeyE' },
   { id: 'reload', label: 'Reload', def: 'KeyR' },
+  { id: 'pickaxe', label: 'Pickaxe (press again = last weapon)', def: 'KeyF' },
   { id: 'buildMode', label: 'Build mode on/off', def: 'KeyQ' },
   { id: 'wall', label: 'Build: wall', def: 'KeyZ' },
   { id: 'floor', label: 'Build: floor', def: 'KeyX' },
-  { id: 'ramp', label: 'Build: ramp', def: 'KeyF' },
+  { id: 'ramp', label: 'Build: ramp', def: 'CapsLock' },
   { id: 'cone', label: 'Build: cone (roof)', def: 'KeyV' },
   { id: 'edit', label: 'Edit build', def: 'KeyG' },
   { id: 'material', label: 'Cycle material', def: 'KeyT' },
@@ -68,10 +69,11 @@ export const PRESETS = {
 
 function load() {
   const s = JSON.parse(JSON.stringify(DEFAULTS));
+  let hadPickKey = true;
   try {
     const raw = JSON.parse(localStorage.getItem(STORE) || localStorage.getItem('mfv4_settings_v1') || '{}');
     for (const k of Object.keys(DEFAULTS)) {
-      if (k === 'keys') Object.assign(s.keys, raw.keys || {});
+      if (k === 'keys') { Object.assign(s.keys, raw.keys || {}); hadPickKey = !!(raw.keys && raw.keys.pickaxe); }
       else if (k === 'outfit') Object.assign(s.outfit, raw.outfit || {});
       else if (raw[k] !== undefined && typeof raw[k] === typeof DEFAULTS[k]) s[k] = raw[k];
     }
@@ -81,6 +83,8 @@ function load() {
     s.keys.crouch = 'KeyC';
     if (s.keys.ramp === 'KeyC') s.keys.ramp = 'KeyF';
   }
+  // v4.2: the pickaxe got its own key (F); ramp moves off F in older saves
+  if (!hadPickKey && s.keys.ramp === 'KeyF') s.keys.ramp = 'CapsLock';
   return s;
 }
 
@@ -107,5 +111,5 @@ export function resetSettings() {
 }
 
 export function keyLabel(code) {
-  return code.replace(/^Key/, '').replace(/^Digit/, '').replace('Left', ' L').replace('Right', ' R').replace('Space', 'SPACE').replace('Control', 'CTRL');
+  return code.replace(/^Key/, '').replace(/^Digit/, '').replace('Left', ' L').replace('Right', ' R').replace('Space', 'SPACE').replace('Control', 'CTRL').replace('CapsLock', 'CAPS');
 }
