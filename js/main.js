@@ -595,7 +595,7 @@ class Game {
           const t = this.loot.nearestInteractable(p, 2.6);
           if (t) {
             const K = keyName(settings.keys.interact);
-            if (t.type === 'chest') this.prompt = `[${K}] Open ${t.c.kind === 'ammo' ? 'ammo box' : t.c.kind === 'supply' ? 'supply drop' : 'chest'}`;
+            if (t.type === 'chest') this.prompt = `[${K}] Open ${t.c.kind === 'ammo' ? 'ammo box' : t.c.kind === 'supply' ? 'supply drop' : t.c.kind === 'alpaca' ? 'LOOT ALPACA!' : 'chest'}`;
             else if (t.p.kind === 'weapon') { this.prompt = `[${K}] ${WEAPONS[t.p.inst.id].name} (${RARITIES[t.p.inst.rarity].name})`; this.promptColor = RARITIES[t.p.inst.rarity].color; }
             else this.prompt = `[${K}] ${this.season.items[t.p.itemId].name}`;
           }

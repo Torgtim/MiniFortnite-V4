@@ -65,6 +65,7 @@ export const ITEM_KINDS = {
   splash: { throw: true, stack: 6, time: 0, short: 'FIZZ', heal: { r: 4.2, amt: 20 }, fuse: 1.4 },
   // mobility gadgets (fire to use)
   pad: { gadget: 'pad', stack: 2, time: 0, short: 'PAD' },
+  trap: { gadget: 'trap', stack: 3, time: 0, short: 'TRAP', dmg: 75 },
   rift: { gadget: 'rift', stack: 2, time: 0, short: 'RIFT' },
 };
 

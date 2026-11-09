@@ -22,6 +22,9 @@ const TIPS = [
   'Try <b>Graphics style: 1998</b> in Settings for that authentic 3D-accelerator-card look.',
   'Each season swaps the <b>whole map and loot pool</b>. Season 4 only has plasma weapons, and lava burns hard!',
   'Press <b>M</b> for the big map with the bus route, storm circles and supply drops.',
+  'Somewhere out in the wild a <b>loot alpaca</b> is waiting. Find it, press E, and enjoy the pinata.',
+  'Look down and throw a <b>healing splash</b> at your feet: +20, health first, then shield.',
+  'Try <b>Playground</b> mode to practise building and editing with unlimited materials.',
 ];
 
 const $ = (id) => document.getElementById(id);

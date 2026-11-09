@@ -181,6 +181,8 @@ export class GameAudio {
       case 'pad': this._tone(200, 0.35, 'square', 0.2 * v, 900); this._noise(0.2, 1200, 0.8, 0.2 * v); break;
       case 'rift': this._tone(300, 0.6, 'sine', 0.25 * v, 1600); this._tone(450, 0.6, 'triangle', 0.15 * v, 2200); break;
       case 'splash': this._noise(0.18, 900, 0.7, 0.18 * v + 0.02, 'lowpass'); break;
+      case 'trap': this._noise(0.12, 2600, 1.5, 0.5 * v); this._tone(220, 0.15, 'square', 0.2 * v, 110); break;
+      case 'alpaca': [660, 880, 1100, 1320, 1760].forEach((f, i) => setTimeout(() => this.ctx && this._tone(f, 0.1, 'triangle', 0.18 * v), i * 60)); break;
       case 'sizzle': this._noise(0.35, 3000, 0.5, 0.3 * v, 'highpass'); this._tone(200, 0.2, 'sawtooth', 0.1 * v, 600); break;
       case 'step': if (v > 0.08) this._noise(0.05, 260 + Math.random() * 120, 1.2, 0.22 * v * v + 0.02, 'lowpass'); break;
       case 'step_me': this._noise(0.04, 300 + Math.random() * 100, 1.2, 0.06, 'lowpass'); break;

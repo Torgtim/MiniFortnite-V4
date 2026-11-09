@@ -66,6 +66,9 @@ Every map also has a three-storey **lookout tower** near the middle, with ramps 
 | Neon Meltdown | volcano with neon crystals | lava (hurts a lot) | plasma weapons only |
 
 ### Extras
+- **Loot alpacas**: one or two rare pinatas hide in the wild, packed with weapons, items, ammo and 100 of each material.
+- **Spike traps**: place them, and the next enemy who steps on one takes 75 damage.
+- **Healing splash** (like a Chug Splash): throw it at your feet for +20, health first, then shield.
 - Bounce pads launch you up and open your glider. Sky portals (like a Rift-To-Go) put you into a fresh skydive, and bots use them to escape the storm.
 - Emotes on **B**, with an original 90s dance. Bots dance after their kills too.
 - Victory Royale: the camera circles your character while you dance.

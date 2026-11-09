@@ -85,6 +85,9 @@ export class Loot {
       if (rnd() < 0.3) this.spawnChest(c.x, c.y, c.z, 'ammo');
       else this.spawnChest(c.x, c.y, c.z, 'chest');
     }
+    // one or two loot alpacas hidden out in the wild
+    const n = 1 + (rnd() < 0.5 ? 1 : 0);
+    for (let i = 0; i < n; i++) { const q = world.randomLandPoint(rnd, 40); this.spawnChest(q.x, q.y, q.z, 'alpaca'); }
   }
 
   // -------------------------------------------------------------- spawning
@@ -143,7 +146,18 @@ export class Loot {
   spawnChest(x, y, z, kind = 'chest') {
     const g = this._group(x, y, z, null);
     let body;
-    if (kind === 'ammo') {
+    if (kind === 'alpaca') {
+      // loot alpaca pinata: stripy, wobbly, full of goodies
+      body = new THREE.Group();
+      const stripe = ['#9b59ff', '#3fb5ff', '#ff4fd8', '#ffd84a'];
+      const add = (w, h, d, x0, y0, z0, c) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), lam(c, 0.25)); m.position.set(x0, y0, z0); body.add(m); return m; };
+      for (let i = 0; i < 4; i++) add(0.62, 0.62, 0.3, 0, 1.0, -0.45 + i * 0.3, stripe[i]);
+      add(0.36, 0.9, 0.36, 0, 1.6, -0.55, stripe[1]); add(0.42, 0.36, 0.6, 0, 2.15, -0.7, stripe[0]);
+      add(0.1, 0.25, 0.1, -0.13, 2.45, -0.55, stripe[2]); add(0.1, 0.25, 0.1, 0.13, 2.45, -0.55, stripe[2]);
+      for (const [lx, lz] of [[-0.2, -0.35], [0.2, -0.35], [-0.2, 0.35], [0.2, 0.35]]) add(0.14, 0.7, 0.14, lx, 0.35, lz, '#f5e6c8');
+      add(0.12, 0.12, 0.3, 0, 1.2, 0.7, stripe[3]);
+      g.add(new THREE.Mesh(beamGeo, beamMat('#ff4fd8')));
+    } else if (kind === 'ammo') {
       body = new THREE.Mesh(geo.abox, texMat('crate', '#6f8a4a')); body.position.y = 0.25;
     } else if (kind === 'supply') {
       body = new THREE.Mesh(geo.supply, texMat('crate', '#4da6ff')); body.position.y = 0.55;
@@ -180,6 +194,16 @@ export class Loot {
     if (c.opened) return;
     c.opened = true;
     const spread = () => (rnd() - 0.5) * 2.2;
+    if (c.kind === 'alpaca') {
+      for (let i = 0; i < 3; i++) this.spawnWeapon(c.x + spread() * 1.5, c.y, c.z + spread() * 1.5, this.rollWeapon(rnd, 2));
+      for (let i = 0; i < 2; i++) this.spawnItem(c.x + spread() * 1.5, c.y, c.z + spread() * 1.5, this.rollItemId(rnd));
+      for (let i = 0; i < 3; i++) this.spawnAmmo(c.x + spread() * 1.5, c.y, c.z + spread() * 1.5, this.randomAmmoType(rnd), 1.5);
+      for (const m of MATERIALS) this.spawnMats(c.x + spread() * 1.5, c.y, c.z + spread() * 1.5, m.id, 100);
+      this.group.remove(c.mesh);
+      if (this.game.fx) { this.game.fx.eliminate(c.x, c.y + 0.5, c.z, ['#9b59ff', '#3fb5ff', '#ff4fd8', '#ffd84a']); this.game.fx.flash(c.x, c.y + 1.2, c.z, 4, 0.3); }
+      this.game.audio.play('alpaca', { x: c.x, y: c.y, z: c.z });
+      return;
+    }
     if (c.kind === 'ammo') {
       for (let i = 0; i < 2; i++) this.spawnAmmo(c.x + spread(), c.y, c.z + spread(), this.randomAmmoType(rnd), 1.5);
       if (rnd() < 0.4) this.spawnItem(c.x + spread(), c.y, c.z + spread(), 'nade');
@@ -319,6 +343,7 @@ export class Loot {
       p.body.rotation.y += dt * 1.6;
       p.body.position.y = (p.kind === 'ammo' || p.kind === 'mats' ? 0.3 : 0.55) + Math.sin(time * 2 + p.id) * 0.08;
     }
+    for (const c of this.chests) if (c.kind === 'alpaca' && !c.opened) { c.body.rotation.z = Math.sin(time * 3 + c.x) * 0.06; c.body.position.y = Math.abs(Math.sin(time * 2 + c.z)) * 0.1; }
     // supply drops floating down
     for (let i = this.falling.length - 1; i >= 0; i--) {
       const f = this.falling[i];
