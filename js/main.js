@@ -21,6 +21,7 @@ import { GameAudio } from './audio.js';
 import { settings, saveSettings, onSettingsChange } from './settings.js';
 import { ITEM_KINDS, RARITIES, weaponStats, WEAPONS } from './weapons.js';
 import { mulberry32, clamp, dirFromAngles } from './util.js';
+import { recordMatch } from './stats.js';
 
 const SUN_DIR = new THREE.Vector3(0.45, 0.8, 0.3).normalize();
 
@@ -175,12 +176,14 @@ class Game {
   // ------------------------------------------------------------------ match lifecycle
   startMatch() {
     this.audio.init();
+    this.audio.stopMusic();
     this.buildWorld();
     this.ui.showLobby(false);
     this.ui.hideResult();
     this.ui.showSettings(false);
     this.hud.show(true);
     this.bigMap = false;
+    this.victory = false;
     this._clearActors();
     this.edit.cancel();
     const rnd = mulberry32((Date.now() >>> 3) & 0xfffff);
@@ -288,6 +291,7 @@ class Game {
       this.edit.cancel();
       this.player.mouseLeft = false;
       if (document.pointerLockElement) document.exitPointerLock();
+      recordMatch(left + 1, target.kills, false);
       this.ui.showResult({ victory: false, place: left + 1, total: this.totalPlayers, kills: target.kills, season: this.season.name + ' · ' + this.season.title, by });
       this.spectateTarget = src && src !== target && src.alive ? src : null;
     } else if (this.player && this.player.alive && left === 1) {
@@ -298,6 +302,9 @@ class Game {
 
   win() {
     const p = this.player;
+    p.emoteT = 999; p.untargetable = true; p.resetInput(); this.build.setActive(false); this.edit.cancel();
+    this.victory = true;
+    recordMatch(1, p.kills, true);
     if (document.pointerLockElement) document.exitPointerLock();
     this.audio.play('supply', null);
     this.ui.showResult({ victory: true, place: 1, total: this.totalPlayers, kills: p.kills, season: this.season.name + ' · ' + this.season.title, by: p.lastKill || 'you' });
@@ -492,7 +499,7 @@ class Game {
         p.update(dt);
         p.animateModel(dt);
         if (!p.airborne) { this.build.updateGhost(p); this.edit.update(p); } else { this.build.setActive(false); this.edit.cancel(); }
-        this.hazards(p, dt);
+        if (!this.victory) this.hazards(p, dt);
         this.prompt = '';
         if (p.air === 'bus') this.prompt = this.bus.canDrop ? `[${keyName(settings.keys.jump)}] Jump from the bus` : 'Get ready to jump...';
         else if (!p.airborne && !this.build.active && !this.edit.active) {
@@ -543,6 +550,16 @@ class Game {
       cam.position.set(p.x, p.y + 6, p.z + 0.01);
       cam.rotation.set(-1.45, p.yaw, 0);
       this.viewmodel.root.visible = false;
+      return;
+    }
+    if (this.victory) {
+      // victory royale: slow orbit around the dancing winner
+      this.orbit += dt * 0.5;
+      cam.position.set(p.x + Math.sin(this.orbit) * 5, p.y + 2.2, p.z + Math.cos(this.orbit) * 5);
+      cam.lookAt(p.x, p.y + 1.2, p.z);
+      p.model.root.visible = true;
+      this.viewmodel.root.visible = false;
+      cam.fov = settings.fov; cam.updateProjectionMatrix();
       return;
     }
     const d = dirFromAngles(p.yaw, p.pitch);

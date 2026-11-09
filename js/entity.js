@@ -174,8 +174,22 @@ export class Entity {
     return has ? st.dps + w.rarity * 4 : -1;
   }
 
+  /** Footstep sounds (you can hear enemies sneaking up). */
+  footsteps(dt) {
+    if (!this.grounded || this.air || this.sliding) return;
+    const v = Math.hypot(this.vx, this.vz);
+    if (v < 2.5) return;
+    this.stepAcc = (this.stepAcc || 0) + v * dt;
+    const stride = this.crouch ? 2.6 : 1.7;
+    if (this.stepAcc > stride) {
+      this.stepAcc = 0;
+      if (!this.crouch || this.isPlayer) this.game.audio.play(this.isPlayer ? 'step_me' : 'step', this);
+    }
+  }
+
   /** Feed the character model with the current state. */
   animateModel(dt) {
+    this.footsteps(dt);
     const m = this.model;
     if (!m) return;
     m.root.position.set(this.x, this.y, this.z);

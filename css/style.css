@@ -11,6 +11,8 @@ body { font-family: "Times New Roman", Times, serif; color: #000; }
 .screen { position: fixed; inset: 0; z-index: 20; pointer-events: none; }
 .screen > * { pointer-events: auto; }
 .screen.center { display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.35); pointer-events: auto; }
+#result.victory { align-items: flex-start; padding-top: 7vh; background: transparent; }
+#result.victory #resTitle { font-size: 30px; text-align: center; }
 #lobby { padding: 3vh 0 0 3vw; overflow: auto; }
 
 /* ------------------------------ 90s window ------------------------------ */
@@ -35,6 +37,12 @@ hr { border: 0; border-top: 2px groove #fff; margin: 8px 0; }
 .ticker span { display: inline-block; padding-left: 100%; animation: tick 22s linear infinite; }
 @keyframes tick { to { transform: translateX(-100%); } }
 .foot { font-size: 12px; color: #333; margin: 8px 0 0; text-align: center; }
+.counter { text-align: center; font-size: 13px; margin: 2px 0 8px; }
+.lcdc { display: inline-block; background: #000; color: #ff3030; font-family: "Courier New", monospace; font-weight: bold; padding: 0 4px; border: 2px inset #fff; letter-spacing: 1px; margin-right: 6px; }
+#tipwin { position: fixed; right: 3vw; bottom: 4vh; z-index: 25; }
+.win.tipw { width: 380px; }
+.bulb { font-size: 34px; vertical-align: top; width: 40px; background: #fff; border: 2px inset #fff; text-align: center; }
+#tipText { margin: 4px 0 0; font-size: 16px; min-height: 60px; }
 a { color: #0000ee; } a:visited { color: #551a8b; }
 button { font-family: "Times New Roman", Times, serif; font-size: 17px; background: #c0c0c0; border: 2px outset #fff; padding: 3px 14px; cursor: pointer; color: #000; }
 button:active { border-style: inset; }
@@ -82,13 +90,18 @@ select { background: #fff; border: 2px inset #fff; }
 .hidden { display: none !important; }
 .tip { position: absolute; background: #ffffe1; border: 1px solid #000; padding: 3px 10px; font-size: 16px; color: #000; box-shadow: 2px 2px 0 rgba(0,0,0,.35); white-space: nowrap; }
 
-#crosshair { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
-#crosshair::before, #crosshair::after { content: ""; position: absolute; background: var(--cc, #fff); box-shadow: 0 0 0 1px rgba(0,0,0,.6); }
-.ch-cross::before { left: -1px; top: -9px; width: 2px; height: 18px; }
-.ch-cross::after { left: -9px; top: -1px; width: 18px; height: 2px; }
-.ch-dot::before { left: -2px; top: -2px; width: 4px; height: 4px; border-radius: 50%; }
-.ch-circle::before { left: -9px; top: -9px; width: 18px; height: 18px; border-radius: 50%; background: transparent; border: 2px solid var(--cc, #fff); }
-.ch-none::before, .ch-none::after, .ch-dot::after, .ch-circle::after { display: none; }
+#crosshair { position: absolute; left: 50%; top: 50%; width: 0; height: 0; --g: 4px; }
+#crosshair i { position: absolute; display: none; background: var(--cc, #fff); box-shadow: 0 0 0 1px rgba(0,0,0,.6); }
+.ch-cross .ct, .ch-cross .cb { display: block; left: -1px; width: 2px; height: 8px; }
+.ch-cross .ct { top: calc(-8px - var(--g)); } .ch-cross .cb { top: var(--g); }
+.ch-cross .cl, .ch-cross .cr { display: block; top: -1px; width: 8px; height: 2px; }
+.ch-cross .cl { left: calc(-8px - var(--g)); } .ch-cross .cr { left: var(--g); }
+.ch-cross .cd, .ch-dot .cd { display: block; left: -1px; top: -1px; width: 2px; height: 2px; }
+.ch-dot .cd { left: -2px; top: -2px; width: 4px; height: 4px; border-radius: 50%; }
+.ch-circle .cd { display: block; background: transparent; border: 2px solid var(--cc, #fff); border-radius: 50%; width: calc(var(--g) * 2 + 10px); height: calc(var(--g) * 2 + 10px); left: calc(-5px - var(--g) - 2px); top: calc(-5px - var(--g) - 2px); }
+#dmgdir { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+#dmgdir .arc { position: absolute; left: -70px; top: -70px; width: 140px; height: 140px; border-radius: 50%; border: 6px solid transparent; border-top-color: rgba(255,30,30,.85); animation: dmgfade 1s ease-out forwards; filter: drop-shadow(0 0 3px #000); }
+@keyframes dmgfade { from { opacity: 1; } to { opacity: 0; } }
 #hitmarker { position: absolute; left: 50%; top: 50%; width: 26px; height: 26px; margin: -13px 0 0 -13px; opacity: 0; }
 #hitmarker::before, #hitmarker::after { content: ""; position: absolute; left: 12px; top: -2px; width: 3px; height: 30px; background: #fff; transform: rotate(45deg); box-shadow: 0 0 2px #000; }
 #hitmarker::after { transform: rotate(-45deg); }

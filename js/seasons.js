@@ -49,8 +49,10 @@ export const SEASONS = [
       return c;
     },
     props: [
-      { res: 'wood', count: 200, hp: 100, yield: 12, r: 0.4, h: 5, scale: [0.8, 1.5], parts: [
+      { res: 'wood', count: 140, hp: 100, yield: 12, r: 0.4, h: 5, scale: [0.8, 1.5], parts: [
         { geo: cyl(0.25, 0.35, 2.4, 5, 1.2), color: '#6b4a2b' }, { geo: ico(1.9, 3.7), color: '#3f9a3a' }] },
+      { res: 'wood', count: 80, hp: 100, yield: 12, r: 0.35, h: 6, scale: [0.8, 1.4], parts: [
+        { geo: cyl(0.2, 0.28, 1.6, 5, 0.8), color: '#5f4126' }, { geo: cone(1.6, 2.8, 7, 2.6), color: '#2f7a3a' }, { geo: cone(1.1, 2.2, 7, 4.2), color: '#3a8a42' }] },
       { res: 'brick', count: 55, hp: 120, yield: 10, r: 1.1, h: 1.6, scale: [0.8, 1.8], parts: [{ geo: ico(1.3, 0.55), color: '#8f8f8f' }] },
       { res: 'metal', count: 24, hp: 120, yield: 8, r: 0.9, h: 1.2, scale: [0.9, 1.3], parts: [
         { geo: box(1.7, 1.0, 1.2, 0.5), color: '#6d6d73' }, { geo: box(0.9, 0.5, 0.9, 1.25), color: '#8a5a3a' }] },

@@ -14,7 +14,8 @@
 <div id="hud" class="hidden">
   <div id="vignette"></div>
   <div id="scope"></div>
-  <div id="crosshair"></div>
+  <div id="crosshair"><i class="ct"></i><i class="cb"></i><i class="cl"></i><i class="cr"></i><i class="cd"></i></div>
+  <div id="dmgdir"></div>
   <div id="hitmarker"></div>
   <div id="weakpoint"></div>
   <div id="dmgnums"></div>
@@ -89,7 +90,9 @@
       <p class="btnrow">
         <button id="btnPlay" class="big">&nbsp;PLAY!&nbsp;</button>
         <button id="btnSettings">Settings...</button>
+        <button id="btnMusic">&#9835; Music</button>
       </p>
+      <p class="counter">Matches <span class="lcdc" id="stMatches">000000</span> Wins <span class="lcdc" id="stWins">0000</span> Kills <span class="lcdc" id="stKills">000000</span> Best <span class="lcdc" id="stBest">#--</span></p>
 
       <table class="help" cellspacing="0" cellpadding="2">
         <tr><td><b>WASD</b> move</td><td><b>Shift</b> sprint</td><td><b>Space</b> jump / glider</td></tr>
@@ -99,6 +102,20 @@
         <tr><td><b>R</b> reload</td><td><b>M</b> map &middot; <b>H</b> 1st/3rd &middot; <b>B</b> dance</td><td><b>Esc</b> pause</td></tr>
       </table>
       <p class="foot">Best viewed in Netscape Navigator 4.0 &middot; 800x600 &middot; <a href="https://github.com/Torgtim/MiniFortnite-V4">source on GitHub</a> &middot; v4.1</p>
+    </td></tr>
+  </table>
+</div>
+
+<!-- ============================ TIP OF THE DAY ============================ -->
+<div id="tipwin" class="hidden">
+  <table class="win tipw" cellspacing="0" cellpadding="0">
+    <tr><td class="titlebar"><span>Welcome to Mini-Fortnite V4</span><span class="tb"><b id="tipX">X</b></span></td></tr>
+    <tr><td class="body">
+      <table cellspacing="0" cellpadding="6" width="100%"><tr>
+        <td class="bulb">&#128161;</td>
+        <td><b>Did you know...</b><p id="tipText"></p></td>
+      </tr></table>
+      <p class="btnrow" style="text-align:right"><label style="float:left;font-size:14px"><input type="checkbox" id="tipShow"> Show tips at startup</label><button id="tipNext">Next Tip</button> <button id="tipClose">Close</button></p>
     </td></tr>
   </table>
 </div>

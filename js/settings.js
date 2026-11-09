@@ -45,6 +45,8 @@ export const DEFAULTS = {
   scanlines: true,
   showFps: false,
   volume: 0.6,
+  music: 0.35,
+  tips: true,
   crosshair: 'cross',
   crosshairColor: '#ffffff',
   botCount: 19,

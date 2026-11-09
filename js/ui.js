@@ -3,6 +3,26 @@
 import { SEASONS } from './seasons.js';
 import { WEAPONS, AMMO } from './weapons.js';
 import { settings, saveSettings, resetSettings, applyPreset, KEY_ACTIONS, keyLabel } from './settings.js';
+import { stats } from './stats.js';
+
+const TIPS = [
+  'Hold <b>Ctrl</b> while sprinting to <b>slide</b>. Sliding downhill makes you even faster, and you can jump out of a slide.',
+  'Jump at a ledge to <b>mantle</b> up onto it. Sprint and jump at a low wall to <b>vault</b> over it.',
+  'Hit the <b>blue circle</b> with your pickaxe for double materials. It moves after every hit!',
+  'Press <b>G</b> while looking at your own build to <b>edit</b> it. Drag over tiles, then press G again. Right click resets.',
+  'Drag a path over a <b>ramp</b> in edit mode to turn it. A path in one column makes a <b>half ramp</b>.',
+  'Wood builds fast but is weak. Metal is slow to build up, but it ends up with 450 HP.',
+  'Break the piece that holds a structure up and the rest <b>collapses</b>. Bots fall too!',
+  'Bots <b>hear gunshots</b> and come looking. A crossbow is silent.',
+  '<b>Supply drops</b> fall from the sky when a new storm circle appears. Look for the blue squares on the map.',
+  'Sniper bullets <b>travel and drop</b>. Aim a little higher at long range.',
+  'Chests <b>hum</b> when you are near. Listen!',
+  'Press <b>B</b> to dance. The bots will dance on you too, so don\'t lose.',
+  'Crouch (<b>Ctrl</b>) for better accuracy. The crosshair shows how far your shots spread.',
+  'Try <b>Graphics style: 1998</b> in Settings for that authentic 3D-accelerator-card look.',
+  'Each season swaps the <b>whole map and loot pool</b>. Season 4 only has plasma weapons, and lava burns hard!',
+  'Press <b>M</b> for the big map with the bus route, storm circles and supply drops.',
+];
 
 const $ = (id) => document.getElementById(id);
 
@@ -30,6 +50,17 @@ export class UI {
     $('rSpectate').onclick = () => game.startSpectating();
     $('rLobby').onclick = () => game.backToLobby();
     $('rAgain').onclick = () => game.startMatch();
+    // music + tips (sound needs a click first, browsers block autoplay)
+    $('btnMusic').onclick = () => { game.audio.init(); settings.music = settings.music > 0 ? 0 : 0.35; saveSettings(); this.refreshMusic(); };
+    this.tip = Math.floor(Math.random() * TIPS.length);
+    $('tipNext').onclick = () => this.showTip(this.tip + 1);
+    $('tipClose').onclick = $('tipX').onclick = () => $('tipwin').classList.add('hidden');
+    $('tipShow').checked = settings.tips;
+    $('tipShow').onchange = () => { settings.tips = $('tipShow').checked; saveSettings(); };
+    this.showTip(this.tip);
+    if (settings.tips) $('tipwin').classList.remove('hidden');
+    addEventListener('pointerdown', () => { if (game.mode === 'lobby' && !game.audio.ctx) { game.audio.init(); this.refreshMusic(); } }, { once: true });
+    this.refreshStats();
   }
 
   // -------------------------------------------------------------- lobby
@@ -59,6 +90,7 @@ export class UI {
     const w = this.game.world;
     $('poiList').innerHTML = `<b>Places</b><ul>${w.sites.map((s) => `<li>${s.name}</li>`).join('')}</ul><i>${LIQUID_TEXT[season.liquid.type]}</i>`;
     this.refreshMatchInfo();
+    if (this.game.audio && this.game.audio.musicTimer) this.refreshMusic();
   }
 
   refreshMatchInfo() {
@@ -66,7 +98,29 @@ export class UI {
     $('matchInfo').innerHTML = `${settings.botCount + 1} players (${settings.botCount} bots, ${diff}) &middot; ${settings.thirdPerson ? '3rd' : '1st'} person &middot; ${settings.style === 'retro' ? '1998 graphics' : 'modern graphics'} <small>(change in Settings)</small>`;
   }
 
-  showLobby(on) { $('lobby').classList.toggle('hidden', !on); }
+  showLobby(on) {
+    $('lobby').classList.toggle('hidden', !on);
+    if (!on) $('tipwin').classList.add('hidden');
+    this.refreshStats();
+    this.refreshMusic();
+  }
+
+  showTip(i) { this.tip = (i + TIPS.length) % TIPS.length; $('tipText').innerHTML = TIPS[this.tip]; }
+
+  refreshMusic() {
+    const a = this.game.audio, on = settings.music > 0;
+    $('btnMusic').innerHTML = `&#9835; Music: ${on ? 'ON' : 'OFF'}`;
+    const inLobby = !$('lobby').classList.contains('hidden');
+    if (on && a.ctx && inLobby) a.startMusic(this.game.season.id); else a.stopMusic();
+  }
+
+  refreshStats() {
+    const pad = (n, k) => String(n).padStart(k, '0');
+    $('stMatches').textContent = pad(stats.matches, 6);
+    $('stWins').textContent = pad(stats.wins, 4);
+    $('stKills').textContent = pad(stats.kills, 6);
+    $('stBest').textContent = stats.best ? '#' + stats.best : '#--';
+  }
 
   // -------------------------------------------------------------- pause / result
   showPause(on) { $('pause').classList.toggle('hidden', !on); }
@@ -79,6 +133,7 @@ export class UI {
       <tr><td>Season</td><td>${r.season}</td></tr>
       <tr><td>${r.victory ? 'Final blow' : 'Eliminated by'}</td><td>${r.by}</td></tr></table>`;
     $('rSpectate').style.display = r.victory ? 'none' : '';
+    $('result').classList.toggle('victory', !!r.victory);
     $('result').classList.remove('hidden');
   }
 
@@ -179,7 +234,7 @@ export class UI {
     // decoration density needs a world rebuild once you let go of the slider
     host.querySelectorAll('input[type=range]').forEach((r) => { if (r.max === '2') r.onchange = rebuild; });
 
-    section('Audio', [S('Master volume', 'volume', 0, 1, 0.05, (v) => Math.round(v * 100) + '%')]);
+    section('Audio', [S('Master volume', 'volume', 0, 1, 0.05, (v) => Math.round(v * 100) + '%'), S('Lobby music', 'music', 0, 1, 0.05, (v) => Math.round(v * 100) + '%')]);
 
     const keyRows = KEY_ACTIONS.map((a) => {
       const b = document.createElement('button');

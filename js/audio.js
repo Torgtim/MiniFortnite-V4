@@ -3,6 +3,26 @@
 import { clamp } from './util.js';
 import { settings } from './settings.js';
 
+// note name -> frequency ('C5', 'F#4', ...)
+const NOTE_I = { C: -9, 'C#': -8, D: -7, 'D#': -6, E: -5, F: -4, 'F#': -3, G: -2, 'G#': -1, A: 0, 'A#': 1, B: 2 };
+function note(n) { const m = n.match(/^([A-G]#?)(\d)$/); return 440 * Math.pow(2, (NOTE_I[m[1]] + (+m[2] - 4) * 12) / 12); }
+
+// Original little loops, one per season (16th-note steps, '' = rest).
+const SONGS = {
+  1: { bpm: 128, lead: 'square', hat: true,
+    mel: ['C5', '', 'E5', 'G5', '', 'E5', 'F5', '', 'A5', '', 'G5', 'E5', 'D5', '', 'C5', '', 'D5', '', 'F5', 'A5', '', 'F5', 'G5', '', 'B5', '', 'A5', 'G5', 'E5', '', 'D5', ''],
+    bass: ['C3', '', '', '', 'C3', '', '', '', 'F2', '', '', '', 'G2', '', '', '', 'D3', '', '', '', 'D3', '', '', '', 'G2', '', '', '', 'G2', '', '', ''] },
+  2: { bpm: 96, lead: 'triangle', hat: false,
+    mel: ['A4', '', 'C5', '', 'E5', '', 'D5', 'C5', 'B4', '', '', '', 'G4', '', 'B4', '', 'A4', '', 'C5', '', 'E5', '', 'A5', 'G5', 'E5', '', '', '', 'D5', '', 'C5', ''],
+    bass: ['A2', '', '', '', '', '', '', '', 'E2', '', '', '', '', '', '', '', 'F2', '', '', '', '', '', '', '', 'E2', '', '', '', '', '', '', ''] },
+  3: { bpm: 116, lead: 'sawtooth', hat: true,
+    mel: ['D5', '', '', 'A4', 'D5', '', 'F5', '', 'E5', '', 'D5', '', 'C5', '', 'A4', '', 'D5', '', '', 'A4', 'D5', '', 'G5', '', 'F5', '', 'E5', '', 'D5', '', '', ''],
+    bass: ['D2', '', 'A2', '', 'D2', '', 'A2', '', 'C2', '', 'G2', '', 'C2', '', 'G2', '', 'D2', '', 'A2', '', 'D2', '', 'A2', '', 'A2', '', 'E2', '', 'A2', '', 'C3', ''] },
+  4: { bpm: 108, lead: 'square', hat: true,
+    mel: ['E4', 'G4', 'B4', 'E5', 'B4', 'G4', 'E4', 'G4', 'C4', 'E4', 'G4', 'C5', 'G4', 'E4', 'C4', 'E4', 'D4', 'F#4', 'A4', 'D5', 'A4', 'F#4', 'D4', 'F#4', 'B3', 'D#4', 'F#4', 'B4', 'F#4', 'D#4', 'B3', 'D#4'],
+    bass: ['E2', '', '', '', '', '', '', '', 'C2', '', '', '', '', '', '', '', 'D2', '', '', '', '', '', '', '', 'B1', '', '', '', '', '', '', ''] },
+};
+
 export class GameAudio {
   constructor(game) {
     this.game = game;
@@ -26,7 +46,49 @@ export class GameAudio {
     } catch (e) { this.ctx = null; }
   }
 
-  applyVolume() { if (this.master) this.master.gain.value = settings.volume; }
+  applyVolume() {
+    if (this.master) this.master.gain.value = settings.volume;
+    if (this.musicGain) this.musicGain.gain.value = settings.music;
+  }
+
+  // ------------------------------------------------------------------ lobby music (tiny tracker)
+  startMusic(seasonId) {
+    if (!this.ctx) return;
+    this.stopMusic();
+    const song = SONGS[seasonId] || SONGS[1];
+    if (!this.musicGain) { this.musicGain = this.ctx.createGain(); this.musicGain.connect(this.master); }
+    this.musicGain.gain.value = settings.music;
+    const stepDur = 60 / song.bpm / 4;
+    let step = 0, next = this.ctx.currentTime + 0.1;
+    const tick = () => {
+      while (next < this.ctx.currentTime + 0.25) {
+        const i = step % song.mel.length;
+        const m = song.mel[i], bss = song.bass[i % song.bass.length];
+        if (m) this._note(note(m), next, stepDur * 0.9, song.lead, 0.09);
+        if (bss) this._note(note(bss), next, stepDur * 1.8, 'triangle', 0.16);
+        if (song.hat && i % 2 === 1) this._hat(next);
+        next += stepDur; step++;
+      }
+    };
+    tick();
+    this.musicTimer = setInterval(tick, 100);
+  }
+
+  stopMusic() { if (this.musicTimer) { clearInterval(this.musicTimer); this.musicTimer = null; } }
+
+  _note(f, t, dur, type, gain) {
+    const c = this.ctx, o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(gain, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0005, t + dur);
+    o.connect(g); g.connect(this.musicGain); o.start(t); o.stop(t + dur + 0.02);
+  }
+
+  _hat(t) {
+    const c = this.ctx, src = c.createBufferSource(); src.buffer = this.noiseBuf;
+    const f = c.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 7000;
+    const g = c.createGain(); g.gain.setValueAtTime(0.03, t); g.gain.exponentialRampToValueAtTime(0.0005, t + 0.04);
+    src.connect(f); f.connect(g); g.connect(this.musicGain); src.start(t, Math.random() * 0.5, 0.05);
+  }
 
   _noise(dur, freq, q, gain, type = 'bandpass') {
     const c = this.ctx, t = c.currentTime;
@@ -57,7 +119,7 @@ export class GameAudio {
     const p = this.game.player;
     if (pos && p && pos !== p && pos.x !== undefined && this.game.mode !== 'lobby') {
       const d = Math.hypot(pos.x - p.x, pos.z - p.z);
-      v = clamp(1 - d / 110, 0, 1);
+      v = clamp(1 - d / (name === 'step' ? 32 : 110), 0, 1);
       v *= v;
       if (v < 0.02) return;
     }
@@ -98,6 +160,8 @@ export class GameAudio {
       case 'horn': this._tone(330, 0.3, 'square', 0.18, 320); setTimeout(() => this.ctx && this._tone(262, 0.4, 'square', 0.18, 255), 320); break;
       case 'land': this._noise(0.15, 400, 0.6, 0.3 * v, 'lowpass'); break;
       case 'glider': this._noise(0.4, 300, 0.5, 0.15, 'lowpass'); break;
+      case 'step': if (v > 0.08) this._noise(0.05, 260 + Math.random() * 120, 1.2, 0.22 * v * v + 0.02, 'lowpass'); break;
+      case 'step_me': this._noise(0.04, 300 + Math.random() * 100, 1.2, 0.06, 'lowpass'); break;
       case 'emote': [523, 659, 784, 659, 523, 784, 1046].forEach((f, i) => setTimeout(() => this.ctx && this._tone(f, 0.12, 'square', 0.08 * v), i * 140)); break;
       default: break;
     }

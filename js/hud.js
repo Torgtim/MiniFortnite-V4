@@ -22,7 +22,7 @@ export class HUD {
       hit: $('hitmarker'), vig: $('vignette'), use: $('usebar'), useFill: $('usefill'), msg: $('statusmsg'),
       fps: $('fps'), buildbar: $('buildbar'), buildbtns: $('buildbtns'), buildmat: $('buildmat'), editinfo: $('editinfo'), editkey: $('editkey'),
       scope: $('scope'), map: $('minimap'), pops: $('matpops'), wp: $('weakpoint'), piece: $('pieceinfo'),
-      elim: $('elim'), elimtxt: $('elimtxt'), big: $('bigmap'), bigc: $('bigmapc'), bigname: $('bigmapname'), spec: $('spectate'),
+      elim: $('elim'), elimtxt: $('elimtxt'), dmgdir: $('dmgdir'), big: $('bigmap'), bigc: $('bigmapc'), bigname: $('bigmapname'), spec: $('spectate'),
     };
     this.mapCtx = this.el.map.getContext('2d');
     this.bigCtx = this.el.bigc.getContext('2d');
@@ -70,7 +70,21 @@ export class HUD {
     this.hitT = 0.15;
   }
 
-  hurt() { this.el.vig.classList.add('hurt'); this.hurtT = 0.25; this.game.audio.play('hurt', null); }
+  hurt(src) {
+    this.el.vig.classList.add('hurt'); this.hurtT = 0.25; this.game.audio.play('hurt', null);
+    const p = this.game.player;
+    if (src && src !== p && src.x !== undefined && p) {
+      // red arc pointing at whoever shot us (0 = straight ahead)
+      const d = document.createElement('div');
+      d.className = 'arc';
+      this.el.dmgdir.appendChild(d);
+      this.arcs = (this.arcs || []).filter((a) => a.el.isConnected);
+      this.arcs.push({ el: d, x: src.x, z: src.z });
+      while (this.el.dmgdir.children.length > 4) this.el.dmgdir.firstChild.remove();
+      setTimeout(() => d.remove(), 1000);
+      this.updateArcs();
+    }
+  }
 
   feed(html) {
     const d = document.createElement('div');
@@ -78,6 +92,17 @@ export class HUD {
     this.el.feed.appendChild(d);
     while (this.el.feed.children.length > 5) this.el.feed.removeChild(this.el.feed.firstChild);
     setTimeout(() => d.remove(), 7000);
+  }
+
+  /** Keep the damage arcs pointing at the attacker while we turn. */
+  updateArcs() {
+    const p = this.game.player;
+    if (!this.arcs || !p) return;
+    for (const a of this.arcs) {
+      if (!a.el.isConnected) continue;
+      const ang = Math.atan2(-(a.x - p.x), -(a.z - p.z));
+      a.el.style.transform = `rotate(${p.yaw - ang}rad)`;
+    }
   }
 
   elimBanner(name, weapon) {
@@ -199,6 +224,17 @@ export class HUD {
     e.spec.classList.toggle('hidden', g.mode !== 'spectating');
     if (g.mode === 'spectating' && g.spectateTarget) e.spec.textContent = `Spectating ${g.spectateTarget.name} - click / A D to switch`;
 
+    // crosshair opens up with the current spread (bloom, moving, jumping...)
+    let gap = 4;
+    if (it && it.type === 'weapon' && !p.airborne) {
+      const st = weaponStats(it);
+      const px = Math.tan(g.combat.spreadFor(p, st)) / Math.tan((g.camera.fov * Math.PI / 180) / 2) * innerHeight / 2;
+      gap = Math.min(60, 3 + px);
+    }
+    this._gap = (this._gap || gap) + (gap - (this._gap || gap)) * Math.min(1, dt * 18);
+    e.cross.style.setProperty('--g', this._gap.toFixed(1) + 'px');
+
+    this.updateArcs();
     this.updateWeakPoint();
     this.updatePieceInfo(p);
     this.mapT -= dt;
