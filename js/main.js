@@ -202,6 +202,8 @@ class Game {
     this.storm.reset((Date.now() >>> 5) & 0xffff);
     this.lastStormPhase = this.storm.phase;
     this.time = 0;
+    this.playground = settings.gameMode === 'playground';
+    if (this.playground) return this.startPlayground(rnd);
     this.bus.start(rnd);
     // some seasons have bounce pads built into the map
     for (let i = 0; i < (this.season.worldPads || 0); i++) {
@@ -232,8 +234,56 @@ class Game {
     this.audio.play('horn', null);
   }
 
+  /** Playground: no storm, no enemies, unlimited mats + ammo, a full loadout and target dummies. */
+  startPlayground(rnd) {
+    this.bus.active = false; this.bus.mesh.visible = false;
+    this.storm.r = 9999; this.storm.toR = 9999; this.storm.state = 'idle'; this.storm._apply();
+    for (let i = 0; i < (this.season.worldPads || 0); i++) { const q = this.world.randomLandPoint(rnd, 20); this.gadgets.placePad(q.x, q.y, q.z, null); }
+    const pl = new Player(this);
+    this.player = pl;
+    const site = this.world.sites.find((s) => s.tower) || this.world.sites[0] || { x: 0, z: 0 };
+    const spot = this.world.randomLandPoint(rnd, 0, 999);
+    pl.x = site.x + 18; pl.z = site.z + 18;
+    if (!this.world.isFreeSpot(pl.x, pl.z, this.world.heightAt(pl.x, pl.z))) { pl.x = spot.x; pl.z = spot.z; }
+    pl.y = this.world.heightAt(pl.x, pl.z) + 60; pl.air = 'fall'; pl.vy = -10;
+    pl.yaw = Math.atan2(-(site.x - pl.x), -(site.z - pl.z));
+    const W = this.season.weapons.map(([id]) => id);
+    const pickCls = (cls) => W.find((id) => WEAPONS[id].cls === cls) || W[0];
+    pl.slots = [{ type: 'pickaxe' }, { type: 'weapon', id: pickCls('rifle'), rarity: 4, mag: 99 }, { type: 'weapon', id: pickCls('shotgun'), rarity: 4, mag: 99 },
+      { type: 'weapon', id: pickCls('sniper'), rarity: 4, mag: 99 }, { type: 'item', id: 'nade', count: 6 }, { type: 'item', id: 'pad', count: 2 }];
+    for (const s of pl.slots) if (s.type === 'weapon') s.mag = WEAPONS[s.id].mag;
+    this.scene.add(pl.model.root);
+    this.entities.push(pl);
+    // practice dummies: stand around, strafe a bit, respawn when eliminated
+    for (let i = 0; i < 5; i++) {
+      const b = new Bot(this, 'Dummy ' + (i + 1), 30 + i, 0);
+      b.dummy = true; b.builder = false;
+      const a = (i / 5) * Math.PI * 2, r = 14;
+      b.home = { x: pl.x + Math.cos(a) * r, z: pl.z + Math.sin(a) * r };
+      this._placeDummy(b);
+      this.scene.add(b.mesh);
+      this.bots.push(b); this.entities.push(b);
+    }
+    this.totalPlayers = this.entities.length;
+    this.mode = 'playing';
+    this.paused = false;
+    this.applySettings();
+    this.lockPointer();
+    this.hud.feed('<span class="me">PLAYGROUND: build, edit and shoot as much as you like. Dummies respawn.</span>');
+  }
+
+  _placeDummy(b) {
+    const w = this.world;
+    let x = b.home.x + (Math.random() - 0.5) * 6, z = b.home.z + (Math.random() - 0.5) * 6;
+    if (!w.isFreeSpot(x, z, w.heightAt(x, z)) || w.heightAt(x, z) < w.liquidY + 0.5) { const q = w.randomLandPoint(Math.random, 0, 999); x = q.x; z = q.z; }
+    b.x = x; b.z = z; b.y = w.heightAt(x, z); b.grounded = true; b.air = null; b.untargetable = false;
+    b.alive = true; b.hp = 100; b.shield = 50; b.model.root.visible = true;
+    b.yaw = Math.random() * Math.PI * 2;
+  }
+
   backToLobby() {
     this.mode = 'lobby';
+    this.playground = false;
     this._clearActors();
     this.player = null;
     this.bus.active = false; this.bus.mesh.visible = false;
@@ -285,7 +335,7 @@ class Game {
   eliminate(target, src, weapon) {
     if (!target.alive) return;
     target.alive = false;
-    this.loot.dropInventory(target);
+    if (!this.playground) this.loot.dropInventory(target);
     if (target.model) {
       const c = target.model.colors;
       this.fx.eliminate(target.x, target.y, target.z, [c.shirt, c.pants, c.skin, c.accent, '#5fd0ff']);
@@ -301,6 +351,11 @@ class Game {
     else this.hud.feed(`${hl(target)} <small>was eliminated (${weapon || 'storm'})</small>`);
     if (src && src.isPlayer && src !== target) { this.audio.play('eliminate', null); this.hud.elimBanner(target.name, weapon); src.lastKill = target.name; }
 
+    if (this.playground) {
+      if (target.dummy) setTimeout(() => { if (this.playground && this.bots.includes(target)) { this._placeDummy(target); this.fx.flash(target.x, target.y + 1, target.z, 4, 0.3); } }, 3000);
+      if (target.isPlayer) setTimeout(() => { if (this.playground && this.player === target) { target.alive = true; target.hp = 100; target.shield = 100; target.y += 40; target.air = 'fall'; target.model.root.visible = true; } }, 1500);
+      return;
+    }
     const left = this.aliveCount();
     if (target.isPlayer) {
       this.mode = 'dead';
@@ -517,7 +572,7 @@ class Game {
       this.time += dt;
       const p = this.player;
       this.bus.update(dt);
-      if (!this.bus.active || this.bus.dist > 120) this.storm.update(dt);
+      if (!this.playground && (!this.bus.active || this.bus.dist > 120)) this.storm.update(dt);
       if (this.storm.phase !== this.lastStormPhase) {
         // a supply drop for each of the first storm circles
         if (this.storm.phase >= 1 && this.storm.phase <= 3) {
@@ -547,6 +602,7 @@ class Game {
       }
       this.build.update(dt);
       this.gadgets.update(dt);
+      if (this.playground && p) { p.mats.wood = p.mats.brick = p.mats.metal = 999; for (const k in p.ammo) p.ammo[k] = 999; }
       for (const b of this.bots) if (b.alive) { b.update(dt); this.hazards(b, dt); }
     }
 

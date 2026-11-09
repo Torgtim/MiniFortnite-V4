@@ -346,6 +346,18 @@ export class Bot extends Entity {
   update(dt) {
     if (!this.alive) return;
     const g = this.game, w = g.world;
+    if (this.dummy) {
+      // practice target: strafes slowly left and right, never shoots back
+      this.strafeT -= dt;
+      if (this.strafeT <= 0) { this.strafe = -this.strafe; this.strafeT = 1.2 + Math.random() * 1.5; }
+      const rx = Math.cos(this.yaw), rz = -Math.sin(this.yaw);
+      this.vx = rx * this.strafe * 2.5; this.vz = rz * this.strafe * 2.5;
+      stepEntity(w, this, dt);
+      if (Math.random() < dt * 0.3 && this.grounded) { this.vy = 7; this.grounded = false; }
+      this.animateModel(dt);
+      if (this.model.tag) this.model.tag.visible = true;
+      return;
+    }
 
     // ---- bus / sky
     if (this.air === 'bus') {

@@ -61,6 +61,8 @@ export class UI {
     if (settings.tips) $('tipwin').classList.remove('hidden');
     addEventListener('pointerdown', () => { if (game.mode === 'lobby' && !game.audio.ctx) { game.audio.init(); this.refreshMusic(); } }, { once: true });
     this.refreshStats();
+    $(settings.gameMode === 'playground' ? 'modePG' : 'modeBR').checked = true;
+    for (const id of ['modeBR', 'modePG']) $(id).onchange = (ev) => { settings.gameMode = ev.target.value; saveSettings(); this.refreshMatchInfo(); };
     this._buildLocker();
     $('btnLocker').onclick = () => $('locker').classList.remove('hidden');
     $('lockClose').onclick = () => $('locker').classList.add('hidden');
@@ -98,6 +100,7 @@ export class UI {
 
   refreshMatchInfo() {
     const diff = ['Easy', 'Normal', 'Hard'][settings.botDifficulty] || 'Normal';
+    if (settings.gameMode === 'playground') { $('matchInfo').innerHTML = 'Just you and 5 target dummies. No storm, unlimited materials and ammo.'; return; }
     $('matchInfo').innerHTML = `${settings.botCount + 1} players (${settings.botCount} bots, ${diff}) &middot; ${settings.thirdPerson ? '3rd' : '1st'} person &middot; ${settings.style === 'retro' ? '1998 graphics' : 'modern graphics'} <small>(change in Settings)</small>`;
   }
 

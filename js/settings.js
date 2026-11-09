@@ -52,6 +52,7 @@ export const DEFAULTS = {
   crosshairColor: '#ffffff',
   autoPickup: true,
   outfit: { shirt: '#ff8a1e', pants: '#23324a', accent: '#2f6bff', hair: '#5a3a1a', hat: 'cap' },
+  gameMode: 'br',      // 'br' (battle royale) | 'playground' (practice)
   botCount: 19,
   botDifficulty: 1,
   season: 1,

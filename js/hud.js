@@ -207,7 +207,7 @@ export class HUD {
     e.kills.textContent = p.kills;
     const st = g.storm.label();
     const busWait = g.bus.active && g.bus.dist <= 120;
-    e.storm.innerHTML = busWait ? 'Storm forms after the bus leaves' : `${st.text} <b>${fmtTime(st.t)}</b>${outside ? ' - GET IN THE CIRCLE!' : ''}`;
+    e.storm.innerHTML = g.playground ? 'PLAYGROUND - no storm &middot; unlimited mats' : busWait ? 'Storm forms after the bus leaves' : `${st.text} <b>${fmtTime(st.t)}</b>${outside ? ' - GET IN THE CIRCLE!' : ''}`;
     e.storm.classList.toggle('danger', outside || g.storm.state === 'shrinking');
 
     // prompt + status

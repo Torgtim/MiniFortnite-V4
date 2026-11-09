@@ -13,6 +13,9 @@ The menus *and* the HUD look like Windows 95, and there's an optional 1998 graph
 - Supply drops come down on balloons. Chests hum when you're close. There are also ammo boxes.
 - Eliminations break the body into glowing pixels, and everything they carried drops: weapons, items, ammo and materials.
 
+### Playground mode
+Choose **Playground** in the lobby to practise building, editing and aiming. There's no storm, materials and ammo are unlimited, you get a full legendary loadout, and 5 target dummies strafe around and respawn. You respawn too.
+
 ### Movement
 - Sprint (**Shift**, or turn on "sprint by default"), and crouch with **C**. It's not on Ctrl because Ctrl+W closes the browser tab.
 - Sliding: press **C** while sprinting. Slopes speed you up, and you can slide-jump.
