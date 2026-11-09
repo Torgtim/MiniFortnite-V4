@@ -159,6 +159,33 @@ export class Bot extends Entity {
       const ri = this.slots.findIndex((q, i) => i > 0 && q && q.type === 'item' && q.id === 'rift');
       if (ri > 0) { this.dropTarget = { x: st.toX, z: st.toZ }; g.gadgets.use(this, ri); return; }
     }
+    // box fighting: in our own box with an enemy around -> edit a window, peek, close it again
+    if (this.boxed && !this.healing && this.enemy && now - this.lastSeen < 8 && dist < 40 && hasGun) {
+      if (this.peek && now > this.peek.until) {
+        if (!this.peek.piece.dead) g.build.applyEdit(this.peek.piece, { removed: [] });
+        this.peek = null; this.peekCd = now + 1.5 + Math.random() * 2;
+      } else if (!this.peek && now > (this.peekCd || 0)) {
+        const ex = this.enemyPos ? this.enemyPos.x : this.enemy.x, ez = this.enemyPos ? this.enemyPos.z : this.enemy.z;
+        const yaw = this.snapYaw(Math.atan2(-(ex - this.x), -(ez - this.z)));
+        const c = g.build.compute(this, 'wall', yaw, 0);
+        const wall = g.build.byKey.get(c.key);
+        if (wall && wall.owner === this && !wall.dead) {
+          g.build.applyEdit(wall, { removed: [4] });
+          this.peek = { piece: wall, until: now + 2 + Math.random() * 1.5 };
+        }
+      }
+    } else if (this.peek) {
+      if (!this.peek.piece.dead) g.build.applyEdit(this.peek.piece, { removed: [] });
+      this.peek = null;
+    }
+    // badly hurt with nothing to heal: run, and build walls behind us
+    const lowNoHeal = this.hp + this.shield < 35 && !this.slots.some((q, i) => i > 0 && q && q.type === 'item' && (ITEM_KINDS[q.id].hp || ITEM_KINDS[q.id].sh));
+    if (!this.boxed && visible && dist < 30 && lowNoHeal && !(this.enemy.hp + this.enemy.shield < 40)) {
+      this.mode = 'flee';
+      this.goal = { x: this.x - (this.enemy.x - this.x) * 2, z: this.z - (this.enemy.z - this.z) * 2, kind: 'flee' }; this.goalT = 4; this.path = [];
+      if (this.builder && this.buildCd <= 0 && this.totalMats() >= 10 && Math.random() < 0.6) { if (this.buildWallToward(this.enemy.x, this.enemy.z)) this.buildCd = 1.2; }
+      return;
+    }
     if (this.boxPlan) this.mode = 'box';
     else if (this.healing) { this.mode = 'heal'; this.goal = null; }
     else if ((inDanger || rotateNow) && !(this.enemy && visible && dist < 18 && !outside)) {
