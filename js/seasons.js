@@ -28,6 +28,7 @@ export const SEASONS = [
     sky: '#8ec9f0', fog: '#a9d6f2', sun: '#fff1d0', sunI: 1.15, hemiSky: '#bfe3ff', hemiGround: '#5a7a4a', hemiI: 0.85,
     liquid: { type: 'water', y: -0.8, color: '#2f86d6', opacity: 0.82 },
     poiCount: 6,
+    road: '#a8875a',
     poiNames: ['Greenhill Hamlet', 'Fisher\'s Cove', 'Old Mill', 'Dusty Depot', 'Lonely Lodge', 'Tower Row'],
     building: { wall: '#dccaa2', roof: '#a8483a', floor: '#8a6d4a', trim: '#6e4a2c', roofStyle: 'gable' },
     terrain(x, z, n) {
@@ -84,6 +85,7 @@ export const SEASONS = [
     sky: '#cfe6f5', fog: '#dcebf5', sun: '#e8f0ff', sunI: 0.95, hemiSky: '#e8f4ff', hemiGround: '#8aa0b4', hemiI: 0.95,
     liquid: { type: 'icy', y: -0.8, color: '#7fd0ee', opacity: 0.85 },
     poiCount: 6,
+    road: '#b9c4cf',
     poiNames: ['Pinecrest Camp', 'Frozen Pier', 'Snowdrift Mine', 'Cabin Ridge', 'Glacier Station', 'Icebox Depot'],
     building: { wall: '#7a5230', roof: '#eef3f7', floor: '#5b4129', trim: '#4a3220', roofStyle: 'gable' },
     terrain(x, z, n) {
@@ -139,6 +141,7 @@ export const SEASONS = [
     sky: '#f3cf8e', fog: '#f1d8a6', sun: '#ffd9a0', sunI: 1.25, hemiSky: '#ffe6b8', hemiGround: '#b8803c', hemiI: 0.8,
     liquid: { type: 'quicksand', y: -0.8, color: '#b98a3d', opacity: 0.95 },
     poiCount: 6,
+    road: '#a2652f',
     poiNames: ['Dry Gulch', 'Rattlesnake Wells', 'Adobe Flats', 'Sundown Saloon', 'Mesa Point', 'Ghost Town'],
     building: { wall: '#d8a15a', roof: '#b9773a', floor: '#a97a45', trim: '#8a5a2c' },
     terrain(x, z, n) {
@@ -194,6 +197,7 @@ export const SEASONS = [
     sky: '#1a0b2e', fog: '#2a1040', sun: '#a58bff', sunI: 0.95, hemiSky: '#ff7fe4', hemiGround: '#2de2ff', hemiI: 1.05,
     liquid: { type: 'lava', y: -0.8, color: '#ff5a14', opacity: 0.95, dps: 28 },
     poiCount: 5,
+    road: '#2de2ff',
     poiNames: ['Reactor Ring', 'Obsidian Pods', 'Magma Dock', 'Neon Spire', 'Shard Yard'],
     building: { wall: '#25223a', roof: '#3a3560', floor: '#15131f', trim: '#ff2bd6' },
     terrain(x, z, n) {

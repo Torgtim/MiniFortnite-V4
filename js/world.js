@@ -97,6 +97,7 @@ export class World {
     this.liquidY = season.liquid.y;
 
     this._pickSites();
+    this._planRoads();
     this._buildTerrain();
     this._buildLiquid();
     this._buildBuildings();
@@ -149,6 +150,40 @@ export class World {
     }
   }
 
+  /** Connect the towns with roads (minimum spanning tree over the sites). */
+  _planRoads() {
+    this.roads = [];
+    const S = this.sites;
+    if (S.length < 2) return;
+    const inTree = [0], rest = S.map((_, i) => i).slice(1);
+    while (rest.length) {
+      let best = null;
+      for (const a of inTree) for (const b of rest) {
+        const d = Math.hypot(S[a].x - S[b].x, S[a].z - S[b].z);
+        if (!best || d < best.d) best = { a, b, d };
+      }
+      // slight wiggle: route through a midpoint offset sideways
+      const A = S[best.a], B = S[best.b];
+      const mx = (A.x + B.x) / 2, mz = (A.z + B.z) / 2, px = -(B.z - A.z) / best.d, pz = (B.x - A.x) / best.d;
+      const off = (this.rnd() - 0.5) * best.d * 0.25;
+      const M = { x: mx + px * off, z: mz + pz * off };
+      this.roads.push([A.x, A.z, M.x, M.z], [M.x, M.z, B.x, B.z]);
+      inTree.push(best.b); rest.splice(rest.indexOf(best.b), 1);
+    }
+  }
+
+  /** 0..1: how much (x,z) is on a road. */
+  roadAt(x, z) {
+    let best = 99;
+    for (const [x0, z0, x1, z1] of this.roads) {
+      const dx = x1 - x0, dz = z1 - z0, l2 = dx * dx + dz * dz || 1;
+      let t = ((x - x0) * dx + (z - z0) * dz) / l2; t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const d = Math.hypot(x - (x0 + dx * t), z - (z0 + dz * t));
+      if (d < best) best = d;
+    }
+    return 1 - smoothstep(1.6, 3.0, best);
+  }
+
   _buildTerrain() {
     const seg = 170;
     const geo = new THREE.PlaneGeometry(SIZE, SIZE, seg, seg);
@@ -165,6 +200,8 @@ export class World {
       const x = pos.getX(i), z = pos.getZ(i), h = pos.getY(i);
       const slope = 1 - nor.getY(i);
       const c = this.season.ground(h, slope, x, z, this.noise, this.liquidY);
+      const road = h > this.liquidY + 0.3 && this.season.road ? this.roadAt(x, z) : 0;
+      if (road > 0) c.lerp(this._roadCol || (this._roadCol = new THREE.Color(this.season.road)), road * 0.9);
       cols[i * 3] = Math.min(1, c.r * 1.12); cols[i * 3 + 1] = Math.min(1, c.g * 1.12); cols[i * 3 + 2] = Math.min(1, c.b * 1.12);
     }
     geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
@@ -686,6 +723,10 @@ export class World {
     }
     g.putImageData(img, 0, 0);
     const k = px / SIZE;
+    if (this.season.road) {
+      g.strokeStyle = this.season.road; g.lineWidth = 2; g.lineCap = 'round';
+      for (const [x0, z0, x1, z1] of this.roads) { g.beginPath(); g.moveTo((x0 + SIZE / 2) * k, (z0 + SIZE / 2) * k); g.lineTo((x1 + SIZE / 2) * k, (z1 + SIZE / 2) * k); g.stroke(); }
+    }
     g.fillStyle = 'rgba(20,20,20,0.85)';
     for (const b of this.buildings) g.fillRect((b.x0 + SIZE / 2) * k, (b.z0 + SIZE / 2) * k, Math.max(2, (b.x1 - b.x0) * k), Math.max(2, (b.z1 - b.z0) * k));
     cv.worldSize = SIZE;

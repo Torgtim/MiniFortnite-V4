@@ -145,10 +145,9 @@ export class HUD {
     e.vig.classList.toggle('storm', outside);
 
     // bars
-    e.hp.style.width = Math.max(0, p.hp) + '%';
-    e.hpt.textContent = Math.ceil(Math.max(0, p.hp));
-    e.sh.style.width = Math.max(0, p.shield) + '%';
-    e.sht.textContent = Math.ceil(Math.max(0, p.shield));
+    const hp = Math.ceil(Math.max(0, p.hp)), sh = Math.ceil(Math.max(0, p.shield));
+    if (this._hp !== hp) { e.hp.style.width = Math.min(100, hp) + '%'; e.hpt.textContent = hp; this._hp = hp; }
+    if (this._sh !== sh) { e.sh.style.width = Math.min(100, sh) + '%'; e.sht.textContent = sh; this._sh = sh; }
 
     // hotbar (or build bar)
     const building = g.build.active;
@@ -203,22 +202,28 @@ export class HUD {
     }
 
     // scoreboard / storm
-    e.alive.textContent = g.aliveCount();
-    e.kills.textContent = p.kills;
+    const al = g.aliveCount();
+    if (e.alive._v !== al) { e.alive.textContent = al; e.alive._v = al; }
+    if (e.kills._v !== p.kills) { e.kills.textContent = p.kills; e.kills._v = p.kills; }
     const st = g.storm.label();
     const busWait = g.bus.active && g.bus.dist <= 120;
-    e.storm.innerHTML = g.playground ? 'PLAYGROUND - no storm &middot; unlimited mats' : busWait ? 'Storm forms after the bus leaves' : `${st.text} <b>${fmtTime(st.t)}</b>${outside ? ' - GET IN THE CIRCLE!' : ''}`;
+    const stormHtml = g.playground ? 'PLAYGROUND - no storm &middot; unlimited mats' : busWait ? 'Storm forms after the bus leaves' : `${st.text} <b>${fmtTime(st.t)}</b>${outside ? ' - GET IN THE CIRCLE!' : ''}`;
+    if (this._stormHtml !== stormHtml) { e.storm.innerHTML = stormHtml; this._stormHtml = stormHtml; }
     e.storm.classList.toggle('danger', outside || g.storm.state === 'shrinking');
 
     // prompt + status
-    e.prompt.textContent = g.prompt || '';
-    e.prompt.style.display = g.prompt ? 'block' : 'none';
-    e.prompt.style.borderLeft = g.promptColor ? `8px solid ${g.promptColor}` : '';
+    const pk = (g.prompt || '') + '|' + (g.promptColor || '');
+    if (this._prompt !== pk) {
+      this._prompt = pk;
+      e.prompt.textContent = g.prompt || '';
+      e.prompt.style.display = g.prompt ? 'block' : 'none';
+      e.prompt.style.borderLeft = g.promptColor ? `8px solid ${g.promptColor}` : '';
+    }
     let msg = '';
     if (p.air === 'bus') msg = '';
     else if (p.air === 'fall') msg = 'SKYDIVING - W to dive faster, SPACE opens the glider';
     else if (p.air === 'glide') msg = 'GLIDING - steer with mouse + WASD';
-    e.msg.textContent = msg;
+    if (e.msg._t !== msg) { e.msg.textContent = msg; e.msg._t = msg; }
     e.editinfo.classList.toggle('hidden', !g.edit.active);
     e.scope.classList.toggle('on', !!(p.ads && it && it.type === 'weapon' && weaponStats(it).zoom >= 2.4 && !p.airborne));
     e.cross.style.display = e.scope.classList.contains('on') ? 'none' : '';

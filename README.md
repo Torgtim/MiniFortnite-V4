@@ -56,7 +56,7 @@ Choose **Playground** in the lobby to practise building, editing and aiming. The
 ### The 4 seasons
 The toggle bar in the lobby swaps the **entire map and loot pool**:
 
-Every map also has a three-storey **lookout tower** near the middle, with ramps inside and a chest on the roof.
+Every map also has a three-storey **lookout tower** near the middle, with ramps inside and a chest on the roof, plus **roads** between the towns.
 
 | Season | Map | Liquid | Weapons |
 |---|---|---|---|
