@@ -56,6 +56,17 @@ export class ViewModel {
     this.flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false, transparent: true }));
     this.flash.scale.setScalar(0.22); this.flash.renderOrder = 1000; this.flash.visible = false;
     this.root.add(this.flash);
+    // arms + hands (sleeve colour follows the Locker outfit)
+    this.arms = new THREE.Group();
+    this.sleeveMat = new THREE.MeshLambertMaterial({ color: 0xff8a1e, depthTest: false, depthWrite: false });
+    const skin = mat(0xf2c9a0);
+    const mk = (geo, m, x, y, z, rx, ry) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.rotation.set(rx, ry, 0); o.renderOrder = 998; this.arms.add(o); return o; };
+    const sleeve = new THREE.BoxGeometry(0.09, 0.09, 0.42), hand = new THREE.BoxGeometry(0.07, 0.08, 0.09);
+    mk(sleeve, this.sleeveMat, 0.03, -0.1, 0.22, 0.25, 0.1);          // right forearm (trigger hand)
+    mk(hand, skin, 0.0, -0.07, 0.03, 0, 0);
+    mk(sleeve, this.sleeveMat, -0.16, -0.12, 0.02, 0.35, -0.55);      // left forearm under the barrel
+    mk(hand, skin, -0.05, -0.06, -0.2, 0, 0);
+    this.root.add(this.arms);
     this.current = null;
     this.t = 0;
     this.pos = new THREE.Vector3(0.2, -0.17, -0.32);
@@ -75,6 +86,8 @@ export class ViewModel {
     if (!p.alive || game.build.active || game.edit.active || p.airborne) { this.root.visible = false; return; }
     this.root.visible = true;
     if (!it) { this.root.visible = false; return; }
+    this.arms.visible = it.type === 'weapon';
+    if (game.settings.outfit) this.sleeveMat.color.set(game.settings.outfit.shirt);
     if (it.type === 'weapon') {
       st = weaponStats(it);
       show = this._gun(st.cls);
