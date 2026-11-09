@@ -44,10 +44,12 @@ The menus *and* the HUD look like Windows 95, and there's an optional 1998 graph
 - They choose weapons by range, and their aim settles over time and leads moving targets.
 - They wall up when they get shot, ramp-rush you when you're above them, and box up to heal.
 - They shoot through your builds, throw grenades at you when you hide, and mantle over obstacles.
-- They go through doors into houses.
+- They go through doors into houses, and edit a door into their own box when they want out.
 
 ### The 4 seasons
 The toggle bar in the lobby swaps the **entire map and loot pool**:
+
+Every map also has a three-storey **lookout tower** near the middle, with ramps inside and a chest on the roof.
 
 | Season | Map | Liquid | Weapons |
 |---|---|---|---|
@@ -113,4 +115,4 @@ The toggle bar in the lobby swaps the **entire map and loot pool**:
 To run it locally, start `python3 -m http.server` and open `http://localhost:8000`.
 
 ## Not yet
-Multiplayer, vehicles, bots editing their builds, and traps.
+Multiplayer, vehicles, traps and squads.
