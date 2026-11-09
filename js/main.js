@@ -167,6 +167,8 @@ class Game {
   onLanded(e) {
     this.fx.landing(e.x, e.y, e.z);
     if (e.isPlayer) this.audio.play('land', e);
+    // bots skip the boring first minute of farming: builders land with a little wood
+    else if (e.builder) e.mats.wood += Math.round(30 + e.skill * 70);
   }
 
   // ------------------------------------------------------------------ match lifecycle

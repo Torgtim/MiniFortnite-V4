@@ -111,10 +111,12 @@ export class EditSystem {
     const p = this.piece, sel = this.sel;
     if (p.type === 'ramp') {
       if (sel.length < 2) return null;
-      const ctr = (i) => [i % 2, Math.floor(i / 2)];
-      const [ax, az] = ctr(sel[0]), [bx, bz] = ctr(sel[sel.length - 1]);
+      // direction: from the centre of the first half of the path to the centre of the second half
+      const ctr = (list) => [list.reduce((a, i) => a + (i % 2), 0) / list.length, list.reduce((a, i) => a + Math.floor(i / 2), 0) / list.length];
+      const h = Math.ceil(sel.length / 2);
+      const [ax, az] = ctr(sel.slice(0, h)), [bx, bz] = ctr(sel.slice(sel.length - h));
       let dx = bx - ax, dz = bz - az;
-      if (dx === 0 && dz === 0) return null;
+      if (Math.abs(dx) < 0.01 && Math.abs(dz) < 0.01) return null;
       if (Math.abs(dx) >= Math.abs(dz)) { dx = Math.sign(dx); dz = 0; } else { dz = Math.sign(dz); dx = 0; }
       // which columns (perpendicular to the ramp direction) does the path cover?
       const perp = new Set(sel.map((i) => (dx !== 0 ? Math.floor(i / 2) : i % 2)));

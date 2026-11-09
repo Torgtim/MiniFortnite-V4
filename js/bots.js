@@ -178,12 +178,12 @@ export class Bot extends Entity {
       else if (this.mode === 'harvest' && this.harvestNode && !this.harvestNode.dead && this.totalMats() < 260) { /* keep harvesting */ }
       else if (this.builder && hasGun && this.totalMats() < 120 && Math.random() < 0.7 && (this.harvestNode = this.findNode())) {
         // armed but broke: farm some materials before looting more
-        this.mode = 'harvest'; this.goal = { x: this.harvestNode.x, z: this.harvestNode.z, kind: 'harvest' }; this.goalT = 12; this.path = [];
+        this.mode = 'harvest'; this.harvestT = 0; this.goal = { x: this.harvestNode.x, z: this.harvestNode.z, kind: 'harvest' }; this.goalT = 12; this.path = [];
       } else {
         const target = this.findLoot(wantGun);
         if (target) { this.mode = 'loot'; this.goal = { x: target.x, z: target.z, target, kind: 'loot' }; this.goalT = 14; this.path = []; }
         else if (this.builder && this.totalMats() < 120 && (this.harvestNode = this.findNode())) {
-          this.mode = 'harvest'; this.goal = { x: this.harvestNode.x, z: this.harvestNode.z, kind: 'harvest' }; this.goalT = 12; this.path = [];
+          this.mode = 'harvest'; this.harvestT = 0; this.goal = { x: this.harvestNode.x, z: this.harvestNode.z, kind: 'harvest' }; this.goalT = 12; this.path = [];
         } else if (!this.goal || this.goal.target || this.goal.kind !== 'roam' || this.goalT <= 0 || Math.hypot(this.goal.x - this.x, this.goal.z - this.z) < 3) {
           this.mode = 'roam';
           const a = Math.random() * Math.PI * 2, r = 25 + Math.random() * 45;
@@ -271,8 +271,11 @@ export class Bot extends Entity {
   findNode() {
     const w = this.game.world;
     let best = null, bd = 45 * 45;
+    const now = this.game.time;
     for (const n of w.nodes) {
       if (n.dead) continue;
+      const bl = this.blacklist.get(n);
+      if (bl && bl > now) continue;
       const d = (n.x - this.x) ** 2 + (n.z - this.z) ** 2;
       const k = n.res === 'wood' ? 0.7 : 1;
       if (d * k < bd) { bd = d * k; best = n; }
@@ -375,6 +378,8 @@ export class Bot extends Entity {
       crouch = true;
     } else if (this.mode === 'harvest' && this.harvestNode && !this.harvestNode.dead) {
       const n = this.harvestNode;
+      this.harvestT = (this.harvestT || 0) + dt;
+      if (this.harvestT > 14) { this.blacklist.set(n, this.game.time + 40); this.harvestNode = null; this.harvestT = 0; this.mode = 'roam'; this.goal = null; }
       const dx = n.x - this.x, dz = n.z - this.z, d = Math.hypot(dx, dz);
       const want = Math.atan2(-dx, -dz);
       this.yaw += clamp(angleDiff(this.yaw, want), -dt * 8, dt * 8);
@@ -495,8 +500,9 @@ export class Bot extends Entity {
     if (!visible) {
       const d0 = Math.hypot(dx, ay - this.eyeY, dz) || 1;
       const hit = g.world.raycast(this.x, this.eyeY, this.z, dx / d0, (ay - this.eyeY) / d0, dz / d0, d0, 2.0);
-      if (hit.collider && hit.collider.piece && hit.t < Math.min(st.range, 60)) {
-        const p = hit.collider.piece; aimX = p.x; ay = p.y; aimZ = p.z; shootBuild = true;
+      const pc = hit.collider && hit.collider.piece;
+      if (pc && pc.owner !== this && hit.t < Math.min(st.range, 60)) {
+        aimX = pc.x; ay = pc.y; aimZ = pc.z; shootBuild = true;
       }
     }
     const adx = aimX - this.x, adz = aimZ - this.z, ad = Math.hypot(adx, adz) || 1;
@@ -522,7 +528,7 @@ export class Bot extends Entity {
     // ---- movement: hold the ideal distance, strafe, sometimes jump / crouch
     const ideal = (IDEAL[st.cls] || 18) * (1.25 - this.aggro * 0.5);
     let fwd = dist > ideal * 1.3 ? 1 : dist < ideal * 0.6 ? -1 : 0;
-    if (!visible && !shootBuild) fwd = 1; // push to where we last saw them
+    if (!visible && !shootBuild) fwd = this.boxed ? 0 : 1; // push to where we last saw them (unless we boxed up)
     const lowEnemy = e.hp + e.shield < 60 && this.aggro > 0.5;
     if (lowEnemy && visible) fwd = 1;
     const fx = -Math.sin(wantYaw), fz = -Math.cos(wantYaw), sx = Math.cos(wantYaw) * this.strafe, sz = -Math.sin(wantYaw) * this.strafe;
