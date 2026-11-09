@@ -204,3 +204,10 @@ select { background: #fff; border: 2px inset #fff; }
   #feedwin { width: 240px; }
   .slot { width: 56px; height: 54px; }
 }
+
+/* settings tabs (Win95 property-sheet look) */
+.settabs { display: flex; gap: 2px; margin-bottom: -2px; position: relative; z-index: 1; }
+.settab { border: 2px outset #fff; border-bottom: none; background: #c0c0c0; padding: 3px 14px; font: inherit; font-size: 15px; cursor: pointer; }
+.settab.on { font-weight: bold; padding-bottom: 5px; margin-top: -3px; background: #c0c0c0; }
+.setpane { border: 2px outset #fff; padding: 8px; background: #c0c0c0; max-height: 62vh; overflow-y: auto; }
+.keyhint { font-size: 14px; margin: 0 0 8px; }

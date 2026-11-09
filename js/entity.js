@@ -1,8 +1,8 @@
 // Shared state + inventory logic for anything that fights: the player and the bots.
 // Also the shared "air" movement (bus -> skydive -> glider) and the character model hookup.
 
-import { AMMO, ITEM_KINDS, RARITIES, WEAPONS, weaponStats, makeWeapon } from './weapons.js?v=43';
-import { PLAYER_H, CROUCH_H, FALL_SAFE, groundAt, isFree } from './physics.js?v=43';
+import { AMMO, ITEM_KINDS, RARITIES, WEAPONS, weaponStats, makeWeapon } from './weapons.js?v=44';
+import { PLAYER_H, CROUCH_H, FALL_SAFE, groundAt, isFree } from './physics.js?v=44';
 
 export class Entity {
   constructor(game, name, isPlayer = false) {

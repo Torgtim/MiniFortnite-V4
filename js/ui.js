@@ -1,9 +1,9 @@
 // Menus: lobby (season switcher), settings, pause and result windows.
 
-import { SEASONS } from './seasons.js?v=43';
-import { WEAPONS, AMMO } from './weapons.js?v=43';
-import { settings, saveSettings, resetSettings, applyPreset, KEY_ACTIONS, keyLabel } from './settings.js?v=43';
-import { stats } from './stats.js?v=43';
+import { SEASONS } from './seasons.js?v=44';
+import { WEAPONS, AMMO } from './weapons.js?v=44';
+import { settings, saveSettings, resetSettings, applyPreset, KEY_ACTIONS, KEY_GROUPS, keysClash, keyLabel } from './settings.js?v=44';
+import { stats } from './stats.js?v=44';
 
 const TIPS = [
   'Press <b>C</b> while sprinting to <b>slide</b>. Sliding downhill makes you even faster, and you can jump out of a slide.',
@@ -239,12 +239,26 @@ export class UI {
   _buildSettings() {
     const host = $('setBody');
     host.innerHTML = '';
+    // two tabs: the general / visual settings and the key binds
+    const tab = this.settingsTab || 'general';
+    const bar = document.createElement('div'); bar.className = 'settabs';
+    const panes = {};
+    for (const [id, name] of [['general', 'General & Visual'], ['keys', 'Key Binds']]) {
+      const b = document.createElement('button');
+      b.className = 'settab' + (id === tab ? ' on' : ''); b.textContent = name;
+      b.onclick = () => { this.settingsTab = id; this.rebinding = null; this._buildSettings(); };
+      bar.appendChild(b);
+      const pane = document.createElement('div'); pane.className = 'setpane'; pane.style.display = id === tab ? '' : 'none';
+      panes[id] = pane;
+    }
+    host.append(bar, panes.general, panes.keys);
+    let pane = panes.general;
     const section = (title, rows) => {
       const f = document.createElement('fieldset');
       const l = document.createElement('legend'); l.textContent = title; f.appendChild(l);
       const t = document.createElement('table'); t.className = 'srows';
       rows.forEach((r) => t.appendChild(r));
-      f.appendChild(t); host.appendChild(f);
+      f.appendChild(t); pane.appendChild(f);
     };
     const S = (label, key, min, max, step, fmt) => { const [i, v] = this._slider(key, min, max, step, fmt); return this._row(label, i, v); };
 
@@ -300,17 +314,26 @@ export class UI {
 
     section('Audio', [S('Master volume', 'volume', 0, 1, 0.05, (v) => Math.round(v * 100) + '%'), S('Lobby music', 'music', 0, 1, 0.05, (v) => Math.round(v * 100) + '%')]);
 
-    const keyRows = KEY_ACTIONS.map((a) => {
-      const b = document.createElement('button');
-      b.className = 'keybtn'; b.textContent = keyLabel(settings.keys[a.id]);
-      b.onclick = () => {
-        this.rebinding = { action: a.id, btn: b };
-        b.textContent = 'press a key / button…';
-      };
-      return this._row(a.label, b);
-    });
-    keyRows.push(this._row('Weapon slots', Object.assign(document.createElement('span'), { textContent: '1 - 5' })));
-    section('Controls (click, then press a key, mouse button or scroll)', keyRows);
+    // ---- key binds tab
+    pane = panes.keys;
+    const hint = document.createElement('p'); hint.className = 'keyhint';
+    hint.innerHTML = 'Click a button, then press a key, a mouse button or scroll the wheel. <b>Esc</b> cancels. Actions that only work in one mode (shoot, place a piece, select edit tiles) can share the same button.';
+    pane.appendChild(hint);
+    for (const [title, gid] of KEY_GROUPS) {
+      const rows = KEY_ACTIONS.filter((a) => a.group === gid).map((a) => {
+        const b = document.createElement('button');
+        b.className = 'keybtn'; b.textContent = keyLabel(settings.keys[a.id]);
+        b.onclick = () => {
+          this.rebinding = { action: a.id, btn: b };
+          b.textContent = 'press a key / button…';
+        };
+        return this._row(a.label, b);
+      });
+      section(title, rows);
+    }
+    const rb = document.createElement('button'); rb.textContent = 'Reset key binds to defaults';
+    rb.onclick = () => { for (const a of KEY_ACTIONS) settings.keys[a.id] = a.def; saveSettings(); this._buildSettings(); };
+    pane.appendChild(rb);
   }
 
   /** Called by the game's keydown handler while a rebind is pending. Returns true when consumed. */
@@ -319,7 +342,8 @@ export class UI {
     const { action, btn } = this.rebinding;
     this.rebinding = null;
     if (code !== 'Escape') {
-      for (const k of Object.keys(settings.keys)) if (settings.keys[k] === code && k !== action) settings.keys[k] = settings.keys[action]; // swap if already used
+      // swap with any action that would clash (same button, overlapping context)
+      for (const k of Object.keys(settings.keys)) if (settings.keys[k] === code && keysClash(action, k)) settings.keys[k] = settings.keys[action];
       settings.keys[action] = code;
       saveSettings();
       this._buildSettings();

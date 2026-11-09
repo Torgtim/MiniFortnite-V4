@@ -1,29 +1,29 @@
 // Game orchestration: renderer, match lifecycle (bus -> drop -> storm), input, cameras, main loop.
 
-import * as THREE from '../lib/three.module.min.js?v=43';
-import { SEASONS } from './seasons.js?v=43';
-import { World } from './world.js?v=43';
-import { Player } from './player.js?v=43';
-import { Bot, BOT_NAMES } from './bots.js?v=43';
-import { Combat } from './combat.js?v=43';
-import { Loot } from './loot.js?v=43';
-import { BuildSystem } from './build.js?v=43';
-import { EditSystem } from './edit.js?v=43';
-import { Storm } from './storm.js?v=43';
-import { Bus } from './bus.js?v=43';
-import { Sky } from './sky.js?v=43';
-import { FX } from './fx.js?v=43';
-import { Gadgets } from './gadgets.js?v=43';
-import { RetroPass } from './retro.js?v=43';
-import { BloomPass } from './bloom.js?v=43';
-import { HUD } from './hud.js?v=43';
-import { UI } from './ui.js?v=43';
-import { ViewModel } from './viewmodel.js?v=43';
-import { GameAudio } from './audio.js?v=43';
-import { settings, saveSettings, onSettingsChange, keyLabel } from './settings.js?v=43';
-import { ITEM_KINDS, RARITIES, weaponStats, WEAPONS } from './weapons.js?v=43';
-import { mulberry32, clamp, dirFromAngles } from './util.js?v=43';
-import { recordMatch } from './stats.js?v=43';
+import * as THREE from '../lib/three.module.min.js?v=44';
+import { SEASONS } from './seasons.js?v=44';
+import { World } from './world.js?v=44';
+import { Player } from './player.js?v=44';
+import { Bot, BOT_NAMES } from './bots.js?v=44';
+import { Combat } from './combat.js?v=44';
+import { Loot } from './loot.js?v=44';
+import { BuildSystem } from './build.js?v=44';
+import { EditSystem } from './edit.js?v=44';
+import { Storm } from './storm.js?v=44';
+import { Bus } from './bus.js?v=44';
+import { Sky } from './sky.js?v=44';
+import { FX } from './fx.js?v=44';
+import { Gadgets } from './gadgets.js?v=44';
+import { RetroPass } from './retro.js?v=44';
+import { BloomPass } from './bloom.js?v=44';
+import { HUD } from './hud.js?v=44';
+import { UI } from './ui.js?v=44';
+import { ViewModel } from './viewmodel.js?v=44';
+import { GameAudio } from './audio.js?v=44';
+import { settings, saveSettings, onSettingsChange, keyLabel } from './settings.js?v=44';
+import { ITEM_KINDS, RARITIES, weaponStats, WEAPONS } from './weapons.js?v=44';
+import { mulberry32, clamp, dirFromAngles } from './util.js?v=44';
+import { recordMatch } from './stats.js?v=44';
 
 const SUN_DIR = new THREE.Vector3(0.45, 0.8, 0.3).normalize();
 
@@ -412,17 +412,23 @@ class Game {
       else if (c === K.crouch) { p.input.crouch = true; if (!repeat) p.crouchToggle = !p.crouchToggle; }
       else if (c === K.jump) { p.input.jump = true; if (!repeat) p.pressJump(); }
       if (repeat) return;
-      if (c === K.fire) { if (this.edit.active) this.edit.press(true); else p.mouseLeft = true; return; }
-      if (c === K.aim) {
-        if (this.edit.active) this.edit.reset();
-        else if (this.build.active) this.build.cycleMaterial();
-        else this.rightDown = true;
-        return;
+      // context actions: the same button can mean shoot, place a piece or select an edit tile
+      const ctx = this.edit.active ? 'edit' : this.build.active ? 'build' : 'combat';
+      if (ctx === 'edit') {
+        if (c === K.editSelect) { this.edit.press(true); return; }
+        if (c === K.editReset) { this.edit.reset(); return; }
+      } else if (ctx === 'build') {
+        if (c === K.place) { p.mouseLeft = true; return; }
+        if (c === K.material2) { this.build.cycleMaterial(); return; }
+        if (c === K.nextPiece || c === K.prevPiece) { if (!p.airborne) this.cyclePiece(c === K.nextPiece ? 1 : -1); return; }
+      } else {
+        if (c === K.fire) { p.mouseLeft = true; return; }
+        if (c === K.aim) { this.rightDown = true; return; }
+        if ((c === K.nextSlot || c === K.prevSlot) && !p.airborne) { this.cycleSlot(c === K.nextSlot ? 1 : -1); return; }
       }
       if (c === K.camera) { settings.thirdPerson = !settings.thirdPerson; saveSettings(); return; }
       if (c === K.emote && !p.airborne) { this.build.setActive(false); this.edit.cancel(); p.emote(); return; }
       if (p.airborne) return;
-      if (c === K.nextSlot || c === K.prevSlot) { this.cycleSlot(c === K.nextSlot ? 1 : -1); return; }
       if (c === K.interact) this.interact();
       else if (c === K.reload) p.startReload();
       else if (c === K.edit) {
@@ -435,7 +441,7 @@ class Game {
       else if (c === K.cone) { this.edit.cancel(); this.build.setType('cone'); }
       else if (c === K.material) this.build.cycleMaterial();
       else if (c === K.pickaxe) { this.build.setActive(false); this.edit.cancel(); p.selectSlot(p.slot === 0 ? (p.lastSlot || 1) : 0); }
-      else if (/^Digit[1-5]$/.test(c)) { this.build.setActive(false); this.edit.cancel(); p.selectSlot(+c[5]); }
+      else { const si = [K.slot1, K.slot2, K.slot3, K.slot4, K.slot5].indexOf(c); if (si >= 0) { this.build.setActive(false); this.edit.cancel(); p.selectSlot(si + 1); } }
     };
     const up = (c) => {
       const p = this.player;
@@ -448,7 +454,8 @@ class Game {
       else if (c === K.sprint) p.input.sprint = false;
       else if (c === K.crouch) p.input.crouch = false;
       else if (c === K.jump) p.input.jump = false;
-      if (c === K.fire) { p.mouseLeft = false; if (this.edit.active) this.edit.press(false); }
+      if (c === K.fire || c === K.place) p.mouseLeft = false;
+      if (c === K.editSelect && this.edit.active) this.edit.press(false);
       if (c === K.aim) this.rightDown = false;
     };
     addEventListener('keydown', (e) => down(e.code, e.repeat, e));
@@ -501,17 +508,17 @@ class Game {
     });
   }
 
-  /** Scroll through weapon slots 1-5 (the pickaxe lives on its own key); in build mode scroll pieces. */
+  /** Scroll through weapon slots 1-5 (the pickaxe lives on its own key). */
   cycleSlot(dir) {
     const p = this.player;
-    if (this.build.active) {
-      const T = ['wall', 'floor', 'ramp', 'cone'], i = T.indexOf(this.build.type);
-      this.build.setType(T[(i + (dir > 0 ? 1 : 3)) % 4]);
-      return;
-    }
-    if (this.edit.active) return;
     const from = p.slot === 0 ? (p.lastSlot || 1) - dir : p.slot;
     p.selectSlot(((from - 1 + (dir > 0 ? 1 : 4)) % 5 + 5) % 5 + 1);
+  }
+
+  /** Scroll through the build pieces. */
+  cyclePiece(dir) {
+    const T = ['wall', 'floor', 'ramp', 'cone'], i = T.indexOf(this.build.type);
+    this.build.setType(T[(i + (dir > 0 ? 1 : 3)) % 4]);
   }
 
   interact() {

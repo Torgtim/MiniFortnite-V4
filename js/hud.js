@@ -2,11 +2,11 @@
 // counter, materials, minimap + big map, storm window, kill feed, prompts, build/edit bars,
 // damage numbers, weak points, elimination popups.
 
-import * as THREE from '../lib/three.module.min.js?v=43';
-import { RARITIES, weaponStats, ITEM_KINDS } from './weapons.js?v=43';
-import { MATERIALS, COST, BUILD_TYPES } from './build.js?v=43';
-import { fmtTime } from './util.js?v=43';
-import { settings, keyLabel } from './settings.js?v=43';
+import * as THREE from '../lib/three.module.min.js?v=44';
+import { RARITIES, weaponStats, ITEM_KINDS } from './weapons.js?v=44';
+import { MATERIALS, COST, BUILD_TYPES } from './build.js?v=44';
+import { fmtTime } from './util.js?v=44';
+import { settings, keyLabel } from './settings.js?v=44';
 
 const $ = (id) => document.getElementById(id);
 const ICON = { wall: '&#9646;', floor: '&#9644;', ramp: '&#9698;', cone: '&#9650;' };
@@ -62,7 +62,7 @@ export class HUD {
     c.style.setProperty('--cc', settings.crosshairColor);
     this.buildEls.forEach((b) => { b.k.textContent = keyLabel(settings.keys[b.t]); });
     this.el.editkey.textContent = keyLabel(settings.keys.edit);
-    document.getElementById("editreset").textContent = keyLabel(settings.keys.aim);
+    document.getElementById("editreset").textContent = keyLabel(settings.keys.editReset);
   }
 
   // ------------------------------------------------------------------ transient things
@@ -157,7 +157,7 @@ export class HUD {
     if (building) {
       this.buildEls.forEach((b) => b.d.classList.toggle('sel', b.t === g.build.type));
       const m = MATERIALS[g.build.matIndex];
-      e.buildmat.textContent = `${m.name} (${p.mats[m.id]}) - ${COST} per piece - ${keyLabel(settings.keys.aim)} / ${keyLabel(settings.keys.material)} = material`;
+      e.buildmat.textContent = `${m.name} (${p.mats[m.id]}) - ${COST} per piece - ${keyLabel(settings.keys.material2)} / ${keyLabel(settings.keys.material)} = material`;
     }
     for (let i = 0; i < 6; i++) {
       const s = p.slots[i], el = this.slotEls[i];

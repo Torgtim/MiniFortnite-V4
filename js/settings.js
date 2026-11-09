@@ -2,32 +2,61 @@
 
 const STORE = 'mfv4_settings_v2';
 
-export const KEY_ACTIONS = [
-  { id: 'fire', label: 'Shoot / place build / edit', def: 'Mouse0' },
-  { id: 'aim', label: 'Aim / build material / edit reset', def: 'Mouse2' },
-  { id: 'nextSlot', label: 'Next weapon / build piece', def: 'WheelDown' },
-  { id: 'prevSlot', label: 'Previous weapon / build piece', def: 'WheelUp' },
-  { id: 'forward', label: 'Move forward', def: 'KeyW' },
-  { id: 'back', label: 'Move back', def: 'KeyS' },
-  { id: 'left', label: 'Move left', def: 'KeyA' },
-  { id: 'right', label: 'Move right', def: 'KeyD' },
-  { id: 'jump', label: 'Jump / glider / mantle', def: 'Space' },
-  { id: 'sprint', label: 'Sprint', def: 'ShiftLeft' },
-  { id: 'crouch', label: 'Crouch / slide', def: 'KeyC' },
-  { id: 'interact', label: 'Pick up / open', def: 'KeyE' },
-  { id: 'reload', label: 'Reload', def: 'KeyR' },
-  { id: 'pickaxe', label: 'Pickaxe (press again = last weapon)', def: 'KeyF' },
-  { id: 'buildMode', label: 'Build mode on/off', def: 'KeyQ' },
-  { id: 'wall', label: 'Build: wall', def: 'KeyZ' },
-  { id: 'floor', label: 'Build: floor', def: 'KeyX' },
-  { id: 'ramp', label: 'Build: ramp', def: 'CapsLock' },
-  { id: 'cone', label: 'Build: cone (roof)', def: 'KeyV' },
-  { id: 'edit', label: 'Edit build', def: 'KeyG' },
-  { id: 'material', label: 'Cycle material', def: 'KeyT' },
-  { id: 'map', label: 'Big map', def: 'KeyM' },
-  { id: 'camera', label: 'Switch 1st / 3rd person', def: 'KeyH' },
-  { id: 'emote', label: 'Emote (dance!)', def: 'KeyB' },
+// Actions are grouped for the key-bind screen. `ctx` says when an action is active: 'any' works
+// everywhere, 'combat' / 'build' / 'edit' only in that mode. Two actions may share a button only
+// when their contexts differ (e.g. shoot, place a piece and select an edit tile can all be Left Mouse).
+export const KEY_GROUPS = [
+  ['Movement', 'move'], ['Combat', 'combat'], ['Inventory', 'inv'], ['Building', 'build'], ['Editing', 'edit'], ['Other', 'other'],
 ];
+export const KEY_ACTIONS = [
+  { id: 'forward', label: 'Move forward', def: 'KeyW', group: 'move', ctx: 'any' },
+  { id: 'back', label: 'Move back', def: 'KeyS', group: 'move', ctx: 'any' },
+  { id: 'left', label: 'Move left', def: 'KeyA', group: 'move', ctx: 'any' },
+  { id: 'right', label: 'Move right', def: 'KeyD', group: 'move', ctx: 'any' },
+  { id: 'jump', label: 'Jump / glider / mantle', def: 'Space', group: 'move', ctx: 'any' },
+  { id: 'sprint', label: 'Sprint', def: 'ShiftLeft', group: 'move', ctx: 'any' },
+  { id: 'crouch', label: 'Crouch / slide', def: 'KeyC', group: 'move', ctx: 'any' },
+  { id: 'emote', label: 'Emote (dance!)', def: 'KeyB', group: 'move', ctx: 'any' },
+
+  { id: 'fire', label: 'Shoot / swing / use item', def: 'Mouse0', group: 'combat', ctx: 'combat' },
+  { id: 'aim', label: 'Aim down sights', def: 'Mouse2', group: 'combat', ctx: 'combat' },
+  { id: 'reload', label: 'Reload', def: 'KeyR', group: 'combat', ctx: 'any' },
+  { id: 'interact', label: 'Pick up / open', def: 'KeyE', group: 'combat', ctx: 'any' },
+
+  { id: 'pickaxe', label: 'Pickaxe (press again = last weapon)', def: 'KeyF', group: 'inv', ctx: 'any' },
+  { id: 'slot1', label: 'Weapon slot 1', def: 'Digit1', group: 'inv', ctx: 'any' },
+  { id: 'slot2', label: 'Weapon slot 2', def: 'Digit2', group: 'inv', ctx: 'any' },
+  { id: 'slot3', label: 'Weapon slot 3', def: 'Digit3', group: 'inv', ctx: 'any' },
+  { id: 'slot4', label: 'Weapon slot 4', def: 'Digit4', group: 'inv', ctx: 'any' },
+  { id: 'slot5', label: 'Weapon slot 5', def: 'Digit5', group: 'inv', ctx: 'any' },
+  { id: 'nextSlot', label: 'Next weapon', def: 'WheelDown', group: 'inv', ctx: 'combat' },
+  { id: 'prevSlot', label: 'Previous weapon', def: 'WheelUp', group: 'inv', ctx: 'combat' },
+
+  { id: 'buildMode', label: 'Build mode on/off', def: 'KeyQ', group: 'build', ctx: 'any' },
+  { id: 'wall', label: 'Build: wall', def: 'KeyZ', group: 'build', ctx: 'any' },
+  { id: 'floor', label: 'Build: floor', def: 'KeyX', group: 'build', ctx: 'any' },
+  { id: 'ramp', label: 'Build: ramp', def: 'CapsLock', group: 'build', ctx: 'any' },
+  { id: 'cone', label: 'Build: cone (roof)', def: 'KeyV', group: 'build', ctx: 'any' },
+  { id: 'place', label: 'Place piece (hold = keep placing)', def: 'Mouse0', group: 'build', ctx: 'build' },
+  { id: 'material', label: 'Cycle material', def: 'KeyT', group: 'build', ctx: 'any' },
+  { id: 'material2', label: 'Cycle material (extra)', def: 'Mouse2', group: 'build', ctx: 'build' },
+  { id: 'nextPiece', label: 'Next piece type', def: 'WheelDown', group: 'build', ctx: 'build' },
+  { id: 'prevPiece', label: 'Previous piece type', def: 'WheelUp', group: 'build', ctx: 'build' },
+
+  { id: 'edit', label: 'Edit build / confirm edit', def: 'KeyG', group: 'edit', ctx: 'any' },
+  { id: 'editSelect', label: 'Select edit tiles (click / drag)', def: 'Mouse0', group: 'edit', ctx: 'edit' },
+  { id: 'editReset', label: 'Reset edit', def: 'Mouse2', group: 'edit', ctx: 'edit' },
+
+  { id: 'map', label: 'Big map', def: 'KeyM', group: 'other', ctx: 'any' },
+  { id: 'camera', label: 'Switch 1st / 3rd person', def: 'KeyH', group: 'other', ctx: 'any' },
+];
+
+/** Two actions clash when they would both react to the same press. */
+export function keysClash(a, b) {
+  const A = KEY_ACTIONS.find((x) => x.id === a), B = KEY_ACTIONS.find((x) => x.id === b);
+  if (!A || !B || a === b) return false;
+  return A.ctx === 'any' || B.ctx === 'any' || A.ctx === B.ctx;
+}
 
 export const DEFAULTS = {
   sens: 1.0,

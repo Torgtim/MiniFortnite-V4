@@ -1,7 +1,7 @@
 // Particle effects: one instanced mesh of little cubes (sparks, chips, debris, smoke,
 // elimination "pixels") plus a few additive flashes (muzzle, explosions).
 
-import * as THREE from '../lib/three.module.min.js?v=43';
+import * as THREE from '../lib/three.module.min.js?v=44';
 
 const MAX = 900;
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _c = new THREE.Color();
