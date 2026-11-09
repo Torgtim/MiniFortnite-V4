@@ -199,6 +199,10 @@ export class Entity {
     if (!m) return;
     m.root.position.set(this.x, this.y, this.z);
     m.root.rotation.y = this.yaw;
+    if (!this.isPlayer) {
+      const c = this.game.camera.position;
+      m.lod((c.x - this.x) ** 2 + (c.z - this.z) ** 2 > 45 * 45);
+    }
     const it = this.held;
     if (!it) m.setHeld(null);
     else if (it.type === 'weapon') m.setHeld('gun', WEAPONS[it.id].cls);

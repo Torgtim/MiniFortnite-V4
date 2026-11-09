@@ -118,7 +118,8 @@ export class CharacterModel {
     const torso = new THREE.Group(); hips.add(torso);
     const chest = new THREE.Mesh(box(0.62, 0.72, 0.34), lam(shirt)); chest.position.y = 0.38; torso.add(chest);
     const belt = new THREE.Mesh(box(0.64, 0.1, 0.36), lam('#2a2a2a')); belt.position.y = 0.04; torso.add(belt);
-    const pack = new THREE.Mesh(box(0.44, 0.5, 0.2), lam(accent)); pack.position.set(0, 0.42, 0.26); torso.add(pack);
+    const details = [belt];
+    const pack = new THREE.Mesh(box(0.44, 0.5, 0.2), lam(accent)); pack.position.set(0, 0.42, 0.26); torso.add(pack); details.push(pack);
     const neck = new THREE.Group(); neck.position.y = 0.76; torso.add(neck);
     const faceMat = new THREE.MeshLambertMaterial({ map: faceTexture(skin, hair, index) });
     this.faceMat = faceMat;
@@ -130,16 +131,17 @@ export class CharacterModel {
     else if (hat === 'helmet') { const c = new THREE.Mesh(box(0.5, 0.26, 0.5), lam('#4a5a3a')); c.position.y = 0.46; neck.add(c); }
     else if (hat === 'band') { const c = new THREE.Mesh(box(0.45, 0.07, 0.45), lam('#d02020')); c.position.y = 0.36; neck.add(c); }
 
+    for (const ch of neck.children) if (ch !== head) details.push(ch);
     const limb = (w, h, x, y, color, parent) => {
       const piv = new THREE.Group(); piv.position.set(x, y, 0);
       const m = new THREE.Mesh(box(w, h, w), lam(color)); m.position.y = -h / 2; piv.add(m);
       parent.add(piv); return piv;
     };
     const legL = limb(0.27, 0.9, -0.16, 0, pants, hips), legR = limb(0.27, 0.9, 0.16, 0, pants, hips);
-    const shoe = (leg) => { const s = new THREE.Mesh(box(0.29, 0.12, 0.38), lam('#1e1e1e')); s.position.set(0, -0.86, -0.05); leg.add(s); };
+    const shoe = (leg) => { const s = new THREE.Mesh(box(0.29, 0.12, 0.38), lam('#1e1e1e')); s.position.set(0, -0.86, -0.05); leg.add(s); details.push(s); };
     shoe(legL); shoe(legR);
     const armL = limb(0.2, 0.68, -0.42, 0.7, shirt, torso), armR = limb(0.2, 0.68, 0.42, 0.7, shirt, torso);
-    const hand = (arm) => { const h = new THREE.Mesh(box(0.18, 0.16, 0.18), skinM); h.position.y = -0.72; arm.add(h); };
+    const hand = (arm) => { const h = new THREE.Mesh(box(0.18, 0.16, 0.18), skinM); h.position.y = -0.72; arm.add(h); details.push(h); };
     hand(armL); hand(armR);
     const grip = new THREE.Group(); grip.position.set(0, -0.72, 0); grip.rotation.x = -Math.PI / 2; armR.add(grip);
 
@@ -150,10 +152,18 @@ export class CharacterModel {
     this.itemCube = new THREE.Mesh(box(0.18, 0.24, 0.18), lam('#ffffff')); this.itemCube.visible = false; grip.add(this.itemCube);
     this.glider = glider(accent); root.add(this.glider);
     if (name) { this.tag = nameTag(name); root.add(this.tag); }
+    this.details = details; this.lodFar = false;
     this.heldKey = '';
     this.walk = Math.random() * 6;
     this.flash = null;
     root.traverse((o) => { if (o.isMesh) { o.castShadow = true; } });
+  }
+
+  /** Hide small details far from the camera (fewer draw calls with many bots around). */
+  lod(far) {
+    if (far === this.lodFar) return;
+    this.lodFar = far;
+    for (const d of this.details) d.visible = !far;
   }
 
   /** Free the per-character GPU resources (face texture, name tag). */
