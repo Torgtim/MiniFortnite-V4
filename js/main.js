@@ -1,29 +1,29 @@
 // Game orchestration: renderer, match lifecycle (bus -> drop -> storm), input, cameras, main loop.
 
-import * as THREE from '../lib/three.module.min.js?v=46';
-import { SEASONS } from './seasons.js?v=46';
-import { World } from './world.js?v=46';
-import { Player } from './player.js?v=46';
-import { Bot, BOT_NAMES } from './bots.js?v=46';
-import { Combat } from './combat.js?v=46';
-import { Loot } from './loot.js?v=46';
-import { BuildSystem } from './build.js?v=46';
-import { EditSystem } from './edit.js?v=46';
-import { Storm } from './storm.js?v=46';
-import { Bus } from './bus.js?v=46';
-import { Sky } from './sky.js?v=46';
-import { FX } from './fx.js?v=46';
-import { Gadgets } from './gadgets.js?v=46';
-import { RetroPass } from './retro.js?v=46';
-import { BloomPass } from './bloom.js?v=46';
-import { HUD } from './hud.js?v=46';
-import { UI } from './ui.js?v=46';
-import { ViewModel } from './viewmodel.js?v=46';
-import { GameAudio } from './audio.js?v=46';
-import { settings, saveSettings, onSettingsChange, keyLabel } from './settings.js?v=46';
-import { ITEM_KINDS, RARITIES, weaponStats, WEAPONS, makeWeapon } from './weapons.js?v=46';
-import { mulberry32, clamp, dirFromAngles } from './util.js?v=46';
-import { recordMatch } from './stats.js?v=46';
+import * as THREE from '../lib/three.module.min.js?v=47';
+import { SEASONS } from './seasons.js?v=47';
+import { World } from './world.js?v=47';
+import { Player } from './player.js?v=47';
+import { Bot, BOT_NAMES } from './bots.js?v=47';
+import { Combat } from './combat.js?v=47';
+import { Loot } from './loot.js?v=47';
+import { BuildSystem } from './build.js?v=47';
+import { EditSystem } from './edit.js?v=47';
+import { Storm } from './storm.js?v=47';
+import { Bus } from './bus.js?v=47';
+import { Sky } from './sky.js?v=47';
+import { FX } from './fx.js?v=47';
+import { Gadgets } from './gadgets.js?v=47';
+import { RetroPass } from './retro.js?v=47';
+import { BloomPass } from './bloom.js?v=47';
+import { HUD } from './hud.js?v=47';
+import { UI } from './ui.js?v=47';
+import { ViewModel } from './viewmodel.js?v=47';
+import { GameAudio } from './audio.js?v=47';
+import { settings, saveSettings, onSettingsChange, keyLabel } from './settings.js?v=47';
+import { ITEM_KINDS, RARITIES, weaponStats, WEAPONS, makeWeapon } from './weapons.js?v=47';
+import { mulberry32, clamp, dirFromAngles } from './util.js?v=47';
+import { recordMatch } from './stats.js?v=47';
 
 const SUN_DIR = new THREE.Vector3(0.45, 0.8, 0.3).normalize();
 
@@ -97,8 +97,8 @@ class Game {
     const p = this.player;
     if (p && p.emoteT > 0) return true;
     if (!settings.thirdPerson) return false;
-    // scoped snipers switch to the scope view like in the real game
-    if (p && p.ads && p.held && p.held.type === 'weapon' && weaponStats(p.held).zoom >= 2.4) return false;
+    // every scoped weapon (zoom >= 1.5) switches to a clean first-person scope view while aiming
+    if (p && p.ads && p.held && p.held.type === 'weapon' && weaponStats(p.held).zoom >= 1.5) return false;
     return true;
   }
 

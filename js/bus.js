@@ -1,7 +1,7 @@
 // The Party Bus: flies across the island at the start of a match. Everybody rides it and
 // jumps out wherever they like (bots pick a spot near the place they want to land).
 
-import * as THREE from '../lib/three.module.min.js?v=46';
+import * as THREE from '../lib/three.module.min.js?v=47';
 
 const SPEED = 26;
 const HEIGHT = 150;
