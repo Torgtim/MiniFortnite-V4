@@ -538,10 +538,24 @@ class Game {
 
     this.updateCamera(dt);
     this.stormHaze(dt);
+    this.ambience();
     this.sky.update(dt, tnow, this.camera);
     if (this.player) this.hud.update(dt);
     const f = this.player && this.player.alive ? this.player : this.camera.position;
     this._sunFollow(f.x, f.z);
+  }
+
+  /** Wind while skydiving, a rumble when the storm wall is close. */
+  ambience() {
+    const p = this.player;
+    let wind = 0, storm = 0;
+    if (p && p.alive && this.mode !== 'lobby' && !this.paused) {
+      if (p.air === 'fall') wind = Math.min(1, Math.abs(p.vy) / 40);
+      else if (p.air === 'glide') wind = 0.35;
+      const edge = Math.abs(Math.hypot(p.x - this.storm.cx, p.z - this.storm.cz) - this.storm.r);
+      storm = Math.max(0, 1 - edge / 25) * (this.storm.r < 260 ? 1 : 0);
+    }
+    this.audio.ambience(wind, storm);
   }
 
   /** Inside the storm the world turns into purple haze (fog closes in, the sky goes violet). */

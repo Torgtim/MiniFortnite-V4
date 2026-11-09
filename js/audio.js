@@ -74,6 +74,24 @@ export class GameAudio {
     this.musicTimer = setInterval(tick, 100);
   }
 
+  // ------------------------------------------------------------------ ambience (wind while skydiving, storm rumble)
+  _loop(freq, q, type) {
+    const c = this.ctx, src = c.createBufferSource(); src.buffer = this.noiseBuf; src.loop = true;
+    const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+    const g = c.createGain(); g.gain.value = 0;
+    src.connect(f); f.connect(g); g.connect(this.master); src.start();
+    return { g, f };
+  }
+
+  ambience(wind, storm) {
+    if (!this.ctx) return;
+    if (!this.amb) this.amb = { wind: this._loop(500, 0.6, 'bandpass'), storm: this._loop(140, 0.8, 'lowpass') };
+    const t = this.ctx.currentTime;
+    this.amb.wind.g.gain.setTargetAtTime(wind * 0.35, t, 0.15);
+    this.amb.wind.f.frequency.setTargetAtTime(300 + wind * 700, t, 0.2);
+    this.amb.storm.g.gain.setTargetAtTime(storm * 0.5, t, 0.3);
+  }
+
   stopMusic() { if (this.musicTimer) { clearInterval(this.musicTimer); this.musicTimer = null; } }
 
   _note(f, t, dur, type, gain) {

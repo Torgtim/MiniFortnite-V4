@@ -40,7 +40,7 @@ export class UI {
     this.settingsFrom = 'lobby';
     this._buildSeasonBar();
     this._buildSettings();
-    $('btnPlay').onclick = () => game.startMatch();
+    $('btnPlay').onclick = () => this.play();
     $('btnSettings').onclick = () => this.showSettings(true, 'lobby');
     $('pResume').onclick = () => game.resume();
     $('pSettings').onclick = () => this.showSettings(true, 'pause');
@@ -49,7 +49,7 @@ export class UI {
     $('setReset').onclick = () => { resetSettings(); this._buildSettings(); };
     $('rSpectate').onclick = () => game.startSpectating();
     $('rLobby').onclick = () => game.backToLobby();
-    $('rAgain').onclick = () => game.startMatch();
+    $('rAgain').onclick = () => this.play();
     // music + tips (sound needs a click first, browsers block autoplay)
     $('btnMusic').onclick = () => { game.audio.init(); settings.music = settings.music > 0 ? 0 : 0.35; saveSettings(); this.refreshMusic(); };
     this.tip = Math.floor(Math.random() * TIPS.length);
@@ -142,6 +142,22 @@ export class UI {
     else if (o.hat === 'helmet') R('#4a5a3a', 40, 8, 40, 16);
     else if (o.hat === 'band') R('#d02020', 44, 22, 32, 4);
     R(o.accent, 50, 60, 20, 26);
+  }
+
+  /** Show a Win95 "Please wait" box with an hourglass while the island is built. */
+  play() {
+    const msgs = ['Building the island...', 'Painting the Party Bus...', 'Teaching bots to build...', 'Hiding the chests...', 'Calling the storm...'];
+    $('loadText').textContent = msgs[Math.floor(Math.random() * msgs.length)];
+    $('loadBar').style.width = '35%';
+    $('loading').classList.remove('hidden');
+    document.body.style.cursor = 'wait';
+    setTimeout(() => { $('loadBar').style.width = '80%'; }, 10);
+    setTimeout(() => {
+      try { this.game.startMatch(); } finally {
+        $('loading').classList.add('hidden');
+        document.body.style.cursor = '';
+      }
+    }, 60);
   }
 
   showTip(i) { this.tip = (i + TIPS.length) % TIPS.length; $('tipText').innerHTML = TIPS[this.tip]; }

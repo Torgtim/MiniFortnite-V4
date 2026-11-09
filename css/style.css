@@ -11,6 +11,9 @@ body { font-family: "Times New Roman", Times, serif; color: #000; }
 .screen { position: fixed; inset: 0; z-index: 20; pointer-events: none; }
 .screen > * { pointer-events: auto; }
 .screen.center { display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.35); pointer-events: auto; }
+#loading { cursor: wait; z-index: 40; }
+#loading .pbar { background: #fff; border: 2px inset #fff; padding: 2px; }
+#loading .pbar > div { height: 100%; background: repeating-linear-gradient(90deg, #000080 0 10px, transparent 10px 12px); transition: width .2s; }
 #result.victory { align-items: flex-start; padding-top: 7vh; background: transparent; }
 #result.victory #resTitle { font-size: 30px; text-align: center; }
 #lobby { padding: 3vh 0 0 3vw; overflow: auto; }

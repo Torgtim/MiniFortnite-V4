@@ -196,8 +196,12 @@ export class World {
     };
     addBox.poly = (pts, color, layer, out) => batch.addPoly(pts, color, layer, out);
 
+    // the site closest to the middle of the island gets a lookout tower (high ground!)
+    let towerSite = null, td = Infinity;
+    for (const st2 of this.sites) { const d = Math.hypot(st2.x, st2.z); if (d < td) { td = d; towerSite = st2; } }
     for (const site of this.sites) {
       const placed = [];
+      if (site === towerSite) placed.push([site.x - 7, site.z - 7, site.x + 7, site.z + 7]);
       const target = 5 + Math.floor(rnd() * 3);
       for (let k = 0, tries = 0; k < target && tries < 90; tries++) {
         const w = 6 + Math.floor(rnd() * 4), d = 6 + Math.floor(rnd() * 4);
@@ -218,6 +222,11 @@ export class World {
           door: { x: dxp - dv[0] * 1.4, z: dzp - dv[1] * 1.4, ox: dxp + dv[0] * 2.2, oz: dzp + dv[1] * 2.2 },
         });
       }
+    }
+    if (towerSite) {
+      this._tower(addBox, Math.round(towerSite.x), Math.round(towerSite.z), towerSite.h, { colWall: colWall.clone().multiplyScalar(0.9), colFloor, colTrim, colRoof });
+      this.buildings.push({ x0: towerSite.x - 3.5, z0: towerSite.z - 3.5, x1: towerSite.x + 3.5, z1: towerSite.z + 3.5, door: { x: towerSite.x, z: towerSite.z + 2.2, ox: towerSite.x, oz: towerSite.z + 5.8 } });
+      towerSite.tower = true;
     }
     const wallTex = TEX[HOUSE_TEX[this.season.id] || 'siding']();
     const mats = [
@@ -287,6 +296,64 @@ export class World {
       const o = [[1, 0], [-1, 0], [0, 1], [0, -1]][door];
       this.lootSpots.push({ x: cx + o[0] * (w / 2 + 2), y: yb, z: cz + o[1] * (d / 2 + 2) });
     }
+  }
+
+  /** Three-storey lookout tower with ramps inside, windows on every side and a chest on the roof. */
+  _tower(addBox, cx, cz, yb, c) {
+    const S = 3.5, LH = 3.2, T = 0.3, levels = 3;
+    const x0 = cx - S, x1 = cx + S, z0 = cz - S, z1 = cz + S;
+    // ramp footprints per level (alternating sides so you zig-zag up)
+    const ramps = [];
+    for (let k = 0; k < levels; k++) {
+      const even = k % 2 === 0;
+      const za = even ? z0 + T + 0.1 : z1 - T - 1.9, zb = za + 1.8;
+      const xa = x0 + T + 0.6, xb = xa + 4.2;
+      ramps.push({ xa, xb, za, zb, dir: even ? 1 : -1, y: yb + k * LH });
+    }
+    // walls with a window on each side (door on +z at the bottom)
+    const seg = (alongX, fixed, a0, a1, y0, y1) => {
+      if (a1 - a0 < 0.01) return;
+      if (alongX) addBox(a0, y0, fixed - T / 2, a1, y1, fixed + T / 2, c.colWall);
+      else addBox(fixed - T / 2, y0, a0, fixed + T / 2, y1, a1, c.colWall);
+    };
+    for (let k = 0; k < levels; k++) {
+      const y = yb + k * LH;
+      for (const [alongX, fixed, lo, hi, side] of [[true, z0, x0, x1, 'n'], [true, z1, x0, x1, 's'], [false, x0, z0, z1, 'w'], [false, x1, z0, z1, 'e']]) {
+        const mid = (lo + hi) / 2;
+        if (k === 0 && side === 's') { // door
+          seg(alongX, fixed, lo, mid - 1.0, y, y + LH); seg(alongX, fixed, mid + 1.0, hi, y, y + LH); seg(alongX, fixed, mid - 1.0, mid + 1.0, y + 2.4, y + LH);
+        } else {
+          seg(alongX, fixed, lo, mid - 0.9, y, y + LH); seg(alongX, fixed, mid + 0.9, hi, y, y + LH);
+          seg(alongX, fixed, mid - 0.9, mid + 0.9, y, y + 1.0); seg(alongX, fixed, mid - 0.9, mid + 0.9, y + 2.1, y + LH);
+        }
+      }
+    }
+    addBox(x0, yb - 0.4, z0, x1, yb + 0.03, z1, c.colFloor, false, 2);
+    // floors (with a hole above the ramp that leads up to them)
+    for (let k = 1; k <= levels; k++) {
+      const y = yb + k * LH, r = ramps[k - 1];
+      const fy0 = y - T;
+      addBox(x0, fy0, z0, r.xa, y, z1, c.colFloor, true, 2);
+      addBox(r.xb, fy0, z0, x1, y, z1, c.colFloor, true, 2);
+      addBox(r.xa, fy0, z0, r.xb, y, r.za, c.colFloor, true, 2);
+      addBox(r.xa, fy0, r.zb, r.xb, y, z1, c.colFloor, true, 2);
+    }
+    // ramps (sloped plates you can walk up)
+    for (const r of ramps) {
+      const lowX = r.dir > 0 ? r.xa : r.xb, highX = r.dir > 0 ? r.xb : r.xa;
+      const yl = r.y, yh = r.y + LH;
+      addBox.poly([[lowX, yl, r.za], [lowX, yl, r.zb], [highX, yh, r.zb], [highX, yh, r.za]], c.colTrim, 3, [0, 1, 0]);
+      addBox.poly([[lowX, yl - 0.15, r.za], [highX, yh - 0.15, r.za], [highX, yh - 0.15, r.zb], [lowX, yl - 0.15, r.zb]], c.colTrim, 3, [0, -1, 0]);
+      this.addCollider({ kind: 'ramp', minx: r.xa, maxx: r.xb, minz: r.za, maxz: r.zb, miny: yl - 0.2, maxy: yh + 0.2, cx: (r.xa + r.xb) / 2, cz: (r.za + r.zb) / 2, dx: r.dir, dz: 0, len: r.xb - r.xa, base: yl, rise: LH });
+    }
+    // roof parapet + a flag
+    const top = yb + levels * LH;
+    for (const [alongX, fixed, lo, hi] of [[true, z0, x0, x1], [true, z1, x0, x1], [false, x0, z0, z1], [false, x1, z0, z1]]) seg(alongX, fixed, lo, hi, top, top + 1.1);
+    addBox(cx + 2.6, top, cz + 2.6, cx + 2.8, top + 4.5, cz + 2.8, c.colTrim, false, 3);
+    addBox(cx + 2.8, top + 3.4, cz + 2.65, cx + 4.2, top + 4.4, cz + 2.75, c.colRoof, false, 1);
+    // loot: a chest on the roof and something on every floor
+    this.chests.push({ x: cx - 1.5, y: top, z: cz + 1.5 });
+    for (let k = 0; k < levels; k++) this.lootSpots.push({ x: cx + 1.8, y: yb + k * LH, z: cz + (k % 2 ? -1.6 : 1.6) });
   }
 
   /** Pitched roof: two sloped shingle planes (walkable ramp colliders) + gable ends + a chimney. */
