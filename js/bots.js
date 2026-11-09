@@ -260,6 +260,7 @@ export class Bot extends Entity {
     const consider = (o, kind, bias = 1) => {
       const bl = this.blacklist.get(o);
       if (bl && bl > now) return;
+      if (o.y - this.y > 2.5) return; // up a tower / on a roof: not worth the climb
       const dx = o.x - this.x, dz = o.z - this.z, d = (dx * dx + dz * dz) * bias;
       if (d < bd) { bd = d; best = { x: o.x, z: o.z, y: o.y, ref: o, kind }; }
     };
