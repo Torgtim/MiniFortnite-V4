@@ -419,6 +419,20 @@ export class Bot extends Entity {
       }
     }
 
+    // ---- something built in our way? break it (or edit a door into our own wall)
+    if (this.breakT && (this.breakT.until < g.time || this.breakT.piece.dead)) this.breakT = null;
+    if (this.breakT && this.mode !== 'fight') {
+      const pc = this.breakT.piece;
+      const dx = pc.x - this.x, dz = pc.z - this.z, d = Math.hypot(dx, dz);
+      this.yaw = Math.atan2(-dx, -dz);
+      this.pitch = clamp(Math.atan2(pc.y - this.eyeY, d), -0.8, 0.8);
+      const h = this.held;
+      const canShoot = h && h.type === 'weapon' && (h.mag > 0 || this.ammo[WEAPONS[h.id].ammo] > 0) && WEAPONS[h.id].cls !== 'launcher';
+      if (!canShoot && this.slot !== 0) this.selectSlot(0);
+      if (this.slot === 0 && d > 2.4) { wx = dx / d; wz = dz / d; speed = 4; } else { wx = 0; wz = 0; speed = 0; this.wantFire = true; }
+    }
+    const goalX = wx, goalZ = wz;
+
     // ---- steering with feelers + stuck handling (+ mantling, + ramps over cliffs)
     const len = Math.hypot(wx, wz);
     if (len > 0.01) {
@@ -449,8 +463,22 @@ export class Bot extends Entity {
         this.stuckCount++;
         this.unstickT = 0.9; this.unstickDir = Math.random() < 0.5 ? -1 : 1;
         if (this.goal && this.goalT > 3) this.goalT -= 2;
-        // stuck at a cliff? build our way up
-        if (this.stuckCount >= 2 && this.builder && this.totalMats() >= 10 && this.buildCd <= 0) {
+        const gl = Math.hypot(goalX, goalZ) || 1;
+        const blocker = this.blockingPiece(goalX / gl, goalZ / gl);
+        if (blocker) {
+          // our own wall (e.g. we boxed up): edit a door into it. Anybody else's: break it.
+          if (blocker.owner === this && blocker.type === 'wall') {
+            g.build.applyEdit(blocker, { removed: [1, 4] });
+            this.unstickT = 0;
+            // walk straight through the new door
+            const c = blocker.c, ax = c.axis === 'z';
+            const side = ax ? Math.sign(c.cx - this.x) || 1 : Math.sign(c.cz - this.z) || 1;
+            const pt = (k) => (ax ? { x: c.cx + side * k, z: c.cz } : { x: c.cx, z: c.cz + side * k });
+            this.path = [pt(-0.9), pt(1.6)].concat(this.goal ? [this.goal] : []);
+          }
+          else if (!this.breakT) this.breakT = { piece: blocker, until: g.time + 4 };
+        } else if (this.stuckCount >= 2 && this.builder && this.totalMats() >= 10 && this.buildCd <= 0) {
+          // stuck at a cliff? build our way up
           const yaw = this.snapYaw(Math.atan2(-wx, -wz));
           if (g.build.placeFor(this, 'ramp', yaw, 0)) { this.unstickT = 0; this.buildCd = 0.8; }
         }
@@ -475,6 +503,13 @@ export class Bot extends Entity {
     this.animateModel(dt);
     const pl = g.player;
     if (this.model.tag) this.model.tag.visible = !!pl && Math.hypot(pl.x - this.x, pl.z - this.z) < 40;
+  }
+
+  /** First build piece directly in front of us (waist height), if any. */
+  blockingPiece(dx, dz) {
+    const hit = this.game.world.raycast(this.x, this.y + 0.9, this.z, dx, 0, dz, 1.8, 2.0);
+    const pc = hit.collider && hit.collider.piece;
+    return pc && !pc.dead ? pc : null;
   }
 
   /** Route around building walls: go through the door when the goal is inside a house. */
