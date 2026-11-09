@@ -549,7 +549,7 @@ class Game {
   tick(dt) {
     const tnow = performance.now() / 1000;
     this.loot.update(dt, tnow);
-    this.combat.update(dt);
+    if (!this.paused) this.combat.update(dt); // projectiles freeze while paused
     this.fx.update(dt);
     this.world.update(dt, tnow);
 
@@ -564,6 +564,7 @@ class Game {
       this.viewmodel.root.visible = false;
       this.sky.update(dt, tnow, this.camera);
       this._sunFollow(0, 0);
+      this.audio.ambience(0, 0);
       return;
     }
     if (this.camera.view) { this.camera.clearViewOffset(); }
