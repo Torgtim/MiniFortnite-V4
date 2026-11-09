@@ -4,13 +4,13 @@
 // "sentinel" mesh clears depth right before the viewmodel meshes render (they are all in
 // the transparent queue with a high renderOrder, so they come after the whole world).
 
-import * as THREE from '../lib/three.module.min.js?v=45';
-import { weaponStats, ITEM_KINDS } from './weapons.js?v=45';
-import { buildGunModel, setGunRarity } from './gunmodels.js?v=45';
+import * as THREE from '../lib/three.module.min.js?v=46';
+import { weaponStats, ITEM_KINDS } from './weapons.js?v=46';
+import { buildGunModel, setGunRarity } from './gunmodels.js?v=46';
 
 const ORDER = 1000;
-// Weapons with at least this zoom use the full-screen 2D scope overlay (see hud.js / main.js).
-const SCOPE_ZOOM = 2.4;
+// Weapons with at least this zoom have a scope: the 3D model is hidden while aiming so its scope tube cannot block the view.
+const SCOPE_ZOOM = 1.5; // every weapon with a real scope hides its (scoped) 3D model while aiming
 const vmMat = (m) => { m.transparent = true; m.depthTest = true; m.depthWrite = true; return m; };
 const MATS = {
   lit: vmMat(new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })),

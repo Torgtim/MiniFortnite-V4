@@ -1,13 +1,13 @@
 // Loot: floor pickups, chests, ammo boxes, supply drops, material drops, season loot tables
 // and pickup logic.
 
-import * as THREE from '../lib/three.module.min.js?v=45';
-import { weightedPick } from './util.js?v=45';
-import { AMMO, ITEM_KINDS, RARITIES, WEAPONS, CLASS_COLORS, makeWeapon, weaponStats } from './weapons.js?v=45';
-import { RARITY_GROUND } from './seasons.js?v=45';
-import { buildGunModel } from './gunmodels.js?v=45';
-import { TEX } from './textures.js?v=45';
-import { MATERIALS } from './build.js?v=45';
+import * as THREE from '../lib/three.module.min.js?v=46';
+import { weightedPick } from './util.js?v=46';
+import { AMMO, ITEM_KINDS, RARITIES, WEAPONS, CLASS_COLORS, makeWeapon, weaponStats } from './weapons.js?v=46';
+import { RARITY_GROUND } from './seasons.js?v=46';
+import { buildGunModel } from './gunmodels.js?v=46';
+import { TEX } from './textures.js?v=46';
+import { MATERIALS } from './build.js?v=46';
 
 const beamGeo = new THREE.CylinderGeometry(0.22, 0.3, 3.4, 6, 1, true).translate(0, 1.7, 0);
 const beamMats = {};
@@ -320,7 +320,24 @@ export class Loot {
       return true;
     }
     if (p.kind === 'item') {
-      if (!e.giveItem(p.itemId)) return false;
+      if (!e.giveItem(p.itemId)) {
+        // inventory full: the player swaps the item with the held slot (or the weakest weapon when holding the pickaxe)
+        if (!e.isPlayer) return false;
+        let idx = e.slot >= 1 ? e.slot : -1;
+        if (idx < 0) {
+          let worst = Infinity;
+          for (let i = 1; i <= 5; i++) { const s = e.slots[i]; const sc = s && s.type === 'weapon' ? weaponStats(s).dps : 0; if (sc < worst) { worst = sc; idx = i; } }
+        }
+        const old = e.slots[idx], max = ITEM_KINDS[p.itemId].stack || 3;
+        e.slots[idx] = { type: 'item', id: p.itemId, count: 1 };
+        e.reloadT = 0; e.useT = 0; e.burstLeft = 0;
+        this.remove(p);
+        if (old.type === 'weapon') this.spawnWeapon(e.x + 0.6, e.y, e.z + 0.6, old).dropped = true;
+        else for (let k = 0; k < old.count; k++) this.spawnItem(e.x + 0.6 + k * 0.3, e.y, e.z + 0.6, old.id);
+        if (max) e.selectSlot(idx);
+        this.game.audio.play('pickup', e);
+        return true;
+      }
       this.remove(p);
       if (e.isPlayer) this.game.audio.play('pickup', e);
       return true;
