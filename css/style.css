@@ -41,7 +41,7 @@ body { font-family: "Times New Roman", Times, serif; color: #000; }
 .titlebar::after { content: ""; display: block; clear: both; }
 .body { padding: 8px 12px 10px; font-size: 17px; }
 .body.col { display: flex; flex-direction: column; gap: 8px; padding: 14px; }
-h1.logo { margin: 2px 0 4px; font-size: 36px; color: #000080; letter-spacing: 1px; text-shadow: 2px 2px 0 #fff; }
+h1.logo { margin: 0 0 2px; font-size: 34px; color: #000080; letter-spacing: 1px; text-shadow: 2px 2px 0 #fff; }
 h2 { margin: 6px 0; font-size: 22px; color: #000080; }
 .lbl { margin: 6px 0 2px; font-weight: bold; }
 hr { border: 0; border-top: 2px groove #fff; margin: 8px 0; }
@@ -61,7 +61,7 @@ a { color: #0000ee; } a:visited { color: #551a8b; }
 button { font-family: "Times New Roman", Times, serif; font-size: 17px; background: #c0c0c0; border: 2px outset #fff; padding: 3px 14px; cursor: pointer; color: #000; }
 button:active { border-style: inset; }
 button.big { font-weight: bold; font-size: 22px; padding: 5px 20px; }
-.btnrow { text-align: center; margin: 12px 0 8px; }
+.btnrow { text-align: center; margin: 8px 0 6px; }
 .btnrow button { margin: 0 4px; }
 
 .seasons { width: 100%; table-layout: fixed; }
@@ -72,10 +72,11 @@ button.big { font-weight: bold; font-size: 22px; padding: 5px 20px; }
 .seasonbtn.sel { border-style: inset; background: #000080; color: #ffff00; }
 .info { width: 100%; border: 2px inset #fff; background: #fff; font-size: 15px; }
 .info td { vertical-align: top; }
-.info ul { margin: 2px 0 6px; padding-left: 18px; }
+.info td.items { border-top: 1px solid #888; font-size: 14px; }
+.info ul { margin: 0 0 2px; padding-left: 18px; }
 .info small { color: #555; }
 #seasonBlurb { background: #ffffcc; border-bottom: 1px solid #888; }
-.help { width: 100%; font-size: 13px; border-top: 1px solid #888; }
+.help { width: 100%; font-size: 12px; border-top: 1px solid #888; }
 .help td { width: 33%; }
 .stats { width: 100%; background: #fff; border: 2px inset #fff; font-size: 18px; }
 .stats td { padding: 3px 8px; }
