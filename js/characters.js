@@ -1,8 +1,8 @@
 // Low-poly character models (player + bots): random outfits, pixel-art faces, gliders,
 // held weapon models and a small procedural animation system.
 
-import * as THREE from '../lib/three.module.min.js?v=64';
-import { buildGunModel, setGunRarity } from './gunmodels.js?v=64';
+import * as THREE from '../lib/three.module.min.js?v=65';
+import { buildGunModel, setGunRarity } from './gunmodels.js?v=65';
 
 const SKINS = ['#f2c9a0', '#e0ac7e', '#c68955', '#9a6640', '#6e4529', '#f6d7bd'];
 const OUTFITS = [

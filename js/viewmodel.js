@@ -4,10 +4,10 @@
 // "sentinel" mesh clears depth right before the viewmodel meshes render (they are all in
 // the transparent queue with a high renderOrder, so they come after the whole world).
 
-import * as THREE from '../lib/three.module.min.js?v=64';
-import { weaponStats, ITEM_KINDS } from './weapons.js?v=64';
-import { buildGunModel, setGunRarity } from './gunmodels.js?v=64';
-import { reloadPhase } from './reload.js?v=64';
+import * as THREE from '../lib/three.module.min.js?v=65';
+import { weaponStats, ITEM_KINDS } from './weapons.js?v=65';
+import { buildGunModel, setGunRarity } from './gunmodels.js?v=65';
+import { reloadPhase } from './reload.js?v=65';
 
 const ORDER = 1000;
 // Weapons with at least this zoom have a scope: the 3D model is hidden while aiming so its scope tube cannot block the view.
@@ -72,6 +72,8 @@ export class ViewModel {
     this.lHand = mk(hand, glove, -0.05, -0.05, -0.24, 0, 0);
     this.lHandBase = this.lHand.position.clone();
     this.lArmOff = this.lArm.position.clone().sub(this.lHandBase);
+    this.armOff = this.lArmOff.clone();      // current forearm offset from the hand (eased)
+    this.armT = this.lArmOff.clone();        // where it wants to be
     this.lHandPos = this.lHandBase.clone();
     this._hand = new THREE.Vector3();
     // a loose round / magazine the left hand carries while reloading
@@ -139,6 +141,7 @@ export class ViewModel {
     this.pos.lerp(tgt, Math.min(1, dt * 14));
     let rx = rx0, ry = 0, rz = p.sliding ? 0.25 : 0, px = 0, py = 0, pz = 0;
     const handT = this._hand.copy(this.lHandBase);
+    this.armT.copy(this.lArmOff);
     this.carry.visible = false;
     if (show && show.userData.mag) { show.userData.mag.visible = true; show.userData.mag.position.set(0, 0, 0); }
     this.flash.visible = !!st && p.recoil > 0.75 && !p.reloadStage;
@@ -162,7 +165,8 @@ export class ViewModel {
     // left hand (and forearm) follow their target smoothly
     this.lHandPos.lerp(handT, Math.min(1, dt * 16));
     this.lHand.position.copy(this.lHandPos);
-    this.lArm.position.copy(this.lHandPos).add(this.lArmOff);
+    this.armOff.lerp(this.armT, Math.min(1, dt * 14));
+    this.lArm.position.copy(this.lHandPos).add(this.armOff);
     this.root.position.set(this.pos.x + px, this.pos.y + bob + py, this.pos.z + pz);
     this.root.rotation.set(rx, ry, rz);
   }
@@ -206,7 +210,7 @@ export class ViewModel {
         carry(k < 0.75, r.id === 'pump' ? 0xc0392b : r.id === 'grenade' ? 0x556b2f : 0xd9a53a, 0.035, 0.035, 0.07);
         o.pz += k > 0.7 && k < 0.85 ? 0.012 : 0;
       } else if (ph.name === 'rack') {
-        if (r.id === 'hunting_rifle') at(0.095, 0.03, -0.03 + 0.1 * Math.sin(k * Math.PI));   // bolt handle, beside the receiver
+        if (r.id === 'hunting_rifle') { at(0.095, 0.03, -0.03 + 0.1 * Math.sin(k * Math.PI)); this.armT.set(0.03, -0.3, 0.2); }   // bolt handle, beside the receiver
         else at(-0.04, -0.06, -0.33 + 0.1 * Math.sin(k * Math.PI));
         o.pz += 0.03 * Math.sin(k * Math.PI);
       }
@@ -228,14 +232,16 @@ export class ViewModel {
       else if (ph.name === 'in') { lerp3(pouch, [-0.07, 0.03, -0.05], Math.sin(Math.min(1, k * 1.2) * Math.PI / 2)); carry(k < 0.85, 0xd9a53a, 0.08, 0.08, 0.04); }
       else at(-0.06, 0.0, -0.12);
     } else { // single
-      o.rx = -0.15 * env; o.py = -0.12 * env; o.rz = 0.25 * env;
+      if (r.id === 'sniper') { o.rx = 0.06 * env; o.py = -0.01 * env; o.rz = -0.75 * env; o.px = 0.02 * env; }   // bolt gun: roll it so the bolt handle faces the left hand, keep it on screen
+      else { o.rx = -0.15 * env; o.py = -0.12 * env; o.rz = 0.25 * env; }
       const front = r.id === 'rocket' ? [0, 0.07, -0.8] : r.id === 'crossbow' ? [0, 0.07, -0.25] : [0.095, 0.03, -0.03];   // bolt guns: beside the receiver, never inside it
+      if (r.id === 'sniper' && (ph.name === 'in' || ph.name === 'rack')) this.armT.set(0.03, -0.3, 0.2);   // forearm comes up from below, never across the gun
       if (ph.name === 'lower') { if (mag && r.id !== 'sniper') mag.visible = false; lerp3(this.lHandBase.toArray(), pouch, k); }
       else if (ph.name === 'in') {
         lerp3(pouch, front, Math.sin(Math.min(1, k * 1.25) * Math.PI / 2));
         if (r.id === 'rocket' || r.id === 'crossbow') { mag.visible = k > 0.7; mag.position.z = (r.id === 'rocket' ? -0.2 : 0.15) * (1 - k); }
         carry(k < 0.7, r.id === 'rocket' ? 0xb03030 : 0xd9a53a, r.id === 'rocket' ? 0.1 : 0.03, r.id === 'rocket' ? 0.1 : 0.03, r.id === 'rocket' ? 0.22 : 0.08);
-      } else if (ph.name === 'rack') { at(0.095, 0.03, -0.03 + 0.1 * Math.sin(k * Math.PI)); o.rz -= 0.3 * Math.sin(k * Math.PI); }
+      } else if (ph.name === 'rack') { at(0.095, 0.03, -0.03 + 0.1 * Math.sin(k * Math.PI)); o.rz -= 0.1 * Math.sin(k * Math.PI); }
     }
     return o;
   }

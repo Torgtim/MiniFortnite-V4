@@ -1,8 +1,8 @@
 // Procedural pixel-art textures (drawn on small canvases, filtered "nearest" for that crunchy
 // late-90s 3D look). No image files needed.
 
-import * as THREE from '../lib/three.module.min.js?v=64';
-import { mulberry32 } from './util.js?v=64';
+import * as THREE from '../lib/three.module.min.js?v=65';
+import { mulberry32 } from './util.js?v=65';
 
 const cache = {};
 
