@@ -2,11 +2,11 @@
 // counter, materials, minimap + big map, storm window, kill feed, prompts, build/edit bars,
 // damage numbers, weak points, elimination popups.
 
-import * as THREE from '../lib/three.module.min.js?v=66';
-import { RARITIES, weaponStats, ITEM_KINDS } from './weapons.js?v=66';
-import { MATERIALS, COST, BUILD_TYPES } from './build.js?v=66';
-import { fmtTime } from './util.js?v=66';
-import { settings, keyLabel } from './settings.js?v=66';
+import * as THREE from '../lib/three.module.min.js?v=67';
+import { RARITIES, weaponStats, ITEM_KINDS } from './weapons.js?v=67';
+import { MATERIALS, COST, BUILD_TYPES } from './build.js?v=67';
+import { fmtTime } from './util.js?v=67';
+import { settings, keyLabel } from './settings.js?v=67';
 
 const $ = (id) => document.getElementById(id);
 const ICON = { wall: '&#9646;', floor: '&#9644;', ramp: '&#9698;', cone: '&#9650;' };

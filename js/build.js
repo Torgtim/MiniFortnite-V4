@@ -1,12 +1,12 @@
 // Fortnite-style building: walls, floors, ramps and cones on a 4x4x3 grid, three materials that
 // build up their health over time, structural support (unsupported pieces collapse), edits.
 
-import * as THREE from '../lib/three.module.min.js?v=66';
-import { clamp } from './util.js?v=66';
-import { depenetrate, PLAYER_R } from './physics.js?v=66';
-import { colliderTop } from './geom.js?v=66';
-import { CS, LV, defaultEdit, pieceShape, shapeColliders, shapeGeometry } from './pieces.js?v=66';
-import { TEX } from './textures.js?v=66';
+import * as THREE from '../lib/three.module.min.js?v=67';
+import { clamp } from './util.js?v=67';
+import { depenetrate, PLAYER_R } from './physics.js?v=67';
+import { colliderTop } from './geom.js?v=67';
+import { CS, LV, defaultEdit, pieceShape, shapeColliders, shapeGeometry } from './pieces.js?v=67';
+import { TEX } from './textures.js?v=67';
 
 export const COST = 10;
 export const MATERIALS = [
