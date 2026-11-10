@@ -1,8 +1,8 @@
 // Low-poly character models (player + bots): random outfits, pixel-art faces, gliders,
 // held weapon models and a small procedural animation system.
 
-import * as THREE from '../lib/three.module.min.js?v=60';
-import { buildGunModel, setGunRarity } from './gunmodels.js?v=60';
+import * as THREE from '../lib/three.module.min.js?v=61';
+import { buildGunModel, setGunRarity } from './gunmodels.js?v=61';
 
 const SKINS = ['#f2c9a0', '#e0ac7e', '#c68955', '#9a6640', '#6e4529', '#f6d7bd'];
 const OUTFITS = [
@@ -138,7 +138,7 @@ export class CharacterModel {
       const up = new THREE.Mesh(box(0.2, 0.4, 0.2), lam(shirt)); up.position.y = -0.19; sh.add(up);
       const el = new THREE.Group(); el.position.y = -0.38; sh.add(el);
       const fa = new THREE.Mesh(box(0.19, 0.44, 0.19), lam(shirt)); fa.position.y = -0.2; el.add(fa);
-      const h = new THREE.Mesh(box(0.18, 0.16, 0.18), skinM); h.position.y = -0.43; el.add(h); details.push(h);
+      const h = new THREE.Mesh(box(0.21, 0.2, 0.21), skinM); h.position.y = -0.43; el.add(h); details.push(h);
       return { sh, el };
     };
     const aL = arm(-0.42), aR = arm(0.42);
@@ -278,14 +278,14 @@ export class CharacterModel {
     // the torso is turned (bladed stance); the mount cancels that turn so the gun still points straight ahead
     const ty = P.torso.rotation.y;
     this.gunMount.position.set(gm.x, gm.y, gm.z).applyAxisAngle(Y_AXIS, -ty);
-    this.gunMount.rotation.set(gm.p, -ty, 0, 'YXZ');
-    this.gunMount.scale.setScalar(1.2);                     // a bit chunky so it reads from the camera behind you
+    this.gunMount.rotation.set(gm.p, -ty - 0.3, 0, 'YXZ');   // barrel angled out toward the crosshair line: the gun sticks out past the arm for the camera behind you
+    this.gunMount.scale.setScalar(1.45);                    // chunky, so it clearly reads from the camera behind you
     this.gunMount.updateMatrix();
     const G = (v) => v.applyMatrix4(this.gunMount.matrix);
     // fore-grip spot in gun space: pistols are cupped, long guns reach out along the barrel
     const mz0 = Math.abs(gun.userData.muzzle.position.z);
     const pistol = PISTOLS.has(this.heldId);
-    const fo = pistol ? [-0.045, -0.035, -0.01] : [0, -0.085, -Math.min(0.42, mz0 * 0.42)];
+    const fo = pistol ? [-0.045, -0.035, -0.01] : [0, -0.13, -Math.min(0.42, mz0 * 0.42)];
     const SL = new V3(-0.42, 0.7, 0), SR = new V3(0.42, 0.7, 0);
     let target = s.reload ? this._reloadHand(s.reload, fo, G) : null;
     if (!target) {
@@ -293,9 +293,9 @@ export class CharacterModel {
       // too far for the arm? slide the hand back along the gun until it can reach
       for (let i = 0; i < 6 && target.distanceTo(SL) > 0.8 && !pistol; i++) { fo[2] *= 0.8; target = G(new V3(fo[0], fo[1], fo[2])); }
     }
-    const right = G(new V3(0.0, -0.01, 0.0));
-    this._arm(P.armR, P.elbowR, SR, right, new V3(1, -0.7, 0.1), Math.min(1, dt * 20));
-    this._arm(P.armL, P.elbowL, SL, target, new V3(-1, -0.7, 0.1), Math.min(1, dt * 18));
+    const right = G(new V3(0.0, -0.09, 0.02));   // hand sits under the grip, so the gun rides above the forearm
+    this._arm(P.armR, P.elbowR, SR, right, new V3(1, -0.15, 0.45), Math.min(1, dt * 20));
+    this._arm(P.armL, P.elbowL, SL, target, new V3(-1, -0.15, 0.45), Math.min(1, dt * 18));
   }
 
   /** World position of the current gun muzzle (falls back to the hand). */

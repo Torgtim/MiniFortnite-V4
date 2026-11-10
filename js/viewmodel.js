@@ -4,10 +4,10 @@
 // "sentinel" mesh clears depth right before the viewmodel meshes render (they are all in
 // the transparent queue with a high renderOrder, so they come after the whole world).
 
-import * as THREE from '../lib/three.module.min.js?v=60';
-import { weaponStats, ITEM_KINDS } from './weapons.js?v=60';
-import { buildGunModel, setGunRarity } from './gunmodels.js?v=60';
-import { reloadPhase } from './reload.js?v=60';
+import * as THREE from '../lib/three.module.min.js?v=61';
+import { weaponStats, ITEM_KINDS } from './weapons.js?v=61';
+import { buildGunModel, setGunRarity } from './gunmodels.js?v=61';
+import { reloadPhase } from './reload.js?v=61';
 
 const ORDER = 1000;
 // Weapons with at least this zoom have a scope: the 3D model is hidden while aiming so its scope tube cannot block the view.
