@@ -1,7 +1,7 @@
 // Character physics: circle-vs-box horizontal collision, step-up, slopes, ramps/roofs, gravity,
 // crouch height, mantling (climbing ledges) and vaulting.
 
-import { colliderTop } from './geom.js?v=57';
+import { colliderTop } from './geom.js?v=58';
 
 export const PLAYER_R = 0.45;
 export const PLAYER_H = 1.8;

@@ -1,8 +1,8 @@
 // Low-poly character models (player + bots): random outfits, pixel-art faces, gliders,
 // held weapon models and a small procedural animation system.
 
-import * as THREE from '../lib/three.module.min.js?v=57';
-import { buildGunModel, setGunRarity } from './gunmodels.js?v=57';
+import * as THREE from '../lib/three.module.min.js?v=58';
+import { buildGunModel, setGunRarity } from './gunmodels.js?v=58';
 
 const SKINS = ['#f2c9a0', '#e0ac7e', '#c68955', '#9a6640', '#6e4529', '#f6d7bd'];
 const OUTFITS = [
@@ -118,16 +118,24 @@ export class CharacterModel {
       const m = new THREE.Mesh(box(w, h, w), lam(color)); m.position.y = -h / 2; piv.add(m);
       parent.add(piv); return piv;
     };
-    const legL = limb(0.27, 0.9, -0.16, 0, pants, hips), legR = limb(0.27, 0.9, 0.16, 0, pants, hips);
-    const shoe = (leg) => { const s = new THREE.Mesh(box(0.29, 0.12, 0.38), lam('#1e1e1e')); s.position.set(0, -0.86, -0.05); leg.add(s); details.push(s); };
-    shoe(legL); shoe(legR);
+    // legs: hip joint -> thigh -> knee joint -> shin + shoe (so knees can really bend)
+    const leg = (x) => {
+      const hip = new THREE.Group(); hip.position.set(x, 0, 0); hips.add(hip);
+      const th = new THREE.Mesh(box(0.27, 0.47, 0.27), lam(pants)); th.position.y = -0.225; hip.add(th);
+      const knee = new THREE.Group(); knee.position.y = -0.45; hip.add(knee);
+      const sh = new THREE.Mesh(box(0.26, 0.46, 0.26), lam(pants)); sh.position.y = -0.225; knee.add(sh);
+      const s = new THREE.Mesh(box(0.29, 0.12, 0.38), lam('#1e1e1e')); s.position.set(0, -0.41, -0.05); knee.add(s); details.push(s);
+      return { hip, knee };
+    };
+    const lL = leg(-0.16), lR = leg(0.16);
+    const legL = lL.hip, legR = lR.hip, kneeL = lL.knee, kneeR = lR.knee;
     const armL = limb(0.2, 0.68, -0.42, 0.7, shirt, torso), armR = limb(0.2, 0.68, 0.42, 0.7, shirt, torso);
     const hand = (arm) => { const h = new THREE.Mesh(box(0.18, 0.16, 0.18), skinM); h.position.y = -0.72; arm.add(h); details.push(h); };
     hand(armL); hand(armR);
     const grip = new THREE.Group(); grip.position.set(0, -0.72, 0); grip.rotation.x = -Math.PI / 2; armR.add(grip);
 
     this.root = root;
-    this.p = { hips, torso, neck, head, legL, legR, armL, armR, grip };
+    this.p = { hips, torso, neck, head, legL, legR, kneeL, kneeR, armL, armR, grip };
     this.guns = {};
     this.pick = heldPickaxe(); this.pick.visible = false; grip.add(this.pick);
     this.itemCube = new THREE.Mesh(box(0.18, 0.24, 0.18), lam('#ffffff')); this.itemCube.visible = false; grip.add(this.itemCube);
@@ -198,6 +206,15 @@ export class CharacterModel {
     return o.getWorldPosition(out);
   }
 
+  /** Tilting the whole body (freefall, swimming) pivots around the hips instead of the feet. */
+  _pivot() {
+    const a = this.root.rotation.x;
+    if (Math.abs(a) < 0.001) return;
+    const yaw = this.root.rotation.y, dz = 0.92 * Math.sin(a) * -1, dy = 0.92 * (1 - Math.cos(a));
+    this.root.position.y += dy;
+    this.root.position.x += Math.sin(yaw) * dz; this.root.position.z += Math.cos(yaw) * dz;
+  }
+
   /**
    * Procedural animation. s = {speed, grounded, crouch, slide, air ('fall'|'glide'|null),
    * aiming, pitch, recoil, swing, reloading, using, mantle, sprint}
@@ -209,13 +226,16 @@ export class CharacterModel {
       o.rotation.x += (x - o.rotation.x) * f; o.rotation.y += (y - o.rotation.y) * f; o.rotation.z += (z - o.rotation.z) * f;
     };
     const run = Math.min(1, s.speed / 7);
-    this.walk += dt * (4 + s.speed * 1.35);
-    const sw = Math.sin(this.walk);
-    let hipsY = 0.92, rootPitch = 0;
+    const dir = s.back ? -1 : 1;              // walking backwards plays the cycle in reverse
+    this.walk += dir * dt * (4 + s.speed * 1.35);
+    const sw = Math.sin(this.walk), cw = Math.cos(this.walk) * dir;
+    let hipsY = 0.92, rootPitch = 0, hipsZ = 0;
     let legLx = sw * 0.85 * run, legRx = -sw * 0.85 * run;
     let torsoX = s.sprint ? -0.18 : -0.05 * run, torsoY = 0;
     let armLx = -sw * 0.6 * run, armRx = sw * 0.6 * run, armLz = 0.08, armRz = -0.08, armLy = 0, armRy = 0;
     let neckX = 0;
+    // knees bend while the leg swings forward (cw > 0 = left leg moving forward, < 0 = right)
+    let kneeLb = run * (0.12 + 0.95 * Math.max(0, cw)), kneeRb = run * (0.12 + 0.95 * Math.max(0, -cw));
     this.glider.visible = s.air === 'glide';
     if (s.emote) {
       // "The Floppy Disk": an original 90s-style dance
@@ -225,6 +245,9 @@ export class CharacterModel {
       this.root.rotation.x += (0 - this.root.rotation.x) * Math.min(1, dt * 6);
       lerpR(P.torso, 0.05, half * 0.45, beat * 0.12, 18);
       lerpR(P.legL, beat > 0 ? 0.7 * beat : 0, 0, -0.15, 18); lerpR(P.legR, beat < 0 ? -0.7 * beat : 0, 0, 0.15, 18);
+      lerpR(P.kneeL, beat > 0 ? -1.0 * beat : 0, 0, 0, 18); lerpR(P.kneeR, beat < 0 ? 1.0 * beat : 0, 0, 0, 18);
+      P.hips.position.z += (0 - P.hips.position.z) * Math.min(1, dt * 8);
+      this._pivot();
       lerpR(P.armL, 2.4 + beat * 0.7, 0, 0.5 + half * 0.4, 20); lerpR(P.armR, 2.4 - beat * 0.7, 0, -0.5 + half * 0.4, 20);
       lerpR(P.neck, -0.1 + Math.abs(beat) * 0.25, half * 0.3, 0, 18);
       for (const k in this.guns) this.guns[k].visible = false;
@@ -239,32 +262,42 @@ export class CharacterModel {
       lerpR(P.torso, 0, 0, 0); lerpR(P.neck, 0.45, 0, 0);
       lerpR(P.armL, 2.6 + st * 0.5, 0, 0.6 + st * 0.5, 10); lerpR(P.armR, 2.6 + st * 0.5, 0, -0.6 - st * 0.5, 10);
       lerpR(P.legL, -0.3 + st * 0.5, 0, 0, 12); lerpR(P.legR, -0.3 - st * 0.5, 0, 0, 12);
+      lerpR(P.kneeL, -(0.3 + Math.max(0, -st) * 0.6), 0, 0, 12); lerpR(P.kneeR, -(0.3 + Math.max(0, st) * 0.6), 0, 0, 12);
+      P.hips.position.z += (0 - P.hips.position.z) * Math.min(1, dt * 8);
+      this._pivot();
       for (const k in this.guns) this.guns[k].visible = false;
       this.pick.visible = false; this.itemCube.visible = false; this.heldKey = '';
       return;
     }
 
     if (s.air === 'fall') {
-      rootPitch = -1.25; legLx = 0.2 + Math.sin(this.walk * 0.5) * 0.15; legRx = 0.2 - Math.sin(this.walk * 0.5) * 0.15;
+      rootPitch = -1.25; legLx = 0.2 + Math.sin(this.walk * 0.5) * 0.15; legRx = 0.2 - Math.sin(this.walk * 0.5) * 0.15; kneeLb = 0.3; kneeRb = 0.3;
       armLx = -0.3; armRx = -0.3; armLz = 1.25; armRz = -1.25; neckX = 0.9; hipsY = 0.92;
     } else if (s.air === 'glide') {
-      armLx = 2.9; armRx = 2.9; armLz = 0.25; armRz = -0.25; legLx = 0.25; legRx = 0.1; torsoX = 0.05;
+      armLx = 2.9; armRx = 2.9; armLz = 0.25; armRz = -0.25; legLx = 0.25; legRx = 0.1; torsoX = 0.05; kneeLb = 0.35; kneeRb = 0.15;
     } else if (s.mantle) {
-      armLx = 2.8; armRx = 2.8; legLx = 0.9; legRx = -0.3; torsoX = -0.3;
+      // climbing up: one knee up on the ledge, arms reaching forward / up
+      armLx = 2.5 + sw * 0.15; armRx = 2.5 - sw * 0.15; armLy = 0; armRy = 0; legLx = 1.25; legRx = -0.15; kneeLb = 1.2; kneeRb = 0.2; torsoX = -0.35;
     } else if (s.slide) {
-      hipsY = 0.42; torsoX = 0.55; legLx = 1.35; legRx = 1.05; armLx = 0.4; armRx = 0.4; armLz = 0.7; armRz = -0.7;
+      hipsY = 0.4; torsoX = 0.5; legLx = 1.4; legRx = 1.1; kneeLb = 0.15; kneeRb = 0.5; armLx = 0.4; armRx = 0.4; armLz = 0.7; armRz = -0.7;
     } else {
-      if (s.crouch) { hipsY = 0.62; torsoX = -0.35; legLx = legLx * 0.6 + 0.9; legRx = legRx * 0.6 + 0.9; }
-      if (!s.grounded) { legLx = 0.6; legRx = -0.25; }
+      if (s.crouch) {
+        // deep knee bend with the hips pushed back and the chest forward
+        const w = run * 0.25;
+        hipsY = 0.64; hipsZ = 0.38; torsoX = -0.5;
+        legLx = 1.15 + sw * w; legRx = 1.15 - sw * w; kneeLb = 0.7 - sw * w; kneeRb = 0.7 + sw * w;
+      }
+      if (!s.grounded) { legLx = 0.7; legRx = -0.2; kneeLb = 0.9; kneeRb = 0.35; }
     }
     // upper body: holding / aiming
     if (!s.air) {
-      const aimX = Math.PI / 2 + (s.pitch || 0) * 0.95 + (s.recoil || 0) * 0.25;
+      // arms hang off the torso, so cancel its lean (crouch / slide) to keep the gun pointing where you aim
+      const aimX = Math.PI / 2 + (s.pitch || 0) * 0.95 + (s.recoil || 0) * 0.25 - torsoX;
       if (s.kind === 'gun' && !s.mantle) {
         if (s.aiming || !s.sprint) {
           armRx = aimX; armRy = 0; armRz = 0.05;
           armLx = aimX - 0.1; armLy = 0.6; armLz = 0.25;
-          neckX = (s.pitch || 0) * 0.5;
+          neckX = (s.pitch || 0) * 0.5 - torsoX * 0.7;
         } else { armRx = 0.9 + sw * 0.25; armLx = 0.8 - sw * 0.25; armLy = 0.5; }
         if (s.reload) this._reloadPose(s.reload, aimX, (a) => { armLx = a.x; armLy = a.y; armLz = a.z; });
         else if (this.curGun && this.curGun.userData.mag) { this.curGun.userData.mag.visible = true; this.curGun.userData.mag.position.set(0, 0, 0); }
@@ -275,11 +308,17 @@ export class CharacterModel {
         armRx = s.using ? 2.2 + Math.sin(this.walk * 2) * 0.1 : 1.0;
       }
     }
+    // never wave a gun / pickaxe around while climbing
+    const held = this.heldKey.startsWith('gun') ? this.curGun : this.heldKey.startsWith('pickaxe') ? this.pick : this.heldKey.startsWith('item') ? this.itemCube : null;
+    if (held) held.visible = !s.mantle;
     const f = Math.min(1, dt * 12);
     P.hips.position.y += (hipsY - P.hips.position.y) * f;
+    P.hips.position.z += (hipsZ - P.hips.position.z) * f;
     this.root.rotation.x += (rootPitch - this.root.rotation.x) * Math.min(1, dt * 6);
+    this._pivot();
     lerpR(P.torso, torsoX, torsoY, 0);
     lerpR(P.legL, legLx, 0, 0, 16); lerpR(P.legR, legRx, 0, 0, 16);
+    lerpR(P.kneeL, -kneeLb, 0, 0, 18); lerpR(P.kneeR, -kneeRb, 0, 0, 18);
     lerpR(P.armL, armLx, armLy, armLz, 16); lerpR(P.armR, armRx, armRy, armRz, 18);
     lerpR(P.neck, neckX, 0, 0);
   }

@@ -1,8 +1,8 @@
 // The shrinking storm circle (battle-royale zone).
 
-import * as THREE from '../lib/three.module.min.js?v=57';
-import { lerp, mulberry32 } from './util.js?v=57';
-import { MAP_R } from './world.js?v=57';
+import * as THREE from '../lib/three.module.min.js?v=58';
+import { lerp, mulberry32 } from './util.js?v=58';
+import { MAP_R } from './world.js?v=58';
 
 const PHASES = [
   { wait: 75, shrink: 40, r: 140, dmg: 1 },
