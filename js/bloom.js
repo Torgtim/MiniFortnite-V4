@@ -1,7 +1,7 @@
 // Small bloom post-process: scene -> HDR target, bright pass at 1/4 size, separable blur,
 // composite with tone mapping + sRGB output. Makes neon, lava, loot beams and flashes glow.
 
-import * as THREE from '../lib/three.module.min.js?v=56';
+import * as THREE from '../lib/three.module.min.js?v=57';
 
 const VERT = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
 

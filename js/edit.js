@@ -1,10 +1,25 @@
 // Edit mode: select tiles on one of your own build pieces, then confirm to cut doors, windows,
 // half walls, holes in floors, half / rotated ramps and different roof shapes.
 
-import * as THREE from '../lib/three.module.min.js?v=56';
-import { editTiles, TILES } from './pieces.js?v=56';
+import * as THREE from '../lib/three.module.min.js?v=57';
+import { editTiles, TILES } from './pieces.js?v=57';
 
 const RANGE = 7.5;
+
+/** Ray vs axis-aligned box [x0,y0,z0,x1,y1,z1] grown by `pad`; entry distance or -1. */
+function rayBox(a, b, pad) {
+  let t0 = 0, t1 = 1e9;
+  const o = [a.ox, a.oy, a.oz], d = [a.dx, a.dy, a.dz];
+  for (let i = 0; i < 3; i++) {
+    const lo = b[i] - pad, hi = b[i + 3] + pad;
+    if (Math.abs(d[i]) < 1e-9) { if (o[i] < lo || o[i] > hi) return -1; continue; }
+    let u = (lo - o[i]) / d[i], v = (hi - o[i]) / d[i];
+    if (u > v) { const x = u; u = v; v = x; }
+    t0 = Math.max(t0, u); t1 = Math.min(t1, v);
+    if (t0 > t1) return -1;
+  }
+  return t0;
+}
 
 export class EditSystem {
   constructor(game) {
@@ -26,19 +41,30 @@ export class EditSystem {
 
   get active() { return !!this.piece; }
 
-  /** Piece under the crosshair that `e` may edit. */
+  /** Piece under the crosshair that `e` may edit. If the ray misses (thin walls, cones, ramp edges)
+   *  the closest own piece near the crosshair is used, so editing never feels picky. */
   target(e) {
     const g = this.game, a = g.aimRay();
     const hit = g.world.raycast(a.ox, a.oy, a.oz, a.dx, a.dy, a.dz, RANGE + a.back, 1.0);
     const p = hit.collider && hit.collider.piece;
-    if (!p || p.dead || p.owner !== e) return null;
-    if (Math.hypot(p.x - e.x, p.z - e.z) > RANGE + 2) return null;
-    return p;
+    if (p && !p.dead && p.owner === e && Math.hypot(p.x - e.x, p.z - e.z) <= RANGE + 2) return p;
+    const limit = Math.min(hit.t, RANGE + a.back + 2);   // don't pick pieces behind a wall / the terrain
+    let best = null, bt = Infinity;
+    for (const q of g.build.pieces) {
+      if (q.dead || q.owner !== e || Math.hypot(q.x - e.x, q.z - e.z) > RANGE + 2) continue;
+      const t = rayBox(a, q.bounds, 0.55);
+      if (t >= 0 && t < bt && t <= limit + 0.6) { bt = t; best = q; }
+    }
+    return best;
   }
 
   begin(e) {
     const p = this.target(e);
-    if (!p) { this.game.audio.play('deny', null); return false; }
+    if (!p) {
+      this.game.audio.play('deny', null);
+      this.game.hud.feed('<span class="me">EDIT: aim at one of YOUR build pieces (within reach) and press G</span>');
+      return false;
+    }
     this.piece = p;
     this.sel = p.type === 'ramp' ? [] : [...p.edit.removed];
     this.dragMode = null;

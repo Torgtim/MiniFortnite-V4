@@ -1,10 +1,10 @@
 // The human player: bus jump, skydive/glider, ground movement (sprint, crouch, slide, mantle,
 // vault), shooting, building and editing input. PC controls.
 
-import { Entity } from './entity.js?v=56';
-import { stepEntity, findLedge, startMantle, stepMantle, canStand, GRAVITY } from './physics.js?v=56';
-import { CharacterModel } from './characters.js?v=56';
-import { clamp } from './util.js?v=56';
+import { Entity } from './entity.js?v=57';
+import { stepEntity, findLedge, startMantle, stepMantle, canStand, GRAVITY } from './physics.js?v=57';
+import { CharacterModel } from './characters.js?v=57';
+import { clamp } from './util.js?v=57';
 
 const WALK = 6.0, SPRINT = 8.6, CROUCH = 3.4, JUMP = 7.6;
 const SLIDE_MIN = 10.5, SLIDE_END = 4.2;
