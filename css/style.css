@@ -234,3 +234,4 @@ select { background: #fff; border: 2px inset #fff; }
 #invAmmo button, #invMats button { font-size: 12px; }
 .invslot .rtag { align-self: flex-start; font-size: 12px; padding: 0 4px; border: 1px solid #000; color: #000; }
 .swatch { display: inline-block; width: 10px; height: 10px; border: 1px solid #000; margin-right: 5px; vertical-align: -1px; }
+.screen.center.light { background: rgba(0,0,0,0.12); }

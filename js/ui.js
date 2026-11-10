@@ -1,10 +1,10 @@
 // Menus: lobby (season switcher), settings, pause and result windows.
 
-import { SEASONS } from './seasons.js?v=53';
-import { WEAPONS, AMMO, RARITIES, weaponStats } from './weapons.js?v=53';
-import { MATERIALS } from './build.js?v=53';
-import { settings, saveSettings, resetSettings, applyPreset, KEY_ACTIONS, KEY_GROUPS, keysClash, keyLabel } from './settings.js?v=53';
-import { stats } from './stats.js?v=53';
+import { SEASONS } from './seasons.js?v=56';
+import { WEAPONS, AMMO, RARITIES, weaponStats } from './weapons.js?v=56';
+import { MATERIALS } from './build.js?v=56';
+import { settings, saveSettings, resetSettings, applyPreset, KEY_ACTIONS, KEY_GROUPS, keysClash, keyLabel } from './settings.js?v=56';
+import { stats } from './stats.js?v=56';
 
 const TIPS = [
   'Press <b>Tab</b> to open your <b>inventory</b>: drag slots around to reorder them, or drop weapons, ammo and materials for a friend.',
@@ -197,15 +197,38 @@ export class UI {
     el.classList.toggle('hidden', !on);
     this.invOpen = on;
     this.invPick = -1;
-    if (on) this._buildInventory();
+    this.invDragging = false;
+    this._invSig = '';
+    if (on) { this._buildInventory(); this._invSig = this._invSignature(); }
+  }
+
+  /** What the inventory shows; when it changes (ammo picked up, a heal used...) the window is redrawn. */
+  _invSignature() {
+    const p = this.game.player;
+    if (!p) return '';
+    return p.slot + '|' + p.slots.map((s) => (s ? (s.id || s.type) + ':' + (s.mag ?? '') + ':' + (s.count ?? '') + ':' + (s.rarity ?? '') : '-')).join(',')
+      + '|' + Object.values(p.ammo).join(',') + '|' + Object.values(p.mats).join(',');
+  }
+
+  /** Called every frame while the (non-pausing) inventory is open. */
+  tickInventory(dt) {
+    const g = this.game, p = g.player;
+    if (!p || !p.alive || g.mode !== 'playing') { this.showInventory(false); return; }
+    this._invT = (this._invT || 0) + dt;
+    if (this._invT < 0.2 || this.invDragging) return;
+    this._invT = 0;
+    const sig = this._invSignature();
+    if (sig !== this._invSig) { this._invSig = sig; this._buildInventory(); }
   }
 
   _buildInventory() {
     const g = this.game, p = g.player;
     if (!p) return;
     $('invKey').textContent = keyLabel(settings.keys.inventory);
-    $('invClose').onclick = () => g.resume();
-    $('invX').onclick = () => g.resume();
+    $('invClose').onclick = () => g.closeInventory();
+    $('invX').onclick = () => g.closeInventory();
+    // clicking the dimmed area around the window also closes it
+    $('inventory').onclick = (ev) => { if (ev.target.id === 'inventory') g.closeInventory(); };
     const host = $('invSlots');
     host.innerHTML = '';
     const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
@@ -245,11 +268,11 @@ export class UI {
       if (i >= 1) {
         // drag & drop + click-click swapping
         box.draggable = !!s;
-        box.ondragstart = (ev) => { ev.dataTransfer.setData('text/plain', String(i)); box.classList.add('drag'); };
-        box.ondragend = () => box.classList.remove('drag');
+        box.ondragstart = (ev) => { ev.dataTransfer.setData('text/plain', String(i)); box.classList.add('drag'); this.invDragging = true; };
+        box.ondragend = () => { box.classList.remove('drag'); this.invDragging = false; };
         box.ondragover = (ev) => { ev.preventDefault(); box.classList.add('over'); };
         box.ondragleave = () => box.classList.remove('over');
-        box.ondrop = (ev) => { ev.preventDefault(); const from = +ev.dataTransfer.getData('text/plain'); g.swapSlots(from, i); this.invPick = -1; this._buildInventory(); };
+        box.ondrop = (ev) => { ev.preventDefault(); this.invDragging = false; const from = +ev.dataTransfer.getData('text/plain'); g.swapSlots(from, i); this.invPick = -1; this._buildInventory(); };
         box.onclick = () => {
           if (this.invPick < 0) { if (s) this.invPick = i; }
           else { g.swapSlots(this.invPick, i); this.invPick = -1; }
@@ -274,6 +297,7 @@ export class UI {
     };
     res('invAmmo', Object.keys(AMMO).map((k) => [AMMO[k].name, AMMO[k].color, p.ammo[k], (n) => g.dropResource('ammo', k, n), AMMO[k].amount]));
     res('invMats', MATERIALS.map((m) => [m.name, m.color, p.mats[m.id], (n) => g.dropResource('mats', m.id, n), 30]));
+    this._invSig = this._invSignature();
   }
 
   /** Playground spawn menu: every weapon of the current season (pick a rarity) plus all items. */

@@ -97,7 +97,7 @@ Every map also has a three-storey **lookout tower** near the middle, with ramps 
 | Right mouse | aim down sights (in build mode: material; in edit mode: reset) |
 | 1-5 / wheel | weapon slots (each slot is its own bind) |
 | F | pickaxe (press again for your last weapon) |
-| Tab | inventory: drag slots to reorder, drop weapons / items / ammo / materials |
+| Tab | inventory (does not pause!): drag slots to reorder, drop weapons / items / ammo / materials |
 | J | drop held weapon / item stack |
 | U | Playground only: spawn menu (any weapon, any rarity, healing items) |
 
@@ -135,7 +135,7 @@ Multiplayer, vehicles, traps and squads.
 
 ## v4.3 notes
 
-- **Inventory (Tab)**: Win95-style window. Drag one slot onto another (or click one, then the other) to swap them; drop weapons, item stacks, ammo and materials.
+- **Inventory (Tab)**: Win95-style window. Drag one slot onto another (or click one, then the other) to swap them; drop weapons, item stacks, ammo and materials. The game does **not** pause while it is open (you can still walk with WASD), so be quick or box up first. Tab, Esc, Close or a click outside the window closes it.
 - **Swap anything on the ground with E**: with a full inventory the thing you look at swaps with the slot you hold (holding the pickaxe: the slot you used last). The old one lands where the new one was, so E again swaps back.
 - **Build on top of builds**: aim at the top of any floor (yours or a bot's) and ramps, cones and walls snap onto it. Look up with a ramp to place it one level higher.
 - **Realistic reloads** (`js/reload.js`): magazine guns drop the mag, fetch a new one and seat it; a tactical reload keeps a round in the chamber (+1) on closed-bolt guns, an empty one is slower because you rack the gun. Pump / lever / hunting rifle / grenade launcher load one round at a time (fire to stop), the double barrel breaks open, the revolver swings its cylinder out, rockets and bolt guns load single rounds. Every step has its own sound, and casings fly out when you shoot.

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mini-Fortnite V4</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=53">
+<link rel="stylesheet" href="css/style.css?v=56">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -160,18 +160,18 @@
 </div>
 
 <!-- ============================ INVENTORY ============================ -->
-<div id="inventory" class="screen center hidden">
+<div id="inventory" class="screen center light hidden">
   <table class="win" cellspacing="0" cellpadding="0">
     <tr><td class="titlebar"><span>Inventory.exe</span><span class="tb"><b id="invX">X</b></span></td></tr>
     <tr><td class="body">
-      <p class="invhint">Drag a slot onto another to swap them (or click one, then the other). <b id="invKey">TAB</b> / Esc closes.</p>
+      <p class="invhint">Drag a slot onto another to swap them (or click one, then the other). <b id="invKey">TAB</b> / Esc closes.<br><b class="blink">The game keeps running!</b> You can still walk with WASD - box up first if enemies are close.</p>
       <div id="invSlots" class="invslots"></div>
       <table class="invres" cellspacing="0"><tr><td valign="top">
         <fieldset><legend>Ammo</legend><table id="invAmmo"></table></fieldset>
       </td><td valign="top">
         <fieldset><legend>Materials</legend><table id="invMats"></table></fieldset>
       </td></tr></table>
-      <p class="btnrow"><button id="invClose" class="big">Back to the game</button></p>
+      <p class="btnrow"><button id="invClose" class="big">Close</button></p>
     </td></tr>
   </table>
 </div>
@@ -224,6 +224,6 @@
   </table>
 </div>
 
-<script type="module" src="js/main.js?v=53"></script>
+<script type="module" src="js/main.js?v=56"></script>
 </body>
 </html>

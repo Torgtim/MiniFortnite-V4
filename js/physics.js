@@ -1,7 +1,7 @@
 // Character physics: circle-vs-box horizontal collision, step-up, slopes, ramps/roofs, gravity,
 // crouch height, mantling (climbing ledges) and vaulting.
 
-import { colliderTop } from './geom.js?v=53';
+import { colliderTop } from './geom.js?v=56';
 
 export const PLAYER_R = 0.45;
 export const PLAYER_H = 1.8;
@@ -233,6 +233,11 @@ export function stepMantle(world, e, dt) {
   e.z = m.z0 + (m.z1 - m.z0) * ease(fwd);
   if (m.vault) e.y = m.y0 + (m.peak - m.y0) * Math.sin(k * Math.PI) + (m.y1 - m.y0) * k;
   else e.y = m.y0 + (Math.max(m.peak, m.y1) - m.y0) * ease(up) - (k >= 1 ? Math.max(0, m.peak - m.y1) : 0);
+  // never cut through the surface we are climbing over (sloped roofs, ramps)
+  if (k < 1 && fwd > 0) {
+    const under = groundAt(world, e.x, e.z, Math.max(m.y1, m.peak));
+    if (under > e.y && under <= Math.max(m.y1, m.peak) + 0.05) e.y = under;
+  }
   if (k >= 1) {
     e.x = m.x1; e.y = m.y1; e.z = m.z1;
     e.mantle = null;

@@ -1,30 +1,30 @@
 // Game orchestration: renderer, match lifecycle (bus -> drop -> storm), input, cameras, main loop.
 
-import * as THREE from '../lib/three.module.min.js?v=53';
-import { SEASONS } from './seasons.js?v=53';
-import { World } from './world.js?v=53';
-import { Player } from './player.js?v=53';
-import { Bot, BOT_NAMES } from './bots.js?v=53';
-import { Combat } from './combat.js?v=53';
-import { Loot } from './loot.js?v=53';
-import { BuildSystem } from './build.js?v=53';
-import { EditSystem } from './edit.js?v=53';
-import { Storm } from './storm.js?v=53';
-import { Bus } from './bus.js?v=53';
-import { Sky } from './sky.js?v=53';
-import { FX } from './fx.js?v=53';
-import { Gadgets } from './gadgets.js?v=53';
-import { RetroPass } from './retro.js?v=53';
-import { BloomPass } from './bloom.js?v=53';
-import { HUD } from './hud.js?v=53';
-import { UI } from './ui.js?v=53';
-import { ViewModel } from './viewmodel.js?v=53';
-import { GameAudio } from './audio.js?v=53';
-import { settings, saveSettings, onSettingsChange, keyLabel } from './settings.js?v=53';
-import { ITEM_KINDS, RARITIES, weaponStats, WEAPONS, makeWeapon } from './weapons.js?v=53';
-import { mulberry32, clamp, dirFromAngles } from './util.js?v=53';
-import { recordMatch } from './stats.js?v=53';
-import { isFree, groundAt } from './physics.js?v=53';
+import * as THREE from '../lib/three.module.min.js?v=56';
+import { SEASONS } from './seasons.js?v=56';
+import { World } from './world.js?v=56';
+import { Player } from './player.js?v=56';
+import { Bot, BOT_NAMES } from './bots.js?v=56';
+import { Combat } from './combat.js?v=56';
+import { Loot } from './loot.js?v=56';
+import { BuildSystem } from './build.js?v=56';
+import { EditSystem } from './edit.js?v=56';
+import { Storm } from './storm.js?v=56';
+import { Bus } from './bus.js?v=56';
+import { Sky } from './sky.js?v=56';
+import { FX } from './fx.js?v=56';
+import { Gadgets } from './gadgets.js?v=56';
+import { RetroPass } from './retro.js?v=56';
+import { BloomPass } from './bloom.js?v=56';
+import { HUD } from './hud.js?v=56';
+import { UI } from './ui.js?v=56';
+import { ViewModel } from './viewmodel.js?v=56';
+import { GameAudio } from './audio.js?v=56';
+import { settings, saveSettings, onSettingsChange, keyLabel } from './settings.js?v=56';
+import { ITEM_KINDS, RARITIES, weaponStats, WEAPONS, makeWeapon } from './weapons.js?v=56';
+import { mulberry32, clamp, dirFromAngles } from './util.js?v=56';
+import { recordMatch } from './stats.js?v=56';
+import { isFree, groundAt } from './physics.js?v=56';
 
 const SUN_DIR = new THREE.Vector3(0.45, 0.8, 0.3).normalize();
 
@@ -305,10 +305,25 @@ class Game {
   }
 
   lockPointer() {
+    // if the browser refuses the lock (too soon after leaving it, no user gesture...) show the
+    // pause menu, so you are never left in a running game without mouse control
+    const failed = () => {
+      if (this.mode === 'playing' && !this.paused && !document.pointerLockElement && !this.ui.invOpen) {
+        this.paused = true;
+        if (this.player) this.player.resetInput();
+        this.ui.showPause(true);
+      }
+    };
     try {
       const r = this.canvas.requestPointerLock();
-      if (r && r.catch) r.catch(() => {});
-    } catch (e) { /* needs user gesture */ }
+      if (r && r.catch) r.catch(failed);
+    } catch (e) { failed(); }
+  }
+
+  /** Close the (non-pausing) inventory and go back to mouse look. */
+  closeInventory() {
+    this.ui.showInventory(false);
+    if (this.mode === 'playing' && !this.paused) this.lockPointer();
   }
 
   resume() {
@@ -396,7 +411,19 @@ class Game {
       const K = settings.keys;
       if (e && (c === 'Tab' || c === K.crouch || c === 'Space')) e.preventDefault();
       // inventory window open: its key or Esc closes it again
-      if (this.ui.invOpen) { if (!repeat && (c === K.inventory || c === 'Escape')) this.resume(); return; }
+      // inventory open (the game keeps running!): its key or Esc closes it, and you can still move
+      if (this.ui.invOpen) {
+        if (!repeat && (c === K.inventory || c === 'Escape')) { this.closeInventory(); return; }
+        if (!p || !p.alive) return;
+        if (c === K.forward) p.input.f = 1;
+        else if (c === K.back) p.input.b = 1;
+        else if (c === K.left) p.input.l = 1;
+        else if (c === K.right) p.input.r = 1;
+        else if (c === K.sprint) p.input.sprint = true;
+        else if (c === K.crouch) { p.input.crouch = true; if (!repeat) p.crouchToggle = !p.crouchToggle; }
+        else if (c === K.jump) { p.input.jump = true; if (!repeat) p.pressJump(); }
+        return;
+      }
       if (c === K.map && !repeat) { this.bigMap = !this.bigMap; return; }
       if ((c === 'Escape' || c === 'KeyP') && this.mode === 'playing' && !this.paused) {
         if (document.pointerLockElement) document.exitPointerLock(); // pointerlockchange opens the pause menu
@@ -505,16 +532,22 @@ class Game {
       up(c);
     }, { passive: false });
 
+    document.addEventListener('pointerlockerror', () => {
+      if (this.mode === 'playing' && !this.paused && !this.ui.invOpen) { this.paused = true; if (this.player) this.player.resetInput(); this.ui.showPause(true); }
+    });
     document.addEventListener('pointerlockchange', () => {
       if (!document.pointerLockElement && this.mode === 'playing' && !this.paused) {
-        this.paused = true;
-        if (this.player) this.player.resetInput();
-        this.rightDown = false;
-        this.edit.cancel();
         const win = this.ui.pendingWindow;
         this.ui.pendingWindow = null;
+        this.rightDown = false;
+        this.edit.cancel();
+        if (this.player) this.player.mouseLeft = false;
+        // the inventory does NOT pause: the storm and the bots keep going, so be quick (or box up first)
+        if (win === 'inventory' && this.player && this.player.alive) { this.ui.showInventory(true); return; }
+        if (this.ui.invOpen) this.ui.showInventory(false);   // Esc / alt-tab out of the inventory: normal pause
+        this.paused = true;
+        if (this.player) this.player.resetInput();
         if (win === 'spawn') this.ui.showSpawn(true);
-        else if (win === 'inventory') this.ui.showInventory(true);
         else this.ui.showPause(true);
       }
     });
@@ -557,8 +590,8 @@ class Game {
   dropResource(kind, id, n) {
     const p = this.player;
     const have = kind === 'ammo' ? p.ammo[id] : p.mats[id];
+    if (!(have > 0)) return;
     const k = Math.min(n, have);
-    if (k <= 0) return;
     const { x, y, z } = this._dropSpot(2.3);
     const q = kind === 'ammo' ? this.loot.spawnAmmo(x, y, z, id) : this.loot.spawnMats(x, y, z, id, k);
     q.n = k; q.lockFor = p; q.lockUntil = this.time + 2.5;
@@ -712,6 +745,7 @@ class Game {
     this.ambience();
     this.sky.update(dt, tnow, this.camera);
     if (this.player) this.hud.update(dt);
+    if (this.ui.invOpen) this.ui.tickInventory(dt);
     const f = this.player && this.player.alive ? this.player : this.camera.position;
     this._sunFollow(f.x, f.z);
   }

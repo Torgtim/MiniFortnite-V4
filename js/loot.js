@@ -1,13 +1,13 @@
 // Loot: floor pickups, chests, ammo boxes, supply drops, material drops, season loot tables
 // and pickup logic.
 
-import * as THREE from '../lib/three.module.min.js?v=53';
-import { weightedPick } from './util.js?v=53';
-import { AMMO, ITEM_KINDS, RARITIES, WEAPONS, CLASS_COLORS, makeWeapon, weaponStats } from './weapons.js?v=53';
-import { RARITY_GROUND } from './seasons.js?v=53';
-import { buildGunModel } from './gunmodels.js?v=53';
-import { TEX } from './textures.js?v=53';
-import { MATERIALS } from './build.js?v=53';
+import * as THREE from '../lib/three.module.min.js?v=56';
+import { weightedPick } from './util.js?v=56';
+import { AMMO, ITEM_KINDS, RARITIES, WEAPONS, CLASS_COLORS, makeWeapon, weaponStats } from './weapons.js?v=56';
+import { RARITY_GROUND } from './seasons.js?v=56';
+import { buildGunModel } from './gunmodels.js?v=56';
+import { TEX } from './textures.js?v=56';
+import { MATERIALS } from './build.js?v=56';
 
 const beamGeo = new THREE.CylinderGeometry(0.22, 0.3, 3.4, 6, 1, true).translate(0, 1.7, 0);
 const beamMats = {};
