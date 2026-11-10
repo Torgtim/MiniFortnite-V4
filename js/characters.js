@@ -1,8 +1,8 @@
 // Low-poly character models (player + bots): random outfits, pixel-art faces, gliders,
 // held weapon models and a small procedural animation system.
 
-import * as THREE from '../lib/three.module.min.js?v=48';
-import { buildGunModel, setGunRarity } from './gunmodels.js?v=48';
+import * as THREE from '../lib/three.module.min.js?v=53';
+import { buildGunModel, setGunRarity } from './gunmodels.js?v=53';
 
 const SKINS = ['#f2c9a0', '#e0ac7e', '#c68955', '#9a6640', '#6e4529', '#f6d7bd'];
 const OUTFITS = [
@@ -174,6 +174,24 @@ export class CharacterModel {
     else this.curGun = null;
   }
 
+  /** Third-person reload: the left arm goes for the magazine / shells and the mag really comes out. */
+  _reloadPose(r, aimX, setArm) {
+    const mag = this.curGun && this.curGun.userData.mag;
+    if (mag) { mag.visible = true; mag.position.set(0, 0, 0); }
+    let x = aimX - 0.1, y = 0.6, z = 0.25;
+    const k = r.k;
+    if (r.style === 'mag') {
+      if (r.name === 'out') { if (mag) { mag.position.y = -0.3 * k; mag.visible = k < 0.9; } x = aimX - 0.5; }
+      else if (r.name === 'fetch') { if (mag) mag.visible = false; x = 0.2 + Math.sin(k * Math.PI) * 0.3; y = 0.2; }
+      else if (r.name === 'in') { if (mag) mag.position.y = -0.3 * (1 - k); x = aimX - 0.5 * (1 - k); }
+      else if (r.name === 'rack') { x = aimX - 0.2; y = 0.9; }
+    } else if (r.style === 'shell') { x = aimX - 0.6 + Math.sin(k * Math.PI) * 0.5; y = 0.5; }
+    else if (r.style === 'cyl') { if (mag) mag.position.x = -0.065 * (r.name === 'open' ? k : r.name === 'close' ? 1 - k : 1); x = aimX - 0.4; }
+    else if (r.style === 'break') { x = r.name === 'in' ? aimX - 0.6 + k * 0.4 : aimX - 0.3; }
+    else { if (mag && (r.name === 'lower' || (r.name === 'in' && k < 0.7)) && r.id !== 'sniper') mag.visible = false; x = aimX - 0.7 + (r.name === 'in' ? k * 0.6 : 0); }
+    setArm({ x, y, z });
+  }
+
   /** World position of the current gun muzzle (falls back to the hand). */
   muzzleWorld(out) {
     const o = this.curGun ? this.curGun.userData.muzzle : this.p.grip;
@@ -248,7 +266,8 @@ export class CharacterModel {
           armLx = aimX - 0.1; armLy = 0.6; armLz = 0.25;
           neckX = (s.pitch || 0) * 0.5;
         } else { armRx = 0.9 + sw * 0.25; armLx = 0.8 - sw * 0.25; armLy = 0.5; }
-        if (s.reloading) { armLx = aimX - 0.7 + Math.sin(this.walk * 3) * 0.2; }
+        if (s.reload) this._reloadPose(s.reload, aimX, (a) => { armLx = a.x; armLy = a.y; armLz = a.z; });
+        else if (this.curGun && this.curGun.userData.mag) { this.curGun.userData.mag.visible = true; this.curGun.userData.mag.position.set(0, 0, 0); }
       } else if (s.kind === 'pickaxe' && !s.mantle) {
         const prog = s.swing > 0 ? 1 - s.swing / 0.3 : 1;
         armRx = s.swing > 0 ? 2.7 - 2.3 * prog : 0.9; armRz = -0.1;

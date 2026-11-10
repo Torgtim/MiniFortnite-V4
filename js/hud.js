@@ -2,11 +2,11 @@
 // counter, materials, minimap + big map, storm window, kill feed, prompts, build/edit bars,
 // damage numbers, weak points, elimination popups.
 
-import * as THREE from '../lib/three.module.min.js?v=48';
-import { RARITIES, weaponStats, ITEM_KINDS } from './weapons.js?v=48';
-import { MATERIALS, COST, BUILD_TYPES } from './build.js?v=48';
-import { fmtTime } from './util.js?v=48';
-import { settings, keyLabel } from './settings.js?v=48';
+import * as THREE from '../lib/three.module.min.js?v=53';
+import { RARITIES, weaponStats, ITEM_KINDS } from './weapons.js?v=53';
+import { MATERIALS, COST, BUILD_TYPES } from './build.js?v=53';
+import { fmtTime } from './util.js?v=53';
+import { settings, keyLabel } from './settings.js?v=53';
 
 const $ = (id) => document.getElementById(id);
 const ICON = { wall: '&#9646;', floor: '&#9644;', ramp: '&#9698;', cone: '&#9650;' };
@@ -185,7 +185,7 @@ export class HUD {
       const st = weaponStats(it);
       ammoTxt = `<b>${String(it.mag).padStart(2, '0')}</b><span> / ${String(p.ammo[st.ammo]).padStart(3, '0')}</span>`;
       name = `${st.name} - ${RARITIES[it.rarity].name}`;
-      if (p.reloadT > 0) { use = 1 - p.reloadT / st.reload; ammoTxt = '<span>RELOADING</span>'; }
+      if (p.reloadStage) { const r = p.reloadStage; use = r.t / r.T; ammoTxt = r.style === 'shell' ? `<span>LOADING ${it.mag}/${r.cap}</span>` : '<span>RELOADING</span>'; }
     } else if (it && it.type === 'item') {
       name = g.season.items[it.id].name;
       ammoTxt = `<b>x${it.count}</b>`;

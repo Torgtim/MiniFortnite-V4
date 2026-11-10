@@ -1,11 +1,11 @@
 // World generation for one season: terrain, liquid, points of interest (buildings),
 // resource props, decoration, loot spots, colliders, raycasting and a pre-rendered minimap.
 
-import * as THREE from '../lib/three.module.min.js?v=48';
-import { mulberry32, createNoise, clamp, lerp, smoothstep } from './util.js?v=48';
-import { rayCollider } from './geom.js?v=48';
-import { TEX, TERRAIN_TEX, HOUSE_TEX } from './textures.js?v=48';
-import { buildLiquid } from './liquid.js?v=48';
+import * as THREE from '../lib/three.module.min.js?v=53';
+import { mulberry32, createNoise, clamp, lerp, smoothstep } from './util.js?v=53';
+import { rayCollider } from './geom.js?v=53';
+import { TEX, TERRAIN_TEX, HOUSE_TEX } from './textures.js?v=53';
+import { buildLiquid } from './liquid.js?v=53';
 
 export const MAP_R = 190;
 const SIZE = 420;
@@ -256,7 +256,7 @@ export class World {
         const dv = [[1, 0], [-1, 0], [0, 1], [0, -1]][door];
         const dxp = cx + dv[0] * w / 2, dzp = cz + dv[1] * d / 2;
         this.buildings.push({
-          x0: cx - w / 2, z0: cz - d / 2, x1: cx + w / 2, z1: cz + d / 2,
+          x0: cx - w / 2, z0: cz - d / 2, x1: cx + w / 2, z1: cz + d / 2, yb: site.h, roofY: site.h + WALL_H,
           door: { x: dxp - dv[0] * 1.4, z: dzp - dv[1] * 1.4, ox: dxp + dv[0] * 2.2, oz: dzp + dv[1] * 2.2 },
         });
       }
@@ -416,6 +416,14 @@ export class World {
       addBox.poly([[x0, y, z1 - 0.2], [x1, y, z1 - 0.2], [xm, y + RH, z1 - 0.2]], wall, 0, [0, 0, 1]);
       this.addCollider({ kind: 'ramp', minx: x0, maxx: xm, minz: z0, maxz: z1, miny: y - 0.2, maxy: y + RH + 0.2, cx: (x0 + xm) / 2, cz: (z0 + z1) / 2, dx: 1, dz: 0, len: L, base: y, rise: RH });
       this.addCollider({ kind: 'ramp', minx: xm, maxx: x1, minz: z0, maxz: z1, miny: y - 0.2, maxy: y + RH + 0.2, cx: (xm + x1) / 2, cz: (z0 + z1) / 2, dx: -1, dz: 0, len: L, base: y, rise: RH });
+    }
+    // fill the attic with stepped invisible boxes that stay under the roof planes: the gable ends
+    // are only drawn, so without this you could walk (or build) into the roof through them
+    const N = 6;
+    for (let j = 0; j < N - 1; j++) {
+      const hTop = y + RH * (j + 1) / N, ext = (span / 2) * (1 - (j + 1) / N);
+      if (alongX) { const zm = (z0 + z1) / 2; this.addCollider({ kind: 'box', minx: x0, maxx: x1, minz: zm - ext, maxz: zm + ext, miny: y - 0.05, maxy: hTop, attic: true }); }
+      else { const xm = (x0 + x1) / 2; this.addCollider({ kind: 'box', minx: xm - ext, maxx: xm + ext, minz: z0, maxz: z1, miny: y - 0.05, maxy: hTop, attic: true }); }
     }
     if (rnd() < 0.6) {
       const cx = x0 + (x1 - x0) * (0.25 + rnd() * 0.5), cz = z0 + (z1 - z0) * (0.25 + rnd() * 0.5);

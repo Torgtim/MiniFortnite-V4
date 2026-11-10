@@ -1,8 +1,9 @@
 // Shared state + inventory logic for anything that fights: the player and the bots.
 // Also the shared "air" movement (bus -> skydive -> glider) and the character model hookup.
 
-import { AMMO, ITEM_KINDS, RARITIES, WEAPONS, weaponStats, makeWeapon } from './weapons.js?v=48';
-import { PLAYER_H, CROUCH_H, FALL_SAFE, groundAt, isFree } from './physics.js?v=48';
+import { AMMO, ITEM_KINDS, RARITIES, WEAPONS, weaponStats, makeWeapon } from './weapons.js?v=53';
+import { PLAYER_H, CROUCH_H, FALL_SAFE, groundAt, isFree } from './physics.js?v=53';
+import { planReload, reloadPhase, capacity } from './reload.js?v=53';
 
 export class Entity {
   constructor(game, name, isPlayer = false) {
@@ -24,7 +25,7 @@ export class Entity {
     this.slot = 0;
     this.ammo = { light: 0, medium: 0, heavy: 0, shells: 0, rockets: 0, cells: 0 };
     this.mats = { wood: 0, brick: 0, metal: 0 };
-    this.fireCd = 0; this.reloadT = 0; this.useT = 0; this.burstLeft = 0;
+    this.fireCd = 0; this.reloadT = 0; this.reloadStage = null; this.useT = 0; this.burstLeft = 0;
     this.swingT = 0; this.recoil = 0; this.idleT = 1; this.bloom = 0;
     this.wantFire = false; this.firedHeld = false; this.ads = false;
     this.lastDamaged = -99; this.lastAttacker = null;
@@ -45,7 +46,8 @@ export class Entity {
     if (i < 0 || i > 5 || i === this.slot) return;
     if (this.slot >= 1) this.lastSlot = this.slot;
     this.slot = i;
-    this.reloadT = 0; this.useT = 0; this.burstLeft = 0; this.fireCd = Math.max(this.fireCd, 0.25);
+    this.cancelReload();
+    this.useT = 0; this.burstLeft = 0; this.fireCd = Math.max(this.fireCd, 0.25);
     this.recoil = 0;
   }
 
@@ -102,8 +104,33 @@ export class Entity {
     if (idx < 0) return w;
     const old = this.slots[idx];
     this.slots[idx] = w;
-    this.reloadT = 0; this.useT = 0;
+    this.cancelReload(); this.useT = 0;
     return old;
+  }
+
+  /** How many more of item `id` fit (in existing stacks + free slots). */
+  stackRoom(id) {
+    const max = ITEM_KINDS[id].stack || 3;
+    let room = 0;
+    for (let i = 1; i <= 5; i++) {
+      const s = this.slots[i];
+      if (!s) room += max;
+      else if (s.type === 'item' && s.id === id) room += max - s.count;
+    }
+    return room;
+  }
+
+  /** Add n of item `id` to stacks / free slots. Returns how many did NOT fit. */
+  stackItem(id, n = 1) {
+    const max = ITEM_KINDS[id].stack || 3;
+    for (let i = 1; i <= 5 && n > 0; i++) {
+      const s = this.slots[i];
+      if (s && s.type === 'item' && s.id === id && s.count < max) { const k = Math.min(n, max - s.count); s.count += k; n -= k; }
+    }
+    for (let i = 1; i <= 5 && n > 0; i++) {
+      if (!this.slots[i]) { const k = Math.min(n, max); this.slots[i] = { type: 'item', id, count: k }; n -= k; }
+    }
+    return n;
   }
 
   /** Items stack (grenades up to 6, healing up to 3). Returns true when picked up. */
@@ -125,25 +152,48 @@ export class Entity {
     return this.slots.some((s) => s && s.type === 'weapon' && (s.mag > 0 || this.ammo[WEAPONS[s.id].ammo] > 0));
   }
 
+  /** Start a realistic reload (see reload.js). Returns true if one started. */
   startReload() {
     const it = this.held;
-    if (!it || it.type !== 'weapon' || this.reloadT > 0) return false;
+    if (!it || it.type !== 'weapon' || this.reloadStage) return false;
     const st = weaponStats(it);
-    if (it.mag >= st.mag || this.ammo[st.ammo] <= 0) return false;
-    this.reloadT = st.reload;
+    const plan = planReload(it, st, this.ammo[st.ammo]);
+    if (!plan) return false;
+    this.reloadStage = plan;
+    this.reloadT = plan.T;
     this.burstLeft = 0;
-    this.game.audio.play('reload', this);
     return true;
   }
 
-  finishReload() {
-    const it = this.held;
-    if (!it || it.type !== 'weapon') return;
+  cancelReload() { this.reloadStage = null; this.reloadT = 0; }
+
+  /** Advance the running reload: fires its events (sounds, ammo going in, magazines dropping). */
+  updateReload(dt) {
+    const r = this.reloadStage, it = this.held;
+    if (!r) { this.reloadT = 0; return; }
+    if (!it || it.type !== 'weapon' || it.id !== r.id) { this.cancelReload(); return; }
+    r.t += dt;
+    this.reloadT = Math.max(0.0001, r.T - r.t);
     const st = weaponStats(it);
-    const take = Math.min(st.mag - it.mag, this.ammo[st.ammo]);
-    it.mag += take;
-    this.ammo[st.ammo] -= take;
+    while (r.events.length && r.t >= r.events[0].at) {
+      const ev = r.events.shift();
+      if (ev.kind === 'grant') {
+        const take = Math.min(r.cap - it.mag, this.ammo[st.ammo]);
+        if (take > 0) { it.mag += take; this.ammo[st.ammo] -= take; }
+      } else if (ev.kind === 'grant1') {
+        if (it.mag < r.cap && this.ammo[st.ammo] > 0) { it.mag++; this.ammo[st.ammo]--; }
+      } else if (ev.kind === 'mag_drop' || ev.kind === 'eject') {
+        if (this.game.fx) this.game.fx.reloadDrop(this, ev.kind === 'eject' ? (r.id === 'revolver' ? 6 : 2) : 0, r.id);
+      } else this.game.audio.play(ev.kind, this);
+    }
+    if (r.t >= r.T) { this.reloadStage = null; this.reloadT = 0; }
   }
+
+  /** Name + progress of the current reload phase, or null. */
+  get reloadPhase() { return reloadPhase(this.reloadStage); }
+
+  /** Rounds the held weapon can take right now (mag + chambered round). */
+  magCapacity(it = this.held) { return it && it.type === 'weapon' ? capacity(it, weaponStats(it)) : 0; }
 
   /** Apply the effect of a consumed healing item. */
   applyItem(slotIdx) {
@@ -212,7 +262,7 @@ export class Entity {
     m.animate(dt, {
       speed: Math.hypot(this.vx, this.vz), grounded: this.grounded, crouch: this.crouch, slide: this.sliding,
       air: this.air === 'bus' ? 'fall' : this.air, aiming: this.ads || this.aiming, pitch: this.pitch, recoil: this.recoil,
-      swing: this.swingT, reloading: this.reloadT > 0, using: this.useT > 0, mantle: !!this.mantle, sprint: this.sprinting,
+      swing: this.swingT, reloading: !!this.reloadStage, reload: this.reloadStage ? reloadPhase(this.reloadStage) : null, using: this.useT > 0, mantle: !!this.mantle, sprint: this.sprinting,
       kind: !it ? null : it.type === 'weapon' ? 'gun' : it.type,
       emote: this.emoteT > 0, swim: this.swimming,
     });

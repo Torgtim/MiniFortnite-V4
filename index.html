@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mini-Fortnite V4</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="css/style.css?v=48">
+<link rel="stylesheet" href="css/style.css?v=53">
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -114,7 +114,7 @@
         <tr><td><b>Q</b> build mode</td><td><b>Z X CAPS V</b> wall floor ramp cone</td><td><b>G</b> edit &middot; <b>T</b> material</td></tr>
         <tr><td><b>R</b> reload</td><td><b>M</b> map &middot; <b>H</b> 1st/3rd &middot; <b>B</b> dance</td><td><b>Esc</b> pause</td></tr>
       </table>
-      <p class="foot">Best viewed in Netscape Navigator 4.0 &middot; 800x600 &middot; <a href="https://github.com/Torgtim/MiniFortnite-V4">source on GitHub</a> &middot; v4.2</p>
+      <p class="foot">Best viewed in Netscape Navigator 4.0 &middot; 800x600 &middot; <a href="https://github.com/Torgtim/MiniFortnite-V4">source on GitHub</a> &middot; v4.3</p>
     </td></tr>
   </table>
 </div>
@@ -155,6 +155,23 @@
         <td valign="top" id="lockBody"></td>
       </tr></table>
       <p class="btnrow"><button id="lockClose" class="big">OK</button></p>
+    </td></tr>
+  </table>
+</div>
+
+<!-- ============================ INVENTORY ============================ -->
+<div id="inventory" class="screen center hidden">
+  <table class="win" cellspacing="0" cellpadding="0">
+    <tr><td class="titlebar"><span>Inventory.exe</span><span class="tb"><b id="invX">X</b></span></td></tr>
+    <tr><td class="body">
+      <p class="invhint">Drag a slot onto another to swap them (or click one, then the other). <b id="invKey">TAB</b> / Esc closes.</p>
+      <div id="invSlots" class="invslots"></div>
+      <table class="invres" cellspacing="0"><tr><td valign="top">
+        <fieldset><legend>Ammo</legend><table id="invAmmo"></table></fieldset>
+      </td><td valign="top">
+        <fieldset><legend>Materials</legend><table id="invMats"></table></fieldset>
+      </td></tr></table>
+      <p class="btnrow"><button id="invClose" class="big">Back to the game</button></p>
     </td></tr>
   </table>
 </div>
@@ -207,6 +224,6 @@
   </table>
 </div>
 
-<script type="module" src="js/main.js?v=48"></script>
+<script type="module" src="js/main.js?v=53"></script>
 </body>
 </html>

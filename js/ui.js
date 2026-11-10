@@ -1,11 +1,15 @@
 // Menus: lobby (season switcher), settings, pause and result windows.
 
-import { SEASONS } from './seasons.js?v=48';
-import { WEAPONS, AMMO, RARITIES } from './weapons.js?v=48';
-import { settings, saveSettings, resetSettings, applyPreset, KEY_ACTIONS, KEY_GROUPS, keysClash, keyLabel } from './settings.js?v=48';
-import { stats } from './stats.js?v=48';
+import { SEASONS } from './seasons.js?v=53';
+import { WEAPONS, AMMO, RARITIES, weaponStats } from './weapons.js?v=53';
+import { MATERIALS } from './build.js?v=53';
+import { settings, saveSettings, resetSettings, applyPreset, KEY_ACTIONS, KEY_GROUPS, keysClash, keyLabel } from './settings.js?v=53';
+import { stats } from './stats.js?v=53';
 
 const TIPS = [
+  'Press <b>Tab</b> to open your <b>inventory</b>: drag slots around to reorder them, or drop weapons, ammo and materials for a friend.',
+  'Full inventory? Look at something on the ground and press <b>E</b> to <b>swap</b> it with what you hold.',
+  'Shotguns load <b>one shell at a time</b>. Pull the trigger to stop reloading and shoot what is already in.',
   'Press <b>C</b> while sprinting to <b>slide</b>. Sliding downhill makes you even faster, and you can jump out of a slide.',
   'Jump at a ledge to <b>mantle</b> up onto it. Sprint and jump at a low wall to <b>vault</b> over it.',
   'Hit the <b>blue circle</b> with your pickaxe for double materials. It moves after every hit!',
@@ -186,6 +190,91 @@ export class UI {
 
   // -------------------------------------------------------------- pause / result
   showPause(on) { $('pause').classList.toggle('hidden', !on); }
+
+  /** Inventory window: reorder slots (drag & drop or click-click), drop weapons/items/ammo/materials. */
+  showInventory(on) {
+    const el = $('inventory');
+    el.classList.toggle('hidden', !on);
+    this.invOpen = on;
+    this.invPick = -1;
+    if (on) this._buildInventory();
+  }
+
+  _buildInventory() {
+    const g = this.game, p = g.player;
+    if (!p) return;
+    $('invKey').textContent = keyLabel(settings.keys.inventory);
+    $('invClose').onclick = () => g.resume();
+    $('invX').onclick = () => g.resume();
+    const host = $('invSlots');
+    host.innerHTML = '';
+    const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+    for (let i = 0; i <= 5; i++) {
+      const s = p.slots[i];
+      const box = mk('div', 'invslot' + (i === p.slot ? ' held' : '') + (i === this.invPick ? ' pick' : '') + (i === 0 ? ' fixed' : ''));
+      box.appendChild(mk('i', '', i === 0 ? keyLabel(settings.keys.pickaxe) : String(i)));
+      if (!s) box.appendChild(mk('b', 'empty', '(empty)'));
+      else if (s.type === 'pickaxe') { box.appendChild(mk('b', '', 'Pickaxe')); box.appendChild(mk('small', '', 'always with you')); }
+      else if (s.type === 'weapon') {
+        const r = RARITIES[s.rarity], st = weaponStats(s);
+        box.appendChild(mk('b', '', WEAPONS[s.id].name));
+        const tag = mk('span', 'rtag', r.name); tag.style.background = r.color; box.appendChild(tag);
+        box.appendChild(mk('small', '', `${s.mag}/${st.mag} in mag · ${Math.round(st.dps)} DPS`));
+        box.style.borderBottom = '5px solid ' + r.color;
+      } else {
+        const it = g.season.items[s.id];
+        box.appendChild(mk('b', '', it.name));
+        const tag = mk('span', 'rtag', 'x' + s.count); tag.style.background = it.color; box.appendChild(tag);
+        box.style.borderBottom = '5px solid ' + it.color;
+      }
+      if (i >= 1 && s) {
+        const row = mk('div', 'invbtns');
+        const d = mk('button', '', s.type === 'item' && s.count > 1 ? 'Drop all' : 'Drop');
+        d.onclick = (ev) => { ev.stopPropagation(); g.dropSlot(i); this._buildInventory(); };
+        row.appendChild(d);
+        if (s.type === 'item' && s.count > 1) {
+          const d1 = mk('button', '', 'Drop 1');
+          d1.onclick = (ev) => { ev.stopPropagation(); g.dropSlot(i, 1); this._buildInventory(); };
+          row.appendChild(d1);
+        }
+        const h = mk('button', '', 'Hold');
+        h.onclick = (ev) => { ev.stopPropagation(); p.selectSlot(i); this._buildInventory(); };
+        row.appendChild(h);
+        box.appendChild(row);
+      }
+      if (i >= 1) {
+        // drag & drop + click-click swapping
+        box.draggable = !!s;
+        box.ondragstart = (ev) => { ev.dataTransfer.setData('text/plain', String(i)); box.classList.add('drag'); };
+        box.ondragend = () => box.classList.remove('drag');
+        box.ondragover = (ev) => { ev.preventDefault(); box.classList.add('over'); };
+        box.ondragleave = () => box.classList.remove('over');
+        box.ondrop = (ev) => { ev.preventDefault(); const from = +ev.dataTransfer.getData('text/plain'); g.swapSlots(from, i); this.invPick = -1; this._buildInventory(); };
+        box.onclick = () => {
+          if (this.invPick < 0) { if (s) this.invPick = i; }
+          else { g.swapSlots(this.invPick, i); this.invPick = -1; }
+          this._buildInventory();
+        };
+      }
+      host.appendChild(box);
+    }
+    // ammo + mats with drop buttons
+    const res = (tableId, list) => {
+      const t = $(tableId); t.innerHTML = '';
+      for (const [label, color, have, drop, step] of list) {
+        const tr = document.createElement('tr');
+        const a = mk('td', '', ''); const sw = mk('span', 'swatch'); sw.style.background = color; a.append(sw, label);
+        const b = mk('td', 'num', String(have));
+        const c = mk('td');
+        const btn = mk('button', '', 'Drop ' + step); btn.disabled = have <= 0;
+        btn.onclick = () => { drop(step); this._buildInventory(); };
+        c.appendChild(btn);
+        tr.append(a, b, c); t.appendChild(tr);
+      }
+    };
+    res('invAmmo', Object.keys(AMMO).map((k) => [AMMO[k].name, AMMO[k].color, p.ammo[k], (n) => g.dropResource('ammo', k, n), AMMO[k].amount]));
+    res('invMats', MATERIALS.map((m) => [m.name, m.color, p.mats[m.id], (n) => g.dropResource('mats', m.id, n), 30]));
+  }
 
   /** Playground spawn menu: every weapon of the current season (pick a rarity) plus all items. */
   showSpawn(on) {

@@ -1,12 +1,12 @@
 // Fortnite-style building: walls, floors, ramps and cones on a 4x4x3 grid, three materials that
 // build up their health over time, structural support (unsupported pieces collapse), edits.
 
-import * as THREE from '../lib/three.module.min.js?v=48';
-import { clamp } from './util.js?v=48';
-import { depenetrate, PLAYER_R } from './physics.js?v=48';
-import { colliderTop } from './geom.js?v=48';
-import { CS, LV, defaultEdit, pieceShape, shapeColliders, shapeGeometry } from './pieces.js?v=48';
-import { TEX } from './textures.js?v=48';
+import * as THREE from '../lib/three.module.min.js?v=53';
+import { clamp } from './util.js?v=53';
+import { depenetrate, PLAYER_R } from './physics.js?v=53';
+import { colliderTop } from './geom.js?v=53';
+import { CS, LV, defaultEdit, pieceShape, shapeColliders, shapeGeometry } from './pieces.js?v=53';
+import { TEX } from './textures.js?v=53';
 
 export const COST = 10;
 export const MATERIALS = [
@@ -82,8 +82,25 @@ export class BuildSystem {
     return null;
   }
 
-  /** Where would a piece of `type` go for entity e looking along yaw/pitch? */
-  compute(e, type, yaw = e.yaw, pitch = e.pitch) {
+  /**
+   * Player aim snapping: when the crosshair is on the top of a floor (yours or anyone's) that is
+   * not the one you stand on, ramps and cones go onto that floor.
+   */
+  _aimFloor(e, aim) {
+    if (!aim || aim.dy > -0.03) return null;
+    const h = this.game.world.raycast(aim.ox, aim.oy, aim.oz, aim.dx, aim.dy, aim.dz, 16, 1.2);
+    const pc = h.collider && h.collider.piece;
+    if (!pc || pc.dead || pc.type !== 'floor') return null;
+    const hy = aim.oy + aim.dy * h.t;
+    if (hy < pc.c.y0 - 0.05) return null;                     // underside
+    if (Math.hypot(pc.c.cx - e.x, pc.c.cz - e.z) > 9) return null;
+    const own = Math.floor(e.x / CS) === pc.c.gx && Math.floor(e.z / CS) === pc.c.gz && Math.abs(e.y - pc.c.y0) < 0.8;
+    if (own) return null;                                       // the floor under your feet: build in front as usual
+    return { c: pc.c, hx: aim.ox + aim.dx * h.t, hz: aim.oz + aim.dz * h.t };
+  }
+
+  /** Where would a piece of `type` go for entity e looking along yaw/pitch? (aim = player camera ray) */
+  compute(e, type, yaw = e.yaw, pitch = e.pitch, aim = null) {
     const w = this.game.world;
     const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
     const alongX = Math.abs(fx) > Math.abs(fz);
@@ -110,6 +127,17 @@ export class BuildSystem {
       gx = Math.floor(out.cx / CS); gz = Math.floor(out.cz / CS);
       out.base = baseAt(gx, gz);
       out.k = levelOf(out.base) + (pitch > 0.6 ? 1 : 0);
+      // crosshair on top of a floor: the wall goes on the edge of that floor nearest the crosshair
+      const s = aim && this._aimFloor(e, aim);
+      if (s) {
+        const f = s.c, x0 = f.gx * CS, z0 = f.gz * CS;
+        const d = [s.hx - x0, x0 + CS - s.hx, s.hz - z0, z0 + CS - s.hz];
+        const m = d.indexOf(Math.min(...d));
+        if (m < 2) { out.axis = 'z'; out.cx = m === 0 ? x0 : x0 + CS; out.cz = f.cz; }
+        else { out.axis = 'x'; out.cx = f.cx; out.cz = m === 2 ? z0 : z0 + CS; }
+        gx = Math.floor(out.cx / CS); gz = Math.floor(out.cz / CS);
+        out.base = f.base; out.k = f.k; out.snap = true;
+      }
     } else {
       let cur = false;
       if (type === 'floor') cur = pitch > 0.5 || pitch < -0.75;
@@ -125,6 +153,12 @@ export class BuildSystem {
         out.dx = sx; out.dz = sz;
         const r = this.rampUnder(e);
         if (r && r.edit.dx === sx && r.edit.dz === sz && Math.floor(r.c.cx / CS) === cgx && Math.floor(r.c.cz / CS) === cgz) out.k = r.c.k + 1;
+        else if (aim && pitch > 0.55) out.k++;                   // look up: a ramp one level higher (e.g. up onto a floor)
+      }
+      // crosshair on top of a floor: ramps and cones sit on it
+      if (aim && (type === 'ramp' || type === 'cone')) {
+        const s = this._aimFloor(e, aim);
+        if (s) { const f = s.c; gx = f.gx; gz = f.gz; out.cx = f.cx; out.cz = f.cz; out.base = f.base; out.k = f.k; out.snap = true; }
       }
     }
     out.k = Math.min(MAX_LEVEL, out.k);
@@ -165,7 +199,7 @@ export class BuildSystem {
   /** Player ghost preview. */
   updateGhost(e) {
     if (!this.active || !e || !e.alive) { this.ghost.visible = false; this.cur = null; return; }
-    const c = this.compute(e, this.type);
+    const c = this.compute(e, this.type, e.yaw, e.pitch, e.isPlayer ? this.game.aimRay() : null);
     this.cur = c;
     this.valid = c.ok && this.canAfford(e, this.matIndex);
     const gkey = c.key + c.y0;

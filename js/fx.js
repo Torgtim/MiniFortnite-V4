@@ -1,7 +1,7 @@
 // Particle effects: one instanced mesh of little cubes (sparks, chips, debris, smoke,
 // elimination "pixels") plus a few additive flashes (muzzle, explosions).
 
-import * as THREE from '../lib/three.module.min.js?v=48';
+import * as THREE from '../lib/three.module.min.js?v=53';
 
 const MAX = 900;
 const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _c = new THREE.Color();
@@ -108,6 +108,28 @@ export class FX {
         (Math.random() - 0.5) * 1.5, 1.5 + Math.random() * 2.5, (Math.random() - 0.5) * 1.5, c, 0.12 + Math.random() * 0.1, 1.4 + Math.random() * 0.6, -1.2, { drag: 0.8 });
     }
     this.flash(x, y + 1, z, 3, 0.25);
+  }
+
+  /** A spent casing flicked out to the right of the shooter (rx, rz = shooter's right vector). */
+  casing(x, y, z, rx, rz, shell = false) {
+    const s = 0.9 + Math.random() * 0.6;
+    this._emit(x, y, z, rx * 2.6 * s + (Math.random() - 0.5) * 0.6, 1.8 + Math.random() * 1.2, rz * 2.6 * s + (Math.random() - 0.5) * 0.6,
+      shell ? 0xc0392b : 0xd9a53a, shell ? 0.05 : 0.032, 0.75, 14);
+  }
+
+  /** Reload leftovers: an empty magazine falling (n = 0) or n ejected shells / casings. */
+  reloadDrop(e, n, id) {
+    const fx = -Math.sin(e.yaw), fz = -Math.cos(e.yaw), rx = -fz, rz = fx;
+    const fp = e.isPlayer && !this.game.thirdPerson;
+    const x = e.x + fx * (fp ? 0.45 : 0.35) + rx * 0.12, z = e.z + fz * (fp ? 0.45 : 0.35) + rz * 0.12;
+    const y = e.y + (e.h || 1.8) * (fp ? 0.62 : 0.55);
+    if (n === 0) {
+      const energy = id === 'plasma_rifle' || id === 'pulse_smg' || id === 'laser_sniper' || id === 'arc_shotgun' || id === 'blaster';
+      this._emit(x, y, z, rx * 0.4 + fx * 0.3, -0.5, rz * 0.4 + fz * 0.3, energy ? 0x40f0ff : 0x2a2d33, 0.09, 1.1, 18);
+      return;
+    }
+    const shell = id === 'double_barrel';
+    for (let i = 0; i < n; i++) this._emit(x, y, z, (Math.random() - 0.5) * 1.2 - fx * 0.6, 0.8 + Math.random(), (Math.random() - 0.5) * 1.2 - fz * 0.6, shell ? 0xc0392b : 0xd9a53a, shell ? 0.05 : 0.03, 0.9, 16);
   }
 
   flash(x, y, z, size, life = 0.06) {

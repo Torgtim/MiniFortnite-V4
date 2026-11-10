@@ -1,7 +1,7 @@
 // Tiny WebAudio synth: every sound effect is generated, no audio files needed.
 
-import { clamp } from './util.js?v=48';
-import { settings } from './settings.js?v=48';
+import { clamp } from './util.js?v=53';
+import { settings } from './settings.js?v=53';
 
 // note name -> frequency ('C5', 'F#4', ...)
 const NOTE_I = { C: -9, 'C#': -8, D: -7, 'D#': -6, E: -5, F: -4, 'F#': -3, G: -2, 'G#': -1, A: 0, 'A#': 1, B: 2 };
@@ -22,6 +22,9 @@ const SONGS = {
     mel: ['E4', 'G4', 'B4', 'E5', 'B4', 'G4', 'E4', 'G4', 'C4', 'E4', 'G4', 'C5', 'G4', 'E4', 'C4', 'E4', 'D4', 'F#4', 'A4', 'D5', 'A4', 'F#4', 'D4', 'F#4', 'B3', 'D#4', 'F#4', 'B4', 'F#4', 'D#4', 'B3', 'D#4'],
     bass: ['E2', '', '', '', '', '', '', '', 'C2', '', '', '', '', '', '', '', 'D2', '', '', '', '', '', '', '', 'B1', '', '', '', '', '', '', ''] },
 };
+
+// quiet sounds you only hear close by (footsteps, splashes, reload clicks)
+const NEAR_SOUNDS = new Set(['step', 'splash', 'mag_out', 'mag_in', 'rack', 'shell_in', 'break_open', 'break_close', 'cyl_open', 'cyl_close', 'rocket_in']);
 
 export class GameAudio {
   constructor(game) {
@@ -137,7 +140,7 @@ export class GameAudio {
     const p = this.game.player;
     if (pos && p && pos !== p && pos.x !== undefined && this.game.mode !== 'lobby') {
       const d = Math.hypot(pos.x - p.x, pos.z - p.z);
-      v = clamp(1 - d / (name === 'step' || name === 'splash' ? 32 : 110), 0, 1);
+      v = clamp(1 - d / (NEAR_SOUNDS.has(name) ? 32 : 110), 0, 1);
       v *= v;
       if (v < 0.02) return;
     }
@@ -153,6 +156,16 @@ export class GameAudio {
       case 'hit_head': this._tone(1500, 0.08, 'square', 0.14, 1000); break;
       case 'reload': this._noise(0.04, 2500, 2, 0.3 * v); setTimeout(() => this.ctx && this._noise(0.05, 1800, 2, 0.3 * v), 280); break;
       case 'empty': this._noise(0.03, 3000, 3, 0.25 * v); break;
+      // ---- reload foley
+      case 'mag_out': this._noise(0.05, 2300, 3, 0.26 * v); this._tone(760, 0.03, 'square', 0.05 * v, 520); break;
+      case 'mag_in': this._noise(0.05, 1500, 2, 0.38 * v); this._tone(300, 0.045, 'square', 0.11 * v, 190); break;
+      case 'rack': this._noise(0.05, 2700, 2.5, 0.3 * v); setTimeout(() => this.ctx && (this._noise(0.06, 1500, 2, 0.36 * v), this._tone(240, 0.04, 'square', 0.1 * v, 150)), 95); break;
+      case 'shell_in': this._noise(0.04, 2100, 3, 0.24 * v); this._tone(1150, 0.03, 'triangle', 0.05 * v, 820); break;
+      case 'break_open': this._noise(0.08, 900, 1.5, 0.32 * v); this._tone(250, 0.06, 'square', 0.08 * v, 150); break;
+      case 'break_close': this._noise(0.06, 1300, 2, 0.42 * v); this._tone(190, 0.07, 'square', 0.13 * v, 110); break;
+      case 'cyl_open': this._noise(0.05, 2700, 3, 0.24 * v); this._tone(900, 0.03, 'triangle', 0.05 * v, 1100); break;
+      case 'cyl_close': this._noise(0.05, 1800, 2.5, 0.36 * v); this._tone(520, 0.035, 'square', 0.09 * v, 320); break;
+      case 'rocket_in': this._noise(0.2, 480, 0.8, 0.32 * v, 'lowpass'); setTimeout(() => this.ctx && this._tone(140, 0.08, 'square', 0.1 * v, 80), 140); break;
       case 'pickup': this._tone(520, 0.08, 'triangle', 0.25, 880); break;
       case 'chest': [440, 554, 659, 880].forEach((f, i) => setTimeout(() => this.ctx && this._tone(f, 0.14, 'triangle', 0.22 * v), i * 70)); break;
       case 'build': this._tone(180, 0.09, 'square', 0.22, 90); this._noise(0.05, 900, 1, 0.2); break;

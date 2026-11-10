@@ -5,8 +5,8 @@
 //
 // Convention: the grip (hand) is at the origin, the barrel points down -Z, +Y is up.
 
-import * as THREE from '../lib/three.module.min.js?v=48';
-import { RARITIES } from './weapons.js?v=48';
+import * as THREE from '../lib/three.module.min.js?v=53';
+import { RARITIES } from './weapons.js?v=53';
 
 // ---- palette
 const C = {
@@ -26,6 +26,8 @@ class Parts {
   rar(w, h, d, x, y, z, o = {}) { return this.box(w, h, d, x, y, z, 'rar', { ...o, glow: true }); }
   // common sub-assemblies
   grip(z = 0.02, c = C.black, h = 0.16) { return this.box(0.055, h, 0.075, 0, -h / 2 + 0.01, z + 0.02, c, { rx: 0.28 }); }
+  /** pistol magazine that sits inside the grip (only its base plate shows until it slides out) */
+  gripMag(z = 0.02, c = C.black, h = 0.16) { return this.box(0.046, h, 0.06, 0, -h / 2 - 0.004, z + 0.024, c, { rx: 0.28, mag: true }); }
   guard(z = -0.06, y = -0.055) { return this.box(0.02, 0.018, 0.1, 0, y - 0.03, z, C.black).box(0.02, 0.04, 0.015, 0, y - 0.01, z - 0.05, C.black); }
   iron(zFront, zRear, top) {
     this.sightY = top + 0.02;
@@ -63,7 +65,7 @@ const DESIGNS = {
   pistol(p) {
     p.box(0.062, 0.065, 0.29, 0, 0.035, -0.1, C.gun)                  // slide
       .box(0.058, 0.045, 0.25, 0, -0.012, -0.09, C.black)              // frame
-      .grip(0.02).guard(-0.06, -0.035)
+      .grip(0.02).gripMag(0.02, C.steel).guard(-0.06, -0.035)
       .box(0.064, 0.012, 0.05, 0, 0.04, 0.0, C.black)                  // slide serrations
       .box(0.064, 0.012, 0.05, 0, 0.02, 0.0, C.black)
       .rar(0.066, 0.01, 0.12, 0, 0.052, -0.14)
@@ -73,7 +75,7 @@ const DESIGNS = {
   hand_cannon(p) {
     p.box(0.078, 0.085, 0.36, 0, 0.045, -0.13, C.light)
       .box(0.07, 0.05, 0.32, 0, -0.015, -0.12, C.steel)
-      .grip(0.03, C.woodD, 0.17).guard(-0.07, -0.04)
+      .grip(0.03, C.woodD, 0.17).gripMag(0.03, C.steel, 0.17).guard(-0.07, -0.04)
       .box(0.05, 0.03, 0.08, 0, 0.1, -0.24, C.light)                   // compensator on top
       .box(0.052, 0.012, 0.012, 0, 0.115, -0.22, C.black).box(0.052, 0.012, 0.012, 0, 0.115, -0.26, C.black)
       .rar(0.08, 0.012, 0.16, 0, 0.06, -0.08)
@@ -82,7 +84,7 @@ const DESIGNS = {
   },
   revolver(p) {
     p.box(0.055, 0.075, 0.13, 0, 0.03, -0.02, C.steel)                 // frame
-      .cyl(0.048, 0.1, 0, 0.035, -0.1, C.grey, { seg: 6 })              // cylinder
+      .cyl(0.048, 0.1, 0, 0.035, -0.1, C.grey, { seg: 6, mag: true })              // cylinder (swings out to reload)
       .cyl(0.02, 0.26, 0, 0.055, -0.27, C.steel)                         // barrel
       .box(0.02, 0.02, 0.26, 0, 0.075, -0.27, C.steel)                   // top rib
       .cyl(0.012, 0.2, 0, 0.022, -0.24, C.black)                         // ejector rod
@@ -99,7 +101,7 @@ const DESIGNS = {
       .cyl(0.034, 0.012, 0, 0.035, -0.25, GLOW.cyan, { glow: true }).cyl(0.034, 0.012, 0, 0.035, -0.3, GLOW.cyan, { glow: true })
       .box(0.09, 0.012, 0.08, 0, 0.0, -0.12, C.grey)                     // fins
       .glow(0.072, 0.02, 0.1, 0, 0.065, -0.14, GLOW.cyan)
-      .grip(0.02, C.grey).guard(-0.06, -0.025)
+      .grip(0.02, C.grey).gripMag(0.02, C.black).guard(-0.06, -0.025)
       .rar(0.074, 0.01, 0.1, 0, -0.012, -0.02)
       .iron(-0.2, 0.0, 0.085);
     p.muzzle = [0, 0.035, -0.35];
@@ -110,7 +112,7 @@ const DESIGNS = {
     p.box(0.07, 0.09, 0.34, 0, 0.02, -0.12, C.gun)
       .box(0.06, 0.05, 0.12, 0, -0.03, -0.3, C.black)                    // lower front
       .box(0.035, 0.12, 0.05, 0, -0.1, -0.26, C.black)                   // foregrip
-      .box(0.035, 0.17, 0.05, 0, -0.1, -0.11, C.black, { rx: 0.05 })     // mag
+      .box(0.035, 0.17, 0.05, 0, -0.1, -0.11, C.black, { rx: 0.05, mag: true })     // mag
       .grip(0.04).guard(-0.02, -0.025)
       .cyl(0.022, 0.12, 0, 0.03, -0.35, C.black)                          // suppressor-ish barrel
       .box(0.015, 0.015, 0.2, -0.025, 0.02, 0.15, C.black).box(0.015, 0.015, 0.2, 0.025, 0.02, 0.15, C.black)  // wire stock
@@ -123,7 +125,7 @@ const DESIGNS = {
     p.box(0.075, 0.1, 0.36, 0, 0.02, -0.12, C.white)
       .box(0.08, 0.04, 0.16, 0, 0.08, -0.12, C.ice)
       .glow(0.082, 0.012, 0.012, 0, 0.065, -0.06, GLOW.ice).glow(0.082, 0.012, 0.012, 0, 0.065, -0.1, GLOW.ice).glow(0.082, 0.012, 0.012, 0, 0.065, -0.14, GLOW.ice)
-      .box(0.035, 0.16, 0.05, 0, -0.1, -0.13, C.ice, { rx: 0.35 })        // angled mag
+      .box(0.035, 0.16, 0.05, 0, -0.1, -0.13, C.ice, { rx: 0.35, mag: true })        // angled mag
       .box(0.03, 0.1, 0.045, 0, -0.08, -0.27, C.grey)
       .grip(0.04, C.grey).guard(-0.02, -0.03)
       .cyl(0.02, 0.1, 0, 0.03, -0.35, C.grey)
@@ -136,7 +138,7 @@ const DESIGNS = {
     p.box(0.065, 0.085, 0.3, 0, 0.025, -0.1, C.steel)
       .cyl(0.024, 0.2, 0, 0.03, -0.35, C.steel)
       .cyl(0.032, 0.012, 0, 0.03, -0.28, C.black).cyl(0.032, 0.012, 0, 0.03, -0.32, C.black).cyl(0.032, 0.012, 0, 0.03, -0.36, C.black) // cooling fins
-      .cyl(0.085, 0.055, 0, -0.07, -0.1, C.black, { axis: 'x', seg: 12 })   // drum mag
+      .cyl(0.085, 0.055, 0, -0.07, -0.1, C.black, { axis: 'x', seg: 12, mag: true })   // drum mag
       .box(0.035, 0.1, 0.045, 0, -0.07, -0.24, C.wood)                      // vertical foregrip
       .grip(0.04, C.wood).guard(0.0, -0.02)
       .box(0.055, 0.075, 0.24, 0, -0.02, 0.17, C.wood, { rx: -0.08 })     // stock
@@ -149,7 +151,7 @@ const DESIGNS = {
       .box(0.05, 0.05, 0.3, 0, 0.09, -0.12, C.steel)
       .cyl(0.02, 0.16, 0, 0.035, -0.36, C.steel)
       .cyl(0.03, 0.01, 0, 0.035, -0.31, GLOW.magenta, { glow: true }).cyl(0.03, 0.01, 0, 0.035, -0.36, GLOW.magenta, { glow: true }).cyl(0.03, 0.01, 0, 0.035, -0.41, GLOW.magenta, { glow: true })
-      .glow(0.03, 0.08, 0.06, 0, -0.06, -0.12, GLOW.magenta)              // energy cell
+      .glow(0.03, 0.08, 0.06, 0, -0.06, -0.12, GLOW.magenta, { mag: true })              // energy cell
       .box(0.036, 0.04, 0.07, 0, -0.11, -0.12, C.steel)
       .grip(0.04, C.steel).guard(-0.02, -0.03)
       .box(0.05, 0.08, 0.16, 0, 0.0, 0.13, C.purple)
@@ -165,8 +167,8 @@ const DESIGNS = {
       .box(0.077, 0.012, 0.012, 0, 0.03, -0.3, C.gun).box(0.077, 0.012, 0.012, 0, 0.03, -0.36, C.gun).box(0.077, 0.012, 0.012, 0, 0.03, -0.42, C.gun)
       .cyl(0.016, 0.16, 0, 0.035, -0.58, C.black)
       .cyl(0.022, 0.05, 0, 0.035, -0.66, C.black, { seg: 6 })              // flash hider
-      .box(0.04, 0.1, 0.06, 0, -0.07, -0.13, C.black, { rx: 0.18 })        // curved mag
-      .box(0.04, 0.08, 0.06, 0, -0.15, -0.105, C.black, { rx: 0.4 })
+      .box(0.04, 0.1, 0.06, 0, -0.07, -0.13, C.black, { rx: 0.18, mag: true })        // curved mag
+      .box(0.04, 0.08, 0.06, 0, -0.15, -0.105, C.black, { rx: 0.4, mag: true })
       .grip(0.04).guard(-0.03, -0.02)
       .box(0.06, 0.08, 0.22, 0, 0.0, 0.17, C.gun)                          // stock
       .box(0.065, 0.11, 0.03, 0, -0.01, 0.28, C.black)                     // butt pad
@@ -180,7 +182,7 @@ const DESIGNS = {
     // bullpup: magazine sits behind the grip
     p.box(0.075, 0.12, 0.62, 0, 0.03, -0.12, C.light)
       .box(0.08, 0.06, 0.3, 0, -0.01, -0.3, C.steel)
-      .box(0.04, 0.13, 0.06, 0, -0.08, 0.12, C.black, { rx: 0.15 })
+      .box(0.04, 0.13, 0.06, 0, -0.08, 0.12, C.black, { rx: 0.15, mag: true })
       .grip(-0.06, C.steel).guard(-0.13, -0.03)
       .cyl(0.017, 0.12, 0, 0.04, -0.49, C.black)
       .box(0.07, 0.11, 0.035, 0, 0.02, 0.2, C.black)
@@ -200,7 +202,7 @@ const DESIGNS = {
       .cyl(0.02, 0.18, 0, 0.04, -0.6, C.white)
       .cyl(0.036, 0.012, 0, 0.04, -0.54, GLOW.magenta, { glow: true }).cyl(0.036, 0.012, 0, 0.04, -0.6, GLOW.magenta, { glow: true }).cyl(0.036, 0.012, 0, 0.04, -0.66, GLOW.magenta, { glow: true })
       .glow(0.08, 0.025, 0.24, 0, 0.0, -0.12, GLOW.magenta)              // side energy strip
-      .glow(0.035, 0.09, 0.07, 0, -0.08, -0.14, GLOW.magenta)            // cell
+      .glow(0.035, 0.09, 0.07, 0, -0.08, -0.14, GLOW.magenta, { mag: true })            // cell
       .grip(0.04, C.white).guard(-0.03, -0.025)
       .box(0.06, 0.09, 0.2, 0, 0.0, 0.18, C.white)
       .rar(0.077, 0.014, 0.1, 0, 0.09, -0.18)
@@ -254,6 +256,7 @@ const DESIGNS = {
       .glow(0.06, 0.04, 0.08, 0, 0.04, -0.52, GLOW.cyan)
       .glow(0.092, 0.03, 0.12, 0, 0.06, -0.1, GLOW.cyan)
       .grip(0.04, C.white).guard(-0.02, -0.03)
+      .box(0.05, 0.09, 0.08, 0, -0.07, -0.19, C.steel, { mag: true }).glow(0.052, 0.015, 0.06, 0, -0.05, -0.19, GLOW.cyan, { mag: true }) // power cell
       .box(0.07, 0.1, 0.18, 0, 0.0, 0.15, C.white)
       .rar(0.092, 0.014, 0.1, 0, -0.02, -0.2)
       .iron(-0.44, 0.0, 0.09);
@@ -296,8 +299,8 @@ const DESIGNS = {
       .box(0.22, 0.025, 0.03, 0.24, 0.03, -0.37, C.black, { ry: 0.35 })
       .box(0.008, 0.008, 0.36, -0.17, 0.05, -0.2, C.light, { ry: -0.75 })   // string
       .box(0.008, 0.008, 0.36, 0.17, 0.05, -0.2, C.light, { ry: 0.75 })
-      .cyl(0.008, 0.42, 0, 0.065, -0.27, C.tan)                              // bolt
-      .glow(0.02, 0.02, 0.04, 0, 0.065, -0.49, GLOW.orange)
+      .cyl(0.008, 0.42, 0, 0.065, -0.27, C.tan, { mag: true })                              // bolt
+      .glow(0.02, 0.02, 0.04, 0, 0.065, -0.49, GLOW.orange, { mag: true })
       .grip(0.06, C.wood).guard(0.0, -0.02)
       .box(0.055, 0.09, 0.2, 0, -0.01, 0.22, C.wood)
       .rar(0.062, 0.014, 0.12, 0, -0.01, -0.1)
@@ -309,7 +312,7 @@ const DESIGNS = {
       .box(0.05, 0.06, 0.56, 0, 0.035, -0.55, C.white)
       .glow(0.052, 0.015, 0.5, 0, 0.069, -0.55, GLOW.cyan)
       .glow(0.072, 0.03, 0.2, 0, 0.0, -0.08, GLOW.cyan)
-      .box(0.035, 0.09, 0.06, 0, -0.07, -0.12, C.steel)
+      .box(0.035, 0.09, 0.06, 0, -0.07, -0.12, C.steel, { mag: true })
       .grip(0.06, C.steel).guard(0.0, -0.025)
       .box(0.06, 0.1, 0.28, 0, 0.0, 0.22, C.white)
       .box(0.065, 0.13, 0.03, 0, -0.01, 0.37, C.steel)
@@ -323,7 +326,7 @@ const DESIGNS = {
     p.cyl(0.085, 0.95, 0, 0.07, -0.2, C.olive, { seg: 10 })
       .cyl(0.1, 0.12, 0, 0.07, 0.3, C.black, { seg: 10, r1: 0.085, r2: 0.11 })  // rear flare
       .cyl(0.095, 0.05, 0, 0.07, -0.66, C.black, { seg: 10 })                    // front ring
-      .cyl(0.06, 0.1, 0, 0.07, -0.71, C.red, { seg: 8, r1: 0.0 })               // warhead tip
+      .cyl(0.06, 0.1, 0, 0.07, -0.71, C.red, { seg: 8, r1: 0.0, mag: true })               // warhead tip
       .cyl(0.092, 0.03, 0, 0.07, -0.1, C.black, { seg: 10 })
       .box(0.05, 0.08, 0.12, -0.11, 0.12, -0.25, C.black)                         // side sight
       .glow(0.04, 0.03, 0.005, -0.11, 0.13, -0.31, GLOW.red)
@@ -407,8 +410,13 @@ export function gunGeometry(id, rarity = 0) {
   const p = new Parts();
   (DESIGNS[id] || DESIGNS.ar)(p);
   const hex = parseInt((RARITIES[rarity] || RARITIES[0]).color.slice(1), 16);
-  const lit = p.list.filter((q) => !q.glow), glow = p.list.filter((q) => q.glow);
-  e = { lit: merge(lit, hex), glow: glow.length ? merge(glow, hex) : null, muzzle: p.muzzle, sightY: p.sightY };
+  // magazine parts become their own meshes so reloads can pull them out
+  const pick = (glow, mag) => p.list.filter((q) => !!q.glow === glow && !!q.mag === mag);
+  const geoOf = (list) => (list.length ? merge(list, hex) : null);
+  const magParts = p.list.filter((q) => q.mag);
+  let magC = [0, 0, 0];
+  if (magParts.length) magC = [0, Math.min(...magParts.map((q) => q.y)), magParts.reduce((a, q) => a + q.z, 0) / magParts.length];
+  e = { lit: geoOf(pick(false, false)), glow: geoOf(pick(true, false)), magLit: geoOf(pick(false, true)), magGlow: geoOf(pick(true, true)), magC, muzzle: p.muzzle, sightY: p.sightY };
   geoCache.set(key, e);
   return e;
 }
@@ -427,9 +435,14 @@ export function buildGunModel(id, rarity = 0, opts = {}) {
   const e = gunGeometry(id, rarity);
   const mats = opts.mats || defaultMats;
   const g = new THREE.Group();
-  const body = new THREE.Mesh(e.lit, mats.lit);
-  g.add(body);
-  if (e.glow) g.add(new THREE.Mesh(e.glow, mats.glow));
+  const U = g.userData;
+  U.body = new THREE.Mesh(e.lit, mats.lit); g.add(U.body);
+  if (e.glow) { U.glow = new THREE.Mesh(e.glow, mats.glow); g.add(U.glow); }
+  // the magazine group: moved / hidden by the reload animations
+  U.mag = new THREE.Group(); g.add(U.mag);
+  if (e.magLit) { U.magLit = new THREE.Mesh(e.magLit, mats.lit); U.mag.add(U.magLit); }
+  if (e.magGlow) { U.magGlow = new THREE.Mesh(e.magGlow, mats.glow); U.mag.add(U.magGlow); }
+  U.magC = e.magC;
   const mz = new THREE.Object3D(); mz.position.set(e.muzzle[0], e.muzzle[1], e.muzzle[2]);
   g.add(mz);
   g.userData.muzzle = mz;
@@ -441,10 +454,12 @@ export function buildGunModel(id, rarity = 0, opts = {}) {
 /** Swap an existing gun group's meshes to another rarity without rebuilding the group. */
 export function setGunRarity(g, rarity) {
   if (g.userData.rarity === rarity) return;
-  const e = gunGeometry(g.userData.id, rarity);
-  g.children[0].geometry = e.lit;
-  if (e.glow && g.children[1] && g.children[1].isMesh) g.children[1].geometry = e.glow;
-  g.userData.rarity = rarity;
+  const e = gunGeometry(g.userData.id, rarity), U = g.userData;
+  U.body.geometry = e.lit;
+  if (U.glow && e.glow) U.glow.geometry = e.glow;
+  if (U.magLit && e.magLit) U.magLit.geometry = e.magLit;
+  if (U.magGlow && e.magGlow) U.magGlow.geometry = e.magGlow;
+  U.rarity = rarity;
 }
 
 export const GUN_IDS = Object.keys(DESIGNS);

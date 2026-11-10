@@ -1,29 +1,30 @@
 // Game orchestration: renderer, match lifecycle (bus -> drop -> storm), input, cameras, main loop.
 
-import * as THREE from '../lib/three.module.min.js?v=48';
-import { SEASONS } from './seasons.js?v=48';
-import { World } from './world.js?v=48';
-import { Player } from './player.js?v=48';
-import { Bot, BOT_NAMES } from './bots.js?v=48';
-import { Combat } from './combat.js?v=48';
-import { Loot } from './loot.js?v=48';
-import { BuildSystem } from './build.js?v=48';
-import { EditSystem } from './edit.js?v=48';
-import { Storm } from './storm.js?v=48';
-import { Bus } from './bus.js?v=48';
-import { Sky } from './sky.js?v=48';
-import { FX } from './fx.js?v=48';
-import { Gadgets } from './gadgets.js?v=48';
-import { RetroPass } from './retro.js?v=48';
-import { BloomPass } from './bloom.js?v=48';
-import { HUD } from './hud.js?v=48';
-import { UI } from './ui.js?v=48';
-import { ViewModel } from './viewmodel.js?v=48';
-import { GameAudio } from './audio.js?v=48';
-import { settings, saveSettings, onSettingsChange, keyLabel } from './settings.js?v=48';
-import { ITEM_KINDS, RARITIES, weaponStats, WEAPONS, makeWeapon } from './weapons.js?v=48';
-import { mulberry32, clamp, dirFromAngles } from './util.js?v=48';
-import { recordMatch } from './stats.js?v=48';
+import * as THREE from '../lib/three.module.min.js?v=53';
+import { SEASONS } from './seasons.js?v=53';
+import { World } from './world.js?v=53';
+import { Player } from './player.js?v=53';
+import { Bot, BOT_NAMES } from './bots.js?v=53';
+import { Combat } from './combat.js?v=53';
+import { Loot } from './loot.js?v=53';
+import { BuildSystem } from './build.js?v=53';
+import { EditSystem } from './edit.js?v=53';
+import { Storm } from './storm.js?v=53';
+import { Bus } from './bus.js?v=53';
+import { Sky } from './sky.js?v=53';
+import { FX } from './fx.js?v=53';
+import { Gadgets } from './gadgets.js?v=53';
+import { RetroPass } from './retro.js?v=53';
+import { BloomPass } from './bloom.js?v=53';
+import { HUD } from './hud.js?v=53';
+import { UI } from './ui.js?v=53';
+import { ViewModel } from './viewmodel.js?v=53';
+import { GameAudio } from './audio.js?v=53';
+import { settings, saveSettings, onSettingsChange, keyLabel } from './settings.js?v=53';
+import { ITEM_KINDS, RARITIES, weaponStats, WEAPONS, makeWeapon } from './weapons.js?v=53';
+import { mulberry32, clamp, dirFromAngles } from './util.js?v=53';
+import { recordMatch } from './stats.js?v=53';
+import { isFree, groundAt } from './physics.js?v=53';
 
 const SUN_DIR = new THREE.Vector3(0.45, 0.8, 0.3).normalize();
 
@@ -314,6 +315,7 @@ class Game {
     this.paused = false;
     this.ui.showPause(false);
     this.ui.showSpawn(false);
+    this.ui.showInventory(false);
     this.ui.showSettings(false);
     this.lockPointer();
   }
@@ -393,6 +395,8 @@ class Game {
       const p = this.player;
       const K = settings.keys;
       if (e && (c === 'Tab' || c === K.crouch || c === 'Space')) e.preventDefault();
+      // inventory window open: its key or Esc closes it again
+      if (this.ui.invOpen) { if (!repeat && (c === K.inventory || c === 'Escape')) this.resume(); return; }
       if (c === K.map && !repeat) { this.bigMap = !this.bigMap; return; }
       if ((c === 'Escape' || c === 'KeyP') && this.mode === 'playing' && !this.paused) {
         if (document.pointerLockElement) document.exitPointerLock(); // pointerlockchange opens the pause menu
@@ -442,7 +446,8 @@ class Game {
       else if (c === K.cone) { this.edit.cancel(); this.build.setType('cone'); }
       else if (c === K.material) this.build.cycleMaterial();
       else if (c === K.drop) this.dropHeld();
-      else if (c === K.spawn && this.playground) { this.ui.spawnPending = true; if (document.pointerLockElement) document.exitPointerLock(); }
+      else if (c === K.inventory) { this.ui.pendingWindow = 'inventory'; if (document.pointerLockElement) document.exitPointerLock(); }
+      else if (c === K.spawn && this.playground) { this.ui.pendingWindow = 'spawn'; if (document.pointerLockElement) document.exitPointerLock(); }
       else if (c === K.pickaxe) { this.build.setActive(false); this.edit.cancel(); p.selectSlot(p.slot === 0 ? (p.lastSlot || 1) : 0); }
       else { const si = [K.slot1, K.slot2, K.slot3, K.slot4, K.slot5].indexOf(c); if (si >= 0) { this.build.setActive(false); this.edit.cancel(); p.selectSlot(si + 1); } }
     };
@@ -506,7 +511,11 @@ class Game {
         if (this.player) this.player.resetInput();
         this.rightDown = false;
         this.edit.cancel();
-        if (this.ui.spawnPending) { this.ui.spawnPending = false; this.ui.showSpawn(true); } else this.ui.showPause(true);
+        const win = this.ui.pendingWindow;
+        this.ui.pendingWindow = null;
+        if (win === 'spawn') this.ui.showSpawn(true);
+        else if (win === 'inventory') this.ui.showInventory(true);
+        else this.ui.showPause(true);
       }
     });
   }
@@ -518,17 +527,52 @@ class Game {
     p.selectSlot(((from - 1 + (dir > 0 ? 1 : 4)) % 5 + 5) % 5 + 1);
   }
 
-  /** Throw the held weapon / item stack out in front of you (it stays on the ground until you press pick up). */
-  dropHeld() {
-    const p = this.player, s = p.held;
-    if (!s || s.type === 'pickaxe') return;
-    const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw), x = p.x + fx * 1.4, z = p.z + fz * 1.4, y = this.world.heightAt(x, z);
-    if (s.type === 'weapon') this.loot.spawnWeapon(x, Math.max(y, p.y - 0.5), z, s).dropped = true;
-    else for (let k = 0; k < Math.min(s.count, 6); k++) this.loot.spawnItem(x + k * 0.3, Math.max(y, p.y - 0.5), z, s.id);
-    p.slots[p.slot] = null;
-    p.reloadT = 0; p.useT = 0; p.burstLeft = 0;
-    p.selectSlot(0);
+  /** Spot on the ground in front of the player where dropped things land. */
+  _dropSpot(dist = 1.6) {
+    const p = this.player, fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw);
+    let x = p.x + fx * dist, z = p.z + fz * dist;
+    if (!isFree(this.world, x, z, p.y + 0.1, 0.6)) { x = p.x; z = p.z; } // a wall right in front: drop at your feet
+    return { x, z, y: groundAt(this.world, x, z, p.y + 0.4) };
+  }
+
+  /** Drop slot i (n items of a stack, default all). The held weapon / item stack by default. */
+  dropSlot(i = this.player.slot, n = Infinity) {
+    const p = this.player, s = p.slots[i];
+    if (!s || s.type === 'pickaxe' || i < 1) return;
+    const { x, y, z } = this._dropSpot();
+    if (s.type === 'weapon') { this.loot.spawnWeapon(x, y, z, s).dropped = true; p.slots[i] = null; }
+    else {
+      const k = Math.min(n, s.count);
+      this.loot.spawnItem(x, y, z, s.id, k);
+      s.count -= k;
+      if (s.count <= 0) p.slots[i] = null;
+    }
+    if (i === p.slot && !p.slots[i]) { p.reloadT = 0; p.useT = 0; p.burstLeft = 0; p.reloadStage = null; p.selectSlot(0); }
     this.audio.play('pickup', p);
+  }
+
+  dropHeld() { this.dropSlot(this.player.slot); }
+
+  /** Drop ammo or building materials (they are not picked up again by you for a moment). */
+  dropResource(kind, id, n) {
+    const p = this.player;
+    const have = kind === 'ammo' ? p.ammo[id] : p.mats[id];
+    const k = Math.min(n, have);
+    if (k <= 0) return;
+    const { x, y, z } = this._dropSpot(2.3);
+    const q = kind === 'ammo' ? this.loot.spawnAmmo(x, y, z, id) : this.loot.spawnMats(x, y, z, id, k);
+    q.n = k; q.lockFor = p; q.lockUntil = this.time + 2.5;
+    if (kind === 'ammo') p.ammo[id] -= k; else p.mats[id] -= k;
+    this.audio.play('pickup', p);
+  }
+
+  /** Inventory: swap two slots (1-5); keeps holding the same thing. */
+  swapSlots(a, b) {
+    const p = this.player;
+    if (a < 1 || b < 1 || a > 5 || b > 5 || a === b) return;
+    const held = p.slots[p.slot];
+    [p.slots[a], p.slots[b]] = [p.slots[b], p.slots[a]];
+    if (p.slot >= 1 && held) p.slot = p.slots.indexOf(held);
   }
 
   /** Playground: put a weapon (with a rarity) or a healing item at your feet. */
@@ -546,12 +590,9 @@ class Game {
 
   interact() {
     const p = this.player;
-    const t = this.loot.nearestInteractable(p, 2.6);
+    const t = this.loot.nearestInteractable(p, 2.6, true);
     if (!t) return;
-    const wasPick = p.slot === 0;
-    if (this.loot.interact(p, t) && t.type === 'pickup' && t.p.kind === 'weapon' && wasPick) {
-      for (let i = 1; i <= 5; i++) if (p.slots[i] === t.p.inst) { p.selectSlot(i); break; }
-    }
+    this.loot.interact(p, t);
   }
 
   // ------------------------------------------------------------------ hazards (storm, lava, ...)
@@ -637,7 +678,7 @@ class Game {
         this.lastStormPhase = this.storm.phase;
       }
       if (p && p.alive) {
-        p.ads = this.rightDown && !p.airborne && !this.build.active && !this.edit.active && p.held && p.held.type === 'weapon' && !p.sliding;
+        p.ads = this.rightDown && !p.airborne && !this.build.active && !this.edit.active && p.held && p.held.type === 'weapon' && !p.sliding && !p.reloadStage;
         p.update(dt);
         p.animateModel(dt);
         if (!p.airborne) { this.build.updateGhost(p); this.edit.update(p); } else { this.build.setActive(false); this.edit.cancel(); }
@@ -645,12 +686,18 @@ class Game {
         this.prompt = ''; this.promptColor = '';
         if (p.air === 'bus') this.prompt = this.bus.canDrop ? `[${keyName(settings.keys.jump)}] Jump from the bus` : 'Get ready to jump...';
         else if (!p.airborne && !this.build.active && !this.edit.active) {
-          const t = this.loot.nearestInteractable(p, 2.6);
+          const t = this.loot.nearestInteractable(p, 2.6, true);
           if (t) {
             const K = keyName(settings.keys.interact);
             if (t.type === 'chest') this.prompt = `[${K}] Open ${t.c.kind === 'ammo' ? 'ammo box' : t.c.kind === 'supply' ? 'supply drop' : t.c.kind === 'alpaca' ? 'LOOT ALPACA!' : 'chest'}`;
-            else if (t.p.kind === 'weapon') { this.prompt = `[${K}] ${WEAPONS[t.p.inst.id].name} (${RARITIES[t.p.inst.rarity].name})`; this.promptColor = RARITIES[t.p.inst.rarity].color; }
-            else this.prompt = `[${K}] ${this.season.items[t.p.itemId].name}`;
+            else {
+              const q = t.p;
+              const name = q.kind === 'weapon' ? `${WEAPONS[q.inst.id].name} (${RARITIES[q.inst.rarity].name})` : this.season.items[q.itemId].name + ((q.n || 1) > 1 ? ' x' + q.n : '');
+              const si = this.loot.swapSlot(p, q), old = si >= 1 ? p.slots[si] : null;
+              const oldName = old ? (old.type === 'weapon' ? WEAPONS[old.id].name : this.season.items[old.id].name) : '';
+              this.prompt = old ? `[${K}] Swap ${oldName} for ${name}` : `[${K}] ${name}`;
+              if (q.kind === 'weapon') this.promptColor = RARITIES[q.inst.rarity].color;
+            }
           }
         }
       }

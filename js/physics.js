@@ -1,7 +1,7 @@
 // Character physics: circle-vs-box horizontal collision, step-up, slopes, ramps/roofs, gravity,
 // crouch height, mantling (climbing ledges) and vaulting.
 
-import { colliderTop } from './geom.js?v=48';
+import { colliderTop } from './geom.js?v=53';
 
 export const PLAYER_R = 0.45;
 export const PLAYER_H = 1.8;
@@ -60,6 +60,9 @@ export function stepEntity(world, e, dt) {
   // ---- horizontal (axis-separated so we slide along walls)
   const tryMove = (nx, nz) => {
     if (!isFree(world, nx, nz, e.y, h)) return false;
+    // stepping (or landing) up onto a step / ramp: there must be headroom at that height
+    const gy = groundAt(world, nx, nz, e.y);
+    if (gy > e.y + 0.01 && !isFree(world, nx, nz, gy, h)) return false;
     const dist = Math.hypot(nx - e.x, nz - e.z);
     const th = world.heightAt(nx, nz);
     if (th - e.y > dist * 1.25 + (e.grounded ? 0.02 : 0.05)) return false;
@@ -85,12 +88,13 @@ export function stepEntity(world, e, dt) {
         // underside of a ramp/roof plate
         if (e.x < c.minx || e.x > c.maxx || e.z < c.minz || e.z > c.maxz) continue;
         const under = colliderTop(c, e.x, e.z) - 0.25;
-        if (under >= e.y + h - 0.05 && under <= ny + h) { ny = under - h; e.vy = 0; }
+        if (under >= e.y + h * 0.5 && under <= ny + h) { ny = Math.min(e.y, under - h); e.vy = 0; }
         continue;
       }
       if (e.x < c.minx - PLAYER_R || e.x > c.maxx + PLAYER_R || e.z < c.minz - PLAYER_R || e.z > c.maxz + PLAYER_R) continue;
-      if (c.miny >= e.y + h - 0.05 && c.miny <= ny + h) {
-        ny = c.miny - h;
+      // (counts ceilings the head already pokes into a little, so you can't jump through them)
+      if (c.miny >= e.y + h * 0.5 && c.miny <= ny + h) {
+        ny = Math.min(e.y, c.miny - h);
         e.vy = 0;
       }
     }
@@ -130,7 +134,11 @@ export function depenetrate(world, e) {
       if (c.miny >= e.y + h) continue;
       if (c.kind !== 'box') {
         const top = colliderTop(c, e.x, e.z);
-        if (top > e.y && top <= e.y + STEP + 1.2 && e.x > c.minx && e.x < c.maxx && e.z > c.minz && e.z < c.maxz) { e.y = top; moved = true; }
+        if (top > e.y && top <= e.y + STEP + 1.2 && e.x > c.minx && e.x < c.maxx && e.z > c.minz && e.z < c.maxz) {
+          e.y = top; moved = true;
+          // lifted under a low ceiling (a ramp built inside a house): duck instead of poking through
+          if (e.setCrouch && ceilingBetween(world, e.x, e.z, top + 0.1, top + h)) e.setCrouch(true);
+        }
         continue;
       }
       if (c.maxy <= e.y + STEP) continue;
@@ -142,6 +150,23 @@ export function depenetrate(world, e) {
     }
     if (!moved) break;
   }
+}
+
+/** Is there a solid underside (ceiling, roof plate) above (x,z) between heights y0 and y1? */
+export function ceilingBetween(world, x, z, y0, y1, R = PLAYER_R) {
+  const list = world.query(x, z, R + 0.01);
+  for (let i = 0; i < list.length; i++) {
+    const c = list[i];
+    if (c.kind === 'box') {
+      if (x < c.minx - R || x > c.maxx + R || z < c.minz - R || z > c.maxz + R) continue;
+      if (c.miny >= y0 && c.miny < y1) return true;
+    } else {
+      if (x < c.minx || x > c.maxx || z < c.minz || z > c.maxz) continue;
+      const under = colliderTop(c, x, z) - 0.25;
+      if (under >= y0 && under < y1) return true;
+    }
+  }
+  return false;
 }
 
 /** Is there room above the entity to stand up at full height? */
@@ -164,10 +189,11 @@ export function findLedge(world, e, dirx, dirz, maxRise = 2.75, allowVault = fal
   if (rise < 0.6 || rise > maxRise) return null;
 
   // vault: thin, low obstacle with free ground right behind it
-  if (allowVault && rise < 1.45) {
+  if (allowVault && rise < 1.45 && !ceilingBetween(world, e.x, e.z, e.y + h * 0.5, top + 0.35 + h, 0.2)) {
     const fx = e.x + dirx * (reach + 1.3), fz = e.z + dirz * (reach + 1.3);
     const gBehind = groundAt(world, fx, fz, e.y + 0.4);
-    if (Math.abs(gBehind - e.y) < 1.2 && isFree(world, fx, fz, gBehind, h) && isFree(world, px, pz, top, 0.9)) {
+    if (Math.abs(gBehind - e.y) < 1.2 && isFree(world, fx, fz, gBehind, h) && isFree(world, px, pz, top, 0.9)
+      && !ceilingBetween(world, px, pz, top + 0.05, top + 0.35 + h, 0.2)) {
       return { x: fx, y: gBehind, z: fz, vault: true, peak: top + 0.35 };
     }
   }
@@ -177,6 +203,10 @@ export function findLedge(world, e, dirx, dirz, maxRise = 2.75, allowVault = fal
   if (Math.abs(sTop - top) > 0.4) return null;
   if (!isFree(world, sx, sz, sTop, CROUCH_H)) return null;
   if (!isFree(world, e.x, e.z, sTop + 0.05, CROUCH_H * 0.6)) return null;
+  // the body rises straight up before moving over the edge: never through a ceiling
+  // (this used to let you climb from inside a house through its roof)
+  if (ceilingBetween(world, e.x, e.z, e.y + h * 0.5, sTop + CROUCH_H, 0.2)) return null;
+  if (ceilingBetween(world, px, pz, sTop + 0.05, sTop + CROUCH_H, 0.2)) return null;
   return { x: sx, y: sTop, z: sz, vault: false, peak: sTop + 0.15 };
 }
 

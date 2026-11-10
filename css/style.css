@@ -212,3 +212,25 @@ select { background: #fff; border: 2px inset #fff; }
 .setpane { border: 2px outset #fff; padding: 8px; background: #c0c0c0; max-height: 62vh; overflow-y: auto; }
 .spgrid { display: flex; flex-wrap: wrap; gap: 4px; max-width: 560px; } .spgrid button { font-size: 14px; }
 .keyhint { font-size: 14px; margin: 0 0 8px; }
+
+/* inventory window */
+.invhint { font-size: 14px; margin: 0 0 6px; }
+.invslots { display: flex; gap: 6px; margin-bottom: 8px; }
+.invslot { width: 118px; min-height: 104px; background: #c0c0c0; border: 2px inset #fff; padding: 4px; cursor: grab; position: relative; display: flex; flex-direction: column; gap: 2px; }
+.invslot.fixed { cursor: default; width: 84px; background: #b4b4b4; }
+.invslot i { position: absolute; right: 4px; top: 2px; font-style: normal; font-size: 12px; color: #444; }
+.invslot b { font-size: 15px; margin-top: 12px; }
+.invslot b.empty { color: #777; font-weight: normal; font-style: italic; }
+.invslot small { font-size: 12px; color: #222; }
+.invslot.held { outline: 2px solid #000080; }
+.invslot.pick { background: #ffffcc; }
+.invslot.over { background: #c8d8ff; }
+.invslot.drag { opacity: 0.5; }
+.invbtns { display: flex; flex-wrap: wrap; gap: 2px; margin-top: auto; }
+.invbtns button { font-size: 12px; padding: 1px 4px; }
+.invres td { padding: 0 4px; }
+.invres td.num { text-align: right; font-family: 'Courier New', monospace; min-width: 36px; }
+#invAmmo td, #invMats td { font-size: 14px; padding: 1px 4px; }
+#invAmmo button, #invMats button { font-size: 12px; }
+.invslot .rtag { align-self: flex-start; font-size: 12px; padding: 0 4px; border: 1px solid #000; color: #000; }
+.swatch { display: inline-block; width: 10px; height: 10px; border: 1px solid #000; margin-right: 5px; vertical-align: -1px; }

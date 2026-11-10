@@ -23,6 +23,7 @@ export const KEY_ACTIONS = [
   { id: 'reload', label: 'Reload', def: 'KeyR', group: 'combat', ctx: 'any' },
   { id: 'interact', label: 'Pick up / open', def: 'KeyE', group: 'combat', ctx: 'any' },
 
+  { id: 'inventory', label: 'Open inventory (reorder / drop)', def: 'Tab', group: 'inv', ctx: 'any' },
   { id: 'drop', label: 'Drop held weapon / item', def: 'KeyJ', group: 'inv', ctx: 'any' },
   { id: 'spawn', label: 'Spawn menu (Playground only)', def: 'KeyU', group: 'inv', ctx: 'any' },
   { id: 'pickaxe', label: 'Pickaxe (press again = last weapon)', def: 'KeyF', group: 'inv', ctx: 'any' },

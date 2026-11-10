@@ -1,13 +1,13 @@
 // Loot: floor pickups, chests, ammo boxes, supply drops, material drops, season loot tables
 // and pickup logic.
 
-import * as THREE from '../lib/three.module.min.js?v=48';
-import { weightedPick } from './util.js?v=48';
-import { AMMO, ITEM_KINDS, RARITIES, WEAPONS, CLASS_COLORS, makeWeapon, weaponStats } from './weapons.js?v=48';
-import { RARITY_GROUND } from './seasons.js?v=48';
-import { buildGunModel } from './gunmodels.js?v=48';
-import { TEX } from './textures.js?v=48';
-import { MATERIALS } from './build.js?v=48';
+import * as THREE from '../lib/three.module.min.js?v=53';
+import { weightedPick } from './util.js?v=53';
+import { AMMO, ITEM_KINDS, RARITIES, WEAPONS, CLASS_COLORS, makeWeapon, weaponStats } from './weapons.js?v=53';
+import { RARITY_GROUND } from './seasons.js?v=53';
+import { buildGunModel } from './gunmodels.js?v=53';
+import { TEX } from './textures.js?v=53';
+import { MATERIALS } from './build.js?v=53';
 
 const beamGeo = new THREE.CylinderGeometry(0.22, 0.3, 3.4, 6, 1, true).translate(0, 1.7, 0);
 const beamMats = {};
@@ -125,11 +125,11 @@ export class Loot {
     return p;
   }
 
-  spawnItem(x, y, z, id) {
+  spawnItem(x, y, z, id, n = 1) {
     const color = this.game.season.items[id].color;
     const g = this._group(x, y, z, color);
     const body = new THREE.Mesh(geo.item, lam(color, 0.45)); body.position.y = 0.55; g.add(body);
-    const p = { id: ++this._id, kind: 'item', itemId: id, x, y, z, mesh: g, body };
+    const p = { id: ++this._id, kind: 'item', itemId: id, n, x, y, z, mesh: g, body };
     this.pickups.push(p);
     return p;
   }
@@ -269,6 +269,7 @@ export class Loot {
         continue;
       }
       if (p.kind !== 'ammo' && p.kind !== 'mats') continue;
+      if (p.lockFor === e && this.game.time < p.lockUntil) continue; // you just dropped it
       const dx = p.x - e.x, dz = p.z - e.z;
       if (dx * dx + dz * dz < 2.4 && Math.abs(p.y - e.y) < 2.5) {
         if (p.kind === 'ammo') e.addAmmo(p.type, p.n);
@@ -286,21 +287,80 @@ export class Loot {
   }
 
   /** Nearest weapon/item/chest the entity could interact with, within reach. */
-  nearestInteractable(e, reach = 2.6) {
-    let best = null, bd = reach * reach;
+  nearestInteractable(e, reach = 2.6, look = false) {
+    // the player picks what they look at (several things on one spot: the one in front of the
+    // crosshair wins), bots simply take the closest
+    const fx = -Math.sin(e.yaw), fz = -Math.cos(e.yaw);
+    const score = (dx, dz, d2) => {
+      if (!look) return d2;
+      const d = Math.sqrt(d2) || 1e-6;
+      const dot = (dx * fx + dz * fz) / d;           // 1 = straight ahead, -1 = behind
+      return d2 * (1.6 - 0.6 * dot) + (dot < -0.2 ? 2 : 0);
+    };
+    let best = null, bs = Infinity;
+    const r2 = reach * reach;
     for (const p of this.pickups) {
       if (p.kind === 'ammo' || p.kind === 'mats') continue;
       const dx = p.x - e.x, dz = p.z - e.z, dy = p.y - e.y;
       const d = dx * dx + dz * dz;
-      if (d < bd && Math.abs(dy) < 2.5) { bd = d; best = { type: 'pickup', p }; }
+      if (d >= r2 || Math.abs(dy) >= 2.5) continue;
+      const sc = score(dx, dz, d);
+      if (sc < bs) { bs = sc; best = { type: 'pickup', p }; }
     }
     for (const c of this.chests) {
       if (c.opened) continue;
       const dx = c.x - e.x, dz = c.z - e.z, dy = c.y - e.y;
       const d = dx * dx + dz * dz;
-      if (d < bd && Math.abs(dy) < 2.5) { bd = d; best = { type: 'chest', c }; }
+      if (d >= r2 || Math.abs(dy) >= 2.5) continue;
+      const sc = score(dx, dz, d);
+      if (sc < bs) { bs = sc; best = { type: 'chest', c }; }
     }
     return best;
+  }
+
+  /** Which slot would picking up p replace for the player? -1 = there is room (or a stack to join). */
+  swapSlot(e, p) {
+    if (p.kind === 'weapon') { for (let i = 1; i <= 5; i++) if (!e.slots[i]) return -1; }
+    else if (p.kind === 'item') { if (e.stackRoom(p.itemId) > 0) return -1; }
+    else return -1;
+    return e.slot >= 1 ? e.slot : (e.lastSlot || 1);
+  }
+
+  /**
+   * Player pick-up: take it if there is room, otherwise swap it with the held slot (holding the
+   * pickaxe: the slot you used last). The old thing lands where the new one was, so E again swaps back.
+   */
+  _playerTake(e, p) {
+    const audio = this.game.audio;
+    if (p.kind === 'weapon') {
+      for (let i = 1; i <= 5; i++) if (!e.slots[i]) {
+        e.slots[i] = p.inst; this.remove(p); audio.play('pickup', e);
+        if (e.slot === 0) e.selectSlot(i);
+        return true;
+      }
+    } else {
+      const left = e.stackItem(p.itemId, p.n || 1);
+      if (left < (p.n || 1)) {
+        if (left > 0) p.n = left; else this.remove(p);
+        audio.play('pickup', e);
+        return true;
+      }
+    }
+    const idx = this.swapSlot(e, p);
+    if (idx < 1) return false;
+    const old = e.slots[idx];
+    if (old && p.kind === 'item' && old.type === 'item' && old.id === p.itemId) return false; // same thing, nothing to swap
+    e.slots[idx] = p.kind === 'weapon' ? p.inst : { type: 'item', id: p.itemId, count: Math.min(p.n || 1, ITEM_KINDS[p.itemId].stack || 3) };
+    e.reloadT = 0; e.useT = 0; e.burstLeft = 0; e.reloadStage = null;
+    const x = p.x, y = p.y, z = p.z;
+    this.remove(p);
+    if (old) {
+      if (old.type === 'weapon') this.spawnWeapon(x, y, z, old).dropped = true;
+      else this.spawnItem(x, y, z, old.id, old.count);
+    }
+    if (e.slot !== idx) e.selectSlot(idx);
+    audio.play('pickup', e);
+    return true;
   }
 
   /** Perform the interaction. Returns true if something happened. */
@@ -308,6 +368,7 @@ export class Loot {
     if (!target) return false;
     if (target.type === 'chest') { this.openChest(target.c, e, rnd); return true; }
     const p = target.p;
+    if (e.isPlayer && (p.kind === 'weapon' || p.kind === 'item')) return this._playerTake(e, p);
     if (p.kind === 'weapon') {
       const old = e.giveWeapon(p.inst);
       if (old === p.inst) return false;
@@ -320,24 +381,7 @@ export class Loot {
       return true;
     }
     if (p.kind === 'item') {
-      if (!e.giveItem(p.itemId)) {
-        // inventory full: the player swaps the item with the held slot (or the weakest weapon when holding the pickaxe)
-        if (!e.isPlayer) return false;
-        let idx = e.slot >= 1 ? e.slot : -1;
-        if (idx < 0) {
-          let worst = Infinity;
-          for (let i = 1; i <= 5; i++) { const s = e.slots[i]; const sc = s && s.type === 'weapon' ? weaponStats(s).dps : 0; if (sc < worst) { worst = sc; idx = i; } }
-        }
-        const old = e.slots[idx], max = ITEM_KINDS[p.itemId].stack || 3;
-        e.slots[idx] = { type: 'item', id: p.itemId, count: 1 };
-        e.reloadT = 0; e.useT = 0; e.burstLeft = 0;
-        this.remove(p);
-        if (old.type === 'weapon') this.spawnWeapon(e.x + 0.6, e.y, e.z + 0.6, old).dropped = true;
-        else for (let k = 0; k < old.count; k++) this.spawnItem(e.x + 0.6 + k * 0.3, e.y, e.z + 0.6, old.id);
-        if (max) e.selectSlot(idx);
-        this.game.audio.play('pickup', e);
-        return true;
-      }
+      if (!e.giveItem(p.itemId, p.n || 1)) return false;
       this.remove(p);
       if (e.isPlayer) this.game.audio.play('pickup', e);
       return true;

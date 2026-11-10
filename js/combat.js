@@ -1,10 +1,10 @@
 // Shooting (hitscan + projectiles), spread/bloom, hit detection, damage, explosions,
 // grenades and the pickaxe (with Fortnite-style weak points).
 
-import * as THREE from '../lib/three.module.min.js?v=48';
-import { clamp, lerp, dirFromAngles } from './util.js?v=48';
-import { weaponStats, ITEM_KINDS, BLOOM } from './weapons.js?v=48';
-import { rayBox } from './geom.js?v=48';
+import * as THREE from '../lib/three.module.min.js?v=53';
+import { clamp, lerp, dirFromAngles } from './util.js?v=53';
+import { weaponStats, ITEM_KINDS, BLOOM } from './weapons.js?v=53';
+import { rayBox } from './geom.js?v=53';
 
 const CLASS_KICK = { pistol: 0.004, smg: 0.0025, rifle: 0.0045, shotgun: 0.03, sniper: 0.035, launcher: 0.04 };
 const BODY_R = 0.38;
@@ -110,12 +110,13 @@ export class Combat {
     e.bloom = Math.max(0, e.bloom - dt * 1.6);
     const it = e.held;
 
-    if (e.reloadT > 0) {
-      e.reloadT -= dt;
-      if (e.reloadT <= 0) e.finishReload();
-      return;
-    }
     if (!e.wantFire) e.firedHeld = false;
+    if (e.reloadStage) {
+      // loading shells one by one: pull the trigger to stop and shoot what is already in
+      const r = e.reloadStage;
+      if (r.style === 'shell' && e.wantFire && !e.firedHeld && it && it.mag > 0 && r.t > 0.2) e.cancelReload();
+      else { e.updateReload(dt); return; }
+    }
     if (!it || e.mantle) return;
 
     if (it.type === 'weapon') {
@@ -144,6 +145,16 @@ export class Combat {
         if (e.useT >= this.game.itemTime(it)) { e.useT = 0; e.applyItem(e.slot); }
       } else e.useT = 0;
     }
+  }
+
+  /** Spent brass flies out of the ejection port (not for energy weapons, launchers, revolvers or break actions). */
+  _casing(e, it, st, fp) {
+    if (!this.game.fx || st.ammo === 'cells' || st.ammo === 'rockets' || it.id === 'revolver' || it.id === 'double_barrel' || it.id === 'crossbow') return;
+    const c = this.game.camera.position;
+    if ((c.x - e.x) ** 2 + (c.z - e.z) ** 2 > 40 * 40) return;
+    const fx = -Math.sin(e.yaw), fz = -Math.cos(e.yaw), rx = -fz, rz = fx;
+    const up = fp ? -0.22 : -0.45;
+    this.game.fx.casing(e.x + fx * (fp ? 0.5 : 0.45) + rx * (fp ? 0.22 : 0.3), e.y + (e.h || 1.8) + up, e.z + fz * (fp ? 0.5 : 0.45) + rz * (fp ? 0.22 : 0.3), rx, rz, st.ammo === 'shells');
   }
 
   spreadFor(e, st) {
@@ -175,6 +186,7 @@ export class Combat {
 
     // muzzle position for tracers / flashes
     const fp = e.isPlayer && !this.game.thirdPerson;
+    this._casing(e, it, st, fp);
     const mz = fp ? this.game.viewmodel.muzzleWorld(_v) : e.model ? e.model.muzzleWorld(_v) : null;
     const mx0 = mz ? mz.x : ox + d.x * 0.7, my0 = mz ? mz.y : oy - 0.1 + d.y * 0.7, mz0 = mz ? mz.z : oz + d.z * 0.7;
     if (this.game.fx) this.game.fx.muzzle(mx0, my0, mz0, st.cls === 'launcher' ? 0xffa040 : 0xfff0a0, e.isPlayer && !this.game.thirdPerson);
