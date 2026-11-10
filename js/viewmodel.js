@@ -4,10 +4,10 @@
 // "sentinel" mesh clears depth right before the viewmodel meshes render (they are all in
 // the transparent queue with a high renderOrder, so they come after the whole world).
 
-import * as THREE from '../lib/three.module.min.js?v=65';
-import { weaponStats, ITEM_KINDS } from './weapons.js?v=65';
-import { buildGunModel, setGunRarity } from './gunmodels.js?v=65';
-import { reloadPhase } from './reload.js?v=65';
+import * as THREE from '../lib/three.module.min.js?v=66';
+import { weaponStats, ITEM_KINDS } from './weapons.js?v=66';
+import { buildGunModel, setGunRarity } from './gunmodels.js?v=66';
+import { reloadPhase } from './reload.js?v=66';
 
 const ORDER = 1000;
 // Weapons with at least this zoom have a scope: the 3D model is hidden while aiming so its scope tube cannot block the view.
@@ -232,7 +232,7 @@ export class ViewModel {
       else if (ph.name === 'in') { lerp3(pouch, [-0.07, 0.03, -0.05], Math.sin(Math.min(1, k * 1.2) * Math.PI / 2)); carry(k < 0.85, 0xd9a53a, 0.08, 0.08, 0.04); }
       else at(-0.06, 0.0, -0.12);
     } else { // single
-      if (r.id === 'sniper') { o.rx = 0.06 * env; o.py = -0.01 * env; o.rz = -0.75 * env; o.px = 0.02 * env; }   // bolt gun: roll it so the bolt handle faces the left hand, keep it on screen
+      if (r.id === 'sniper') { o.rx = 0.06 * env; o.py = -0.01 * env; o.rz = 0.75 * env; o.px = 0.02 * env; }   // bolt gun: roll it so the bolt handle (right side) turns up toward you, keep it on screen
       else { o.rx = -0.15 * env; o.py = -0.12 * env; o.rz = 0.25 * env; }
       const front = r.id === 'rocket' ? [0, 0.07, -0.8] : r.id === 'crossbow' ? [0, 0.07, -0.25] : [0.095, 0.03, -0.03];   // bolt guns: beside the receiver, never inside it
       if (r.id === 'sniper' && (ph.name === 'in' || ph.name === 'rack')) this.armT.set(0.03, -0.3, 0.2);   // forearm comes up from below, never across the gun

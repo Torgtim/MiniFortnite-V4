@@ -1,11 +1,11 @@
 // World generation for one season: terrain, liquid, points of interest (buildings),
 // resource props, decoration, loot spots, colliders, raycasting and a pre-rendered minimap.
 
-import * as THREE from '../lib/three.module.min.js?v=65';
-import { mulberry32, createNoise, clamp, lerp, smoothstep } from './util.js?v=65';
-import { rayCollider } from './geom.js?v=65';
-import { TEX, TERRAIN_TEX, HOUSE_TEX } from './textures.js?v=65';
-import { buildLiquid } from './liquid.js?v=65';
+import * as THREE from '../lib/three.module.min.js?v=66';
+import { mulberry32, createNoise, clamp, lerp, smoothstep } from './util.js?v=66';
+import { rayCollider } from './geom.js?v=66';
+import { TEX, TERRAIN_TEX, HOUSE_TEX } from './textures.js?v=66';
+import { buildLiquid } from './liquid.js?v=66';
 
 export const MAP_R = 190;
 const SIZE = 420;
