@@ -4,10 +4,10 @@
 // "sentinel" mesh clears depth right before the viewmodel meshes render (they are all in
 // the transparent queue with a high renderOrder, so they come after the whole world).
 
-import * as THREE from '../lib/three.module.min.js?v=63';
-import { weaponStats, ITEM_KINDS } from './weapons.js?v=63';
-import { buildGunModel, setGunRarity } from './gunmodels.js?v=63';
-import { reloadPhase } from './reload.js?v=63';
+import * as THREE from '../lib/three.module.min.js?v=64';
+import { weaponStats, ITEM_KINDS } from './weapons.js?v=64';
+import { buildGunModel, setGunRarity } from './gunmodels.js?v=64';
+import { reloadPhase } from './reload.js?v=64';
 
 const ORDER = 1000;
 // Weapons with at least this zoom have a scope: the 3D model is hidden while aiming so its scope tube cannot block the view.
@@ -205,7 +205,11 @@ export class ViewModel {
         lerp3(pouch, port, t);
         carry(k < 0.75, r.id === 'pump' ? 0xc0392b : r.id === 'grenade' ? 0x556b2f : 0xd9a53a, 0.035, 0.035, 0.07);
         o.pz += k > 0.7 && k < 0.85 ? 0.012 : 0;
-      } else if (ph.name === 'rack') { at(-0.04, -0.06, -0.33 + 0.1 * Math.sin(k * Math.PI)); o.pz += 0.03 * Math.sin(k * Math.PI); }
+      } else if (ph.name === 'rack') {
+        if (r.id === 'hunting_rifle') at(0.095, 0.03, -0.03 + 0.1 * Math.sin(k * Math.PI));   // bolt handle, beside the receiver
+        else at(-0.04, -0.06, -0.33 + 0.1 * Math.sin(k * Math.PI));
+        o.pz += 0.03 * Math.sin(k * Math.PI);
+      }
       else if (ph.name === 'open') lerp3(this.lHandBase.toArray(), pouch, k);
       else if (ph.name === 'close') lerp3(pouch, this.lHandBase.toArray(), k);
     } else if (r.style === 'break') {
@@ -225,13 +229,13 @@ export class ViewModel {
       else at(-0.06, 0.0, -0.12);
     } else { // single
       o.rx = -0.15 * env; o.py = -0.12 * env; o.rz = 0.25 * env;
-      const front = r.id === 'rocket' ? [0, 0.07, -0.8] : r.id === 'crossbow' ? [0, 0.07, -0.25] : [0.05, 0.06, -0.05];
+      const front = r.id === 'rocket' ? [0, 0.07, -0.8] : r.id === 'crossbow' ? [0, 0.07, -0.25] : [0.095, 0.03, -0.03];   // bolt guns: beside the receiver, never inside it
       if (ph.name === 'lower') { if (mag && r.id !== 'sniper') mag.visible = false; lerp3(this.lHandBase.toArray(), pouch, k); }
       else if (ph.name === 'in') {
         lerp3(pouch, front, Math.sin(Math.min(1, k * 1.25) * Math.PI / 2));
         if (r.id === 'rocket' || r.id === 'crossbow') { mag.visible = k > 0.7; mag.position.z = (r.id === 'rocket' ? -0.2 : 0.15) * (1 - k); }
         carry(k < 0.7, r.id === 'rocket' ? 0xb03030 : 0xd9a53a, r.id === 'rocket' ? 0.1 : 0.03, r.id === 'rocket' ? 0.1 : 0.03, r.id === 'rocket' ? 0.22 : 0.08);
-      } else if (ph.name === 'rack') { at(0.1, 0.05, 0.02 + 0.08 * Math.sin(k * Math.PI)); o.rz -= 0.3 * Math.sin(k * Math.PI); }
+      } else if (ph.name === 'rack') { at(0.095, 0.03, -0.03 + 0.1 * Math.sin(k * Math.PI)); o.rz -= 0.3 * Math.sin(k * Math.PI); }
     }
     return o;
   }

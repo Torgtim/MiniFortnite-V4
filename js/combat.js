@@ -1,10 +1,10 @@
 // Shooting (hitscan + projectiles), spread/bloom, hit detection, damage, explosions,
 // grenades and the pickaxe (with Fortnite-style weak points).
 
-import * as THREE from '../lib/three.module.min.js?v=63';
-import { clamp, lerp, dirFromAngles } from './util.js?v=63';
-import { weaponStats, ITEM_KINDS, BLOOM } from './weapons.js?v=63';
-import { rayBox } from './geom.js?v=63';
+import * as THREE from '../lib/three.module.min.js?v=64';
+import { clamp, lerp, dirFromAngles } from './util.js?v=64';
+import { weaponStats, ITEM_KINDS, BLOOM } from './weapons.js?v=64';
+import { rayBox } from './geom.js?v=64';
 
 const CLASS_KICK = { pistol: 0.004, smg: 0.0025, rifle: 0.0045, shotgun: 0.03, sniper: 0.035, launcher: 0.04 };
 const BODY_R = 0.38;
