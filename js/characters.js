@@ -1,8 +1,8 @@
 // Low-poly character models (player + bots): random outfits, pixel-art faces, gliders,
 // held weapon models and a small procedural animation system.
 
-import * as THREE from '../lib/three.module.min.js?v=59';
-import { buildGunModel, setGunRarity } from './gunmodels.js?v=59';
+import * as THREE from '../lib/three.module.min.js?v=60';
+import { buildGunModel, setGunRarity } from './gunmodels.js?v=60';
 
 const SKINS = ['#f2c9a0', '#e0ac7e', '#c68955', '#9a6640', '#6e4529', '#f6d7bd'];
 const OUTFITS = [
@@ -84,6 +84,7 @@ function glider(color) {
   return g;
 }
 
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
 const PISTOLS = new Set(['pistol', 'hand_cannon', 'blaster', 'revolver']);
 
 export class CharacterModel {
@@ -134,15 +135,15 @@ export class CharacterModel {
     // arms: shoulder -> upper arm -> elbow -> forearm + hand, so both hands can really hold a gun
     const arm = (x) => {
       const sh = new THREE.Group(); sh.position.set(x, 0.7, 0); torso.add(sh);
-      const up = new THREE.Mesh(box(0.2, 0.36, 0.2), lam(shirt)); up.position.y = -0.17; sh.add(up);
-      const el = new THREE.Group(); el.position.y = -0.34; sh.add(el);
-      const fa = new THREE.Mesh(box(0.19, 0.4, 0.19), lam(shirt)); fa.position.y = -0.17; el.add(fa);
-      const h = new THREE.Mesh(box(0.18, 0.16, 0.18), skinM); h.position.y = -0.38; el.add(h); details.push(h);
+      const up = new THREE.Mesh(box(0.2, 0.4, 0.2), lam(shirt)); up.position.y = -0.19; sh.add(up);
+      const el = new THREE.Group(); el.position.y = -0.38; sh.add(el);
+      const fa = new THREE.Mesh(box(0.19, 0.44, 0.19), lam(shirt)); fa.position.y = -0.2; el.add(fa);
+      const h = new THREE.Mesh(box(0.18, 0.16, 0.18), skinM); h.position.y = -0.43; el.add(h); details.push(h);
       return { sh, el };
     };
     const aL = arm(-0.42), aR = arm(0.42);
     const armL = aL.sh, armR = aR.sh, elbowL = aL.el, elbowR = aR.el;
-    const grip = new THREE.Group(); grip.position.set(0, -0.38, 0); grip.rotation.x = -Math.PI / 2; elbowR.add(grip);
+    const grip = new THREE.Group(); grip.position.set(0, -0.43, 0); grip.rotation.x = -Math.PI / 2; elbowR.add(grip);
     const gunMount = new THREE.Group(); torso.add(gunMount);   // guns live in front of the chest, both hands reach for it
 
     this.root = root;
@@ -242,7 +243,7 @@ export class CharacterModel {
 
   /** Two-bone IK: put the hand of arm (shoulder sh, elbow el) on T, all in torso space. */
   _arm(sh, el, S, T, pole, k) {
-    const V3 = THREE.Vector3, L1 = 0.34, L2 = 0.38;
+    const V3 = THREE.Vector3, L1 = 0.38, L2 = 0.43;
     const to = T.clone().sub(S);
     const dist = Math.min(L1 + L2 - 0.004, Math.max(0.12, to.length()));
     const dir = to.normalize();
@@ -261,10 +262,11 @@ export class CharacterModel {
   _holdGun(s, sw, torsoX, dt) {
     const V3 = THREE.Vector3, P = this.p, gm = this.gm, gun = this.curGun;
     if (!gun) return;
-    const aimG = (s.pitch || 0) * 0.95 + (s.recoil || 0) * 0.25 - torsoX;   // gun elevation relative to the torso
+    // gun elevation relative to the torso (capped so the arms never swing across the face when looking far up / down)
+    const aimG = Math.max(-0.5, Math.min(0.55, (s.pitch || 0) * 0.8)) + (s.recoil || 0) * 0.25 - torsoX;
     const carry = !s.aiming && s.sprint;
     // where the right hand / gun sits (torso space) and how it points
-    let mx = 0.3, my = 0.64, mz = -0.3, gp = aimG;
+    let mx = 0.3, my = 0.66, mz = -0.5, gp = aimG;
     if (carry) { mx = 0.16; my = 0.42; mz = -0.26; gp = -0.85 + sw * 0.06 - torsoX; }
     else {
       const oy = my - 0.7;                                   // rotate the offset around the chest so it stays in front when looking up / down
@@ -273,8 +275,11 @@ export class CharacterModel {
     mz += (s.recoil || 0) * 0.07;
     const f = Math.min(1, dt * 18);
     gm.x += (mx - gm.x) * f; gm.y += (my - gm.y) * f; gm.z += (mz - gm.z) * f; gm.p += (gp - gm.p) * f;
-    this.gunMount.position.set(gm.x, gm.y, gm.z);
-    this.gunMount.rotation.set(gm.p, 0, 0);
+    // the torso is turned (bladed stance); the mount cancels that turn so the gun still points straight ahead
+    const ty = P.torso.rotation.y;
+    this.gunMount.position.set(gm.x, gm.y, gm.z).applyAxisAngle(Y_AXIS, -ty);
+    this.gunMount.rotation.set(gm.p, -ty, 0, 'YXZ');
+    this.gunMount.scale.setScalar(1.2);                     // a bit chunky so it reads from the camera behind you
     this.gunMount.updateMatrix();
     const G = (v) => v.applyMatrix4(this.gunMount.matrix);
     // fore-grip spot in gun space: pistols are cupped, long guns reach out along the barrel
@@ -286,11 +291,11 @@ export class CharacterModel {
     if (!target) {
       target = G(new V3(fo[0], fo[1], fo[2]));
       // too far for the arm? slide the hand back along the gun until it can reach
-      for (let i = 0; i < 6 && target.distanceTo(SL) > 0.7 && !pistol; i++) { fo[2] *= 0.8; target = G(new V3(fo[0], fo[1], fo[2])); }
+      for (let i = 0; i < 6 && target.distanceTo(SL) > 0.8 && !pistol; i++) { fo[2] *= 0.8; target = G(new V3(fo[0], fo[1], fo[2])); }
     }
     const right = G(new V3(0.0, -0.01, 0.0));
-    this._arm(P.armR, P.elbowR, SR, right, new V3(0.5, -1, 0.35), Math.min(1, dt * 20));
-    this._arm(P.armL, P.elbowL, SL, target, new V3(-0.5, -1, 0.35), Math.min(1, dt * 18));
+    this._arm(P.armR, P.elbowR, SR, right, new V3(1, -0.7, 0.1), Math.min(1, dt * 20));
+    this._arm(P.armL, P.elbowL, SL, target, new V3(-1, -0.7, 0.1), Math.min(1, dt * 18));
   }
 
   /** World position of the current gun muzzle (falls back to the hand). */
@@ -389,6 +394,7 @@ export class CharacterModel {
     if (!s.air) {
       if (s.kind === 'gun' && !s.mantle) {
         ik = true;
+        torsoY = s.sprint && !s.aiming ? -0.25 : -0.55;   // bladed stance: left shoulder forward so both arms reach the gun
         neckX = (s.pitch || 0) * 0.5 - torsoX * 0.7;
         if (!s.reload && this.curGun && this.curGun.userData.mag) { this.curGun.userData.mag.visible = true; this.curGun.userData.mag.position.set(0, 0, 0); }
       } else if (s.kind === 'pickaxe' && !s.mantle) {
@@ -413,6 +419,6 @@ export class CharacterModel {
     if (!ik) { lerpR(P.elbowL, elbowLb, 0, 0, 16); lerpR(P.elbowR, elbowRb, 0, 0, 16); }
     if (ik) this._holdGun(s, sw, torsoX, dt);
     else { lerpR(P.armL, armLx, armLy, armLz, 16); lerpR(P.armR, armRx, armRy, armRz, 18); }
-    lerpR(P.neck, neckX, 0, 0);
+    lerpR(P.neck, neckX, -torsoY * 0.9, 0);
   }
 }
