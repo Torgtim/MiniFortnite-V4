@@ -1,7 +1,7 @@
 // Tiny WebAudio synth: every sound effect is generated, no audio files needed.
 
-import { clamp } from './util.js?v=62';
-import { settings } from './settings.js?v=62';
+import { clamp } from './util.js?v=63';
+import { settings } from './settings.js?v=63';
 
 // note name -> frequency ('C5', 'F#4', ...)
 const NOTE_I = { C: -9, 'C#': -8, D: -7, 'D#': -6, E: -5, F: -4, 'F#': -3, G: -2, 'G#': -1, A: 0, 'A#': 1, B: 2 };

@@ -1,10 +1,10 @@
 // Menus: lobby (season switcher), settings, pause and result windows.
 
-import { SEASONS } from './seasons.js?v=62';
-import { WEAPONS, AMMO, RARITIES, weaponStats } from './weapons.js?v=62';
-import { MATERIALS } from './build.js?v=62';
-import { settings, saveSettings, resetSettings, applyPreset, KEY_ACTIONS, KEY_GROUPS, keysClash, keyLabel } from './settings.js?v=62';
-import { stats } from './stats.js?v=62';
+import { SEASONS } from './seasons.js?v=63';
+import { WEAPONS, AMMO, RARITIES, weaponStats } from './weapons.js?v=63';
+import { MATERIALS } from './build.js?v=63';
+import { settings, saveSettings, resetSettings, applyPreset, KEY_ACTIONS, KEY_GROUPS, keysClash, keyLabel } from './settings.js?v=63';
+import { stats } from './stats.js?v=63';
 
 const TIPS = [
   'Press <b>Tab</b> to open your <b>inventory</b>: drag slots around to reorder them, or drop weapons, ammo and materials for a friend.',

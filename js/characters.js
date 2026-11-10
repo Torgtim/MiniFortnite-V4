@@ -1,8 +1,8 @@
 // Low-poly character models (player + bots): random outfits, pixel-art faces, gliders,
 // held weapon models and a small procedural animation system.
 
-import * as THREE from '../lib/three.module.min.js?v=62';
-import { buildGunModel, setGunRarity } from './gunmodels.js?v=62';
+import * as THREE from '../lib/three.module.min.js?v=63';
+import { buildGunModel, setGunRarity } from './gunmodels.js?v=63';
 
 const SKINS = ['#f2c9a0', '#e0ac7e', '#c68955', '#9a6640', '#6e4529', '#f6d7bd'];
 const OUTFITS = [
@@ -85,6 +85,8 @@ function glider(color) {
 }
 
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
+/** Bolt-action guns: the right hand works the bolt on the side while the left keeps the gun steady. */
+const BOLTS = new Set(['sniper', 'hunting_rifle']);
 const PISTOLS = new Set(['pistol', 'hand_cannon', 'blaster', 'revolver']);
 
 export class CharacterModel {
@@ -221,7 +223,7 @@ export class CharacterModel {
       const port = V(0, -0.06, -0.14);
       if (r.name === 'open') return lerp(fore, port, k);
       if (r.name === 'shell') return trip(port, belt, port);
-      if (r.name === 'rack') return V(fo[0], fo[1], fo[2] + 0.12 * Math.sin(k * Math.PI));
+      if (r.name === 'rack') return BOLTS.has(this.heldId) ? fore : V(fo[0], fo[1], fo[2] + 0.12 * Math.sin(k * Math.PI));
       return fore;
     }
     if (r.style === 'break' || r.style === 'cyl') {
@@ -237,7 +239,7 @@ export class CharacterModel {
     if (mag && (r.name === 'lower' || (r.name === 'in' && k < 0.7)) && r.id !== 'sniper') mag.visible = false;
     if (r.name === 'lower') return lerp(fore, port, k);
     if (r.name === 'in') return trip(port, belt, port);
-    if (r.name === 'rack') return V(fo[0], fo[1], fo[2] + 0.12 * Math.sin(k * Math.PI));
+    if (r.name === 'rack') return BOLTS.has(this.heldId) ? fore : V(fo[0], fo[1], fo[2] + 0.12 * Math.sin(k * Math.PI));
     return fore;
   }
 
@@ -293,7 +295,12 @@ export class CharacterModel {
       // too far for the arm? slide the hand back along the gun until it can reach
       for (let i = 0; i < 6 && target.distanceTo(SL) > 0.8 && !pistol; i++) { fo[2] *= 0.8; target = G(new V3(fo[0], fo[1], fo[2])); }
     }
-    const right = G(new V3(0.0, -0.09, 0.02));   // hand sits under the grip, so the gun rides above the forearm
+    let right = G(new V3(0.0, -0.09, 0.02));
+    if (s.reload && s.reload.name === 'rack' && BOLTS.has(this.heldId)) {
+      // out to the bolt handle beside the receiver, then pull it back along the side of the gun
+      const k = s.reload.k, pull = Math.sin(k * Math.PI);
+      right = G(new V3(0.085, -0.01, -0.02 + 0.16 * pull));
+    }   // hand sits under the grip, so the gun rides above the forearm
     this._arm(P.armR, P.elbowR, SR, right, new V3(1, -0.15, 0.45), Math.min(1, dt * 20));
     this._arm(P.armL, P.elbowL, SL, target, new V3(-1, -0.15, 0.45), Math.min(1, dt * 18));
   }
