@@ -1,30 +1,30 @@
 // Game orchestration: renderer, match lifecycle (bus -> drop -> storm), input, cameras, main loop.
 
-import * as THREE from '../lib/three.module.min.js?v=58';
-import { SEASONS } from './seasons.js?v=58';
-import { World } from './world.js?v=58';
-import { Player } from './player.js?v=58';
-import { Bot, BOT_NAMES } from './bots.js?v=58';
-import { Combat } from './combat.js?v=58';
-import { Loot } from './loot.js?v=58';
-import { BuildSystem } from './build.js?v=58';
-import { EditSystem } from './edit.js?v=58';
-import { Storm } from './storm.js?v=58';
-import { Bus } from './bus.js?v=58';
-import { Sky } from './sky.js?v=58';
-import { FX } from './fx.js?v=58';
-import { Gadgets } from './gadgets.js?v=58';
-import { RetroPass } from './retro.js?v=58';
-import { BloomPass } from './bloom.js?v=58';
-import { HUD } from './hud.js?v=58';
-import { UI } from './ui.js?v=58';
-import { ViewModel } from './viewmodel.js?v=58';
-import { GameAudio } from './audio.js?v=58';
-import { settings, saveSettings, onSettingsChange, keyLabel } from './settings.js?v=58';
-import { ITEM_KINDS, RARITIES, weaponStats, WEAPONS, makeWeapon } from './weapons.js?v=58';
-import { mulberry32, clamp, dirFromAngles } from './util.js?v=58';
-import { recordMatch } from './stats.js?v=58';
-import { isFree, groundAt } from './physics.js?v=58';
+import * as THREE from '../lib/three.module.min.js?v=59';
+import { SEASONS } from './seasons.js?v=59';
+import { World } from './world.js?v=59';
+import { Player } from './player.js?v=59';
+import { Bot, BOT_NAMES } from './bots.js?v=59';
+import { Combat } from './combat.js?v=59';
+import { Loot } from './loot.js?v=59';
+import { BuildSystem } from './build.js?v=59';
+import { EditSystem } from './edit.js?v=59';
+import { Storm } from './storm.js?v=59';
+import { Bus } from './bus.js?v=59';
+import { Sky } from './sky.js?v=59';
+import { FX } from './fx.js?v=59';
+import { Gadgets } from './gadgets.js?v=59';
+import { RetroPass } from './retro.js?v=59';
+import { BloomPass } from './bloom.js?v=59';
+import { HUD } from './hud.js?v=59';
+import { UI } from './ui.js?v=59';
+import { ViewModel } from './viewmodel.js?v=59';
+import { GameAudio } from './audio.js?v=59';
+import { settings, saveSettings, onSettingsChange, keyLabel } from './settings.js?v=59';
+import { ITEM_KINDS, RARITIES, weaponStats, WEAPONS, makeWeapon } from './weapons.js?v=59';
+import { mulberry32, clamp, dirFromAngles } from './util.js?v=59';
+import { recordMatch } from './stats.js?v=59';
+import { isFree, groundAt } from './physics.js?v=59';
 
 const SUN_DIR = new THREE.Vector3(0.45, 0.8, 0.3).normalize();
 

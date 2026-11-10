@@ -1,7 +1,7 @@
 // Animated water / ice water / quicksand / lava surface (custom shader with waves, ripples,
 // shore foam and fog).
 
-import * as THREE from '../lib/three.module.min.js?v=58';
+import * as THREE from '../lib/three.module.min.js?v=59';
 
 const VERT = /* glsl */`
 uniform float uTime;
