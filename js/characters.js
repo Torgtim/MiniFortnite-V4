@@ -1,8 +1,8 @@
 // Low-poly character models (player + bots): random outfits, pixel-art faces, gliders,
 // held weapon models and a small procedural animation system.
 
-import * as THREE from '../lib/three.module.min.js?v=61';
-import { buildGunModel, setGunRarity } from './gunmodels.js?v=61';
+import * as THREE from '../lib/three.module.min.js?v=62';
+import { buildGunModel, setGunRarity } from './gunmodels.js?v=62';
 
 const SKINS = ['#f2c9a0', '#e0ac7e', '#c68955', '#9a6640', '#6e4529', '#f6d7bd'];
 const OUTFITS = [
@@ -385,8 +385,8 @@ export class CharacterModel {
       if (s.crouch) {
         // deep knee bend with the hips pushed back and the chest forward
         const w = run * 0.25;
-        hipsY = 0.64; hipsZ = 0.38; torsoX = -0.5;
-        legLx = 1.15 + sw * w; legRx = 1.15 - sw * w; kneeLb = 0.7 - sw * w; kneeRb = 0.7 + sw * w;
+        hipsY = 0.6; hipsZ = 0.34; torsoX = -0.45;
+        legLx = 1.35 + sw * w; legRx = 1.35 - sw * w; kneeLb = 1.35 - sw * w; kneeRb = 1.35 + sw * w;   // thighs far forward, shins near vertical: knees point ahead
       }
       if (!s.grounded) { legLx = 0.7; legRx = -0.2; kneeLb = 0.9; kneeRb = 0.35; }
     }

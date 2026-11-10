@@ -1,8 +1,8 @@
 // Sky dome (gradient + sun glow + stars), drifting low-poly clouds and per-season weather
 // particles (snow, dust, embers...). Everything follows the camera.
 
-import * as THREE from '../lib/three.module.min.js?v=61';
-import { mulberry32 } from './util.js?v=61';
+import * as THREE from '../lib/three.module.min.js?v=62';
+import { mulberry32 } from './util.js?v=62';
 
 const SKY_VERT = /* glsl */`
 varying vec3 vDir;

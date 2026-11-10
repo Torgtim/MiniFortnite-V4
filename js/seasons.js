@@ -1,8 +1,8 @@
 // The four seasons. Switching season swaps the ENTIRE map (terrain, buildings, props,
 // colours, hazards) and the loot pool. Everything season-specific lives in this file.
 
-import * as THREE from '../lib/three.module.min.js?v=61';
-import { lerp, smoothstep } from './util.js?v=61';
+import * as THREE from '../lib/three.module.min.js?v=62';
+import { lerp, smoothstep } from './util.js?v=62';
 
 const C = (hex) => new THREE.Color(hex);
 const tmp = new THREE.Color();
